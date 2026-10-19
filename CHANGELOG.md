@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- A web page for the printer's web interface, with its own entry in the Mainsail sidebar
+  (`install.sh --web`, see `docs/web-page.md`). It shows the printer's state and a live map of
+  the bed with the parts, the push lanes and the toolhead; ejects, dry-runs or forgets the parts
+  (asking first); manages Moonraker's job queue; checks a G-code file before it is printed (labels,
+  `AUTO_EJECT` in the end G-code, height, whether the blade can get behind every part); shows the
+  blade setup and opens the setup dialogs in the page; and edits every setting. English and
+  Arabic, light and dark, works on a phone, loads nothing from the internet. `?demo` runs it
+  against a pretend printer.
+- `AUTO_EJECT_SET KEY=<setting> VALUE=<value>` changes one setting, checks the value against the
+  setting's type and keeps it after a restart. `RESET=1` goes back to the settings file.
+
 ## [0.10.5] - 2026-10-19
 
 ### Fixed

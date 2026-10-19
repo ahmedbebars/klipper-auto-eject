@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Auto-eject</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23ef6c00'/%3E%3Cpath d='M7 22h18M9 22V12h6l3 4h5v6' fill='none' stroke='white' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<!-- klipper-auto-eject - https://github.com/ahmedbebars/klipper-auto-eject -->
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <a class="brand" href="#/overview">
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M7 22h18M9 22V12h6l3 4h5v6"/></svg></span>
+      <span class="brand-text"><strong data-t="app.title">Auto-eject</strong><small id="host"></small></span>
+    </a>
+    <div class="top-tools">
+      <span class="pill" id="conn"><i></i><span></span></span>
+      <button type="button" class="btn danger sm" id="estop" hidden></button>
+      <label class="select-wrap" id="lang-wrap"><span class="sr" data-t="c.lang">Language</span><select id="lang"></select></label>
+      <button type="button" class="icon-btn" id="theme"></button>
+      <a class="icon-btn" id="back" href="/"></a>
+    </div>
+  </header>
+  <nav class="nav" id="nav" aria-label="Sections"></nav>
+  <main class="main" id="main" tabindex="-1">
+    <div class="banner" id="banner" hidden></div>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="modal-root"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<script>
+  window.AE_TEXT = {}; window.AE_LANGS = {};
+  window.AE_LANG = function (code, name, dir, text) { AE_LANGS[code] = { name: name, dir: dir }; AE_TEXT[code] = text; };
+</script>
+<script src="lang/en.js"></script>
+<script src="lang/ar.js"></script>
+<script src="model.js"></script>
+<script src="moonraker.js"></script>
+<script src="demo.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

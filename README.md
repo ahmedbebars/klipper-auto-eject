@@ -36,6 +36,11 @@ the next print never lands on top of a leftover part.
 
 ## Features
 
+- **Its own page in Mainsail:** a bed map with the push lanes and the toolhead moving live,
+  buttons to eject, dry-run or clear, the print queue, a check that tells you before printing
+  whether a file can be cleared automatically, the blade setup and every setting, in English or
+  Arabic, light or dark, on a phone too. Optional: `install.sh --web`
+  ([docs/web-page.md](docs/web-page.md)).
 - **Guided setup in Mainsail/Fluidd:** `AUTO_EJECT_SETUP` takes five short dialogs, and the
   blade is measured and saved for you. No config editing and no ruler. Every screen is shown with
   a picture in [docs/setup-wizard.md](docs/setup-wizard.md).
@@ -138,6 +143,18 @@ Then:
 Prefer editing files? Every setting is also in `auto_eject_settings.cfg`
 ([docs/configuration.md](docs/configuration.md)).
 
+### The web page
+
+<p align="center"><img src="docs/images/web-page.png" alt="The Auto-eject page in Mainsail while the printer clears the bed" width="900"></p>
+
+```bash
+~/klipper-auto-eject/install.sh --web
+```
+
+Adds an **Auto-eject** page at `http://<printer>/auto-eject/` and a link to it in the Mainsail
+sidebar. It needs `sudo` once, for nginx. See [docs/web-page.md](docs/web-page.md), or try the
+demo first: `web/index.html?demo` from any local web server.
+
 ## Commands
 
 | Command | What it does |
@@ -148,6 +165,7 @@ Prefer editing files? Every setting is also in `auto_eject_settings.cfg`
 | `AUTO_EJECT_GUARD` | First line of the start G-code: never print on top of old parts |
 | `AUTO_EJECT_CLEAR` | Parts removed by hand: forget them |
 | `AUTO_EJECT_CONTINUE` | Thin parts removed by hand: start the job queue again |
+| `AUTO_EJECT_SET KEY=cool_temp VALUE=35` | Change one setting and keep it after a restart (`RESET=1` goes back to the file) |
 | `AUTO_EJECT_SETUP STEP=reset` | Forget the values saved by the setup |
 | `AUTO_EJECT` | Cool, sweep, verify |
 | `AUTO_EJECT DRY=1` | Trace the path at a safe height, with no cooling, current changes or probing |
@@ -178,6 +196,7 @@ ends in an error state and Moonraker **does not** start the next job. Details fo
 |---|---|
 | [Installation](docs/installation.md) | Script, manual and Moonraker installs, updates, uninstalling |
 | [Guided setup](docs/setup-wizard.md) | The `AUTO_EJECT_SETUP` dialogs, step by step |
+| [Web page](docs/web-page.md) | The Auto-eject page in Mainsail: installing it, what it shows, translating it |
 | [Configuration](docs/configuration.md) | Every setting explained |
 | [Strategies](docs/strategies.md) | How each path strategy calculates the sweep |
 | [Probes](docs/probes.md) | Offset probes (BLTouch …) and eddy-current probes (Eddy, Beacon, Cartographer) |

@@ -14,7 +14,9 @@ MOONRAKER_CONF=""
 ADD_INCLUDE=1
 ADD_UPDATE_MANAGER=1
 UNINSTALL=0
+WEB=0
 BRANCH="main"
+NGINX_SNIPPET="/etc/nginx/auto-eject.conf"
 
 usage() {
     cat <<EOF
@@ -25,7 +27,10 @@ Usage: install.sh [options]
   -b, --branch NAME       Git branch to install (default: main)
       --no-include        Do not add [include] lines to printer.cfg
       --no-update-manager Do not add the Moonraker update_manager section
-  -u, --uninstall         Remove links, includes and the update_manager section
+  -w, --web               Also set up the web page at http://<printer>/auto-eject/
+                          (adds a small nginx file, asks for your sudo password)
+  -u, --uninstall         Remove links, includes, the update_manager section
+                          and the web page
   -h, --help              Show this help
 EOF
 }
@@ -41,6 +46,7 @@ while [[ $# -gt 0 ]]; do
         -b|--branch)          BRANCH="$2"; shift 2 ;;
         --no-include)         ADD_INCLUDE=0; shift ;;
         --no-update-manager)  ADD_UPDATE_MANAGER=0; shift ;;
+        -w|--web)             WEB=1; shift ;;
         -u|--uninstall)       UNINSTALL=1; shift ;;
         -h|--help)            usage; exit 0 ;;
         *) usage; die "Unknown option: $1" ;;
@@ -67,6 +73,119 @@ backup() {
     log "Backup: ${file}.bak-auto-eject-${STAMP}"
 }
 
+# ------------------------------------------------------------- web page
+# nginx site files that serve Mainsail or Fluidd
+nginx_sites() {
+    local f
+    for f in /etc/nginx/sites-enabled/*; do
+        [[ -f "${f}" ]] || continue
+        if grep -Eq '^[[:space:]]*root[[:space:]].*/(mainsail|fluidd)' "${f}"; then
+            readlink -f "${f}"
+        fi
+    done
+}
+
+# The Mainsail sidebar link (Fluidd has no custom links: bookmark the page).
+navi_entry() {
+    local action="$1" theme="${CONFIG_DIR}/.theme"
+    command -v python3 >/dev/null || { warn "python3 not found, skipping the Mainsail sidebar link"; return; }
+    if [[ "${action}" == "remove" ]]; then
+        grep -qs '/auto-eject/web/' "${theme}/navi.json" || return 0
+    fi
+    mkdir -p "${theme}"
+    if ! python3 - "${theme}/navi.json" "${action}" <<'PY'
+import json, os, sys
+path, action = sys.argv[1], sys.argv[2]
+entry = {"title": "Auto-eject", "href": "/auto-eject/web/", "target": "_self", "position": 35,
+         "icon": "M2 11h12V7l6 5-6 5v-4H2z M20 4h2v16h-2z"}
+data = []
+if os.path.exists(path):
+    with open(path, encoding="utf-8") as f:
+        try:
+            data = json.load(f)
+        except ValueError:
+            sys.exit("navi.json is not valid JSON, not changing it: " + path)
+data = [e for e in data if e.get("href") != entry["href"]]
+if action == "add":
+    data.append(entry)
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+    then
+        warn "Could not change ${theme}/navi.json: add the sidebar link by hand (docs/web-page.md)"
+    elif [[ "${action}" == "add" ]]; then
+        log "Added the Auto-eject link to the Mainsail sidebar (${theme}/navi.json). Reload Mainsail to see it."
+    else
+        log "Removed the Auto-eject link from ${theme}/navi.json"
+    fi
+}
+
+install_web() {
+    command -v nginx >/dev/null || command -v /usr/sbin/nginx >/dev/null || [[ -d /etc/nginx ]] \
+        || die "nginx not found. Set the page up by hand: docs/web-page.md"
+    local sites
+    sites="$(nginx_sites)"
+    [[ -n "${sites}" ]] || die "No nginx site for Mainsail or Fluidd found in /etc/nginx/sites-enabled. Set the page up by hand: docs/web-page.md"
+    log "The web page needs a small nginx file. sudo may ask for your password."
+    sudo tee "${NGINX_SNIPPET}" >/dev/null <<EOF
+# klipper-auto-eject web page, added by install.sh --web
+# https://github.com/ahmedbebars/klipper-auto-eject/blob/main/docs/web-page.md
+location = /auto-eject { return 302 /auto-eject/web/; }
+location = /auto-eject/ { return 302 /auto-eject/web/; }
+location ~ ^/auto-eject/(.*/)?\. { deny all; }
+location /auto-eject/ {
+    alias ${REPO_DIR}/;
+    index index.html;
+    add_header Cache-Control "no-cache";
+}
+EOF
+    local site
+    while IFS= read -r site; do
+        if sudo grep -q "include ${NGINX_SNIPPET};" "${site}"; then
+            log "${site} already includes the web page"
+            continue
+        fi
+        # the backup goes next to nginx.conf, where nginx never loads it
+        sudo cp -p "${site}" "/etc/nginx/$(basename "${site}").bak-auto-eject-${STAMP}"
+        sudo sed -i "0,/^[[:space:]]*server[[:space:]]*{/s##&\n    include ${NGINX_SNIPPET};#" "${site}"
+        log "Added the web page to ${site} (backup in /etc/nginx/)"
+    done <<< "${sites}"
+    if sudo nginx -t 2>/dev/null; then
+        sudo systemctl reload nginx
+        log "nginx reloaded"
+    else
+        warn "nginx does not accept the change, putting the old files back:"
+        sudo nginx -t || true
+        while IFS= read -r site; do
+            [[ -f "/etc/nginx/$(basename "${site}").bak-auto-eject-${STAMP}" ]] && \
+                sudo cp -p "/etc/nginx/$(basename "${site}").bak-auto-eject-${STAMP}" "${site}"
+        done <<< "${sites}"
+        sudo rm -f "${NGINX_SNIPPET}"
+        die "Web page not installed. See docs/web-page.md to set it up by hand."
+    fi
+    navi_entry add
+}
+
+uninstall_web() {
+    local site changed=0
+    while IFS= read -r site; do
+        [[ -n "${site}" ]] || continue
+        if sudo grep -q "include ${NGINX_SNIPPET};" "${site}"; then
+            sudo sed -i "\#include ${NGINX_SNIPPET};#d" "${site}"
+            log "Removed the web page from ${site}"
+            changed=1
+        fi
+    done <<< "$(nginx_sites)"
+    if [[ -f "${NGINX_SNIPPET}" ]]; then
+        sudo rm -f "${NGINX_SNIPPET}"
+        changed=1
+    fi
+    if [[ "${changed}" -eq 1 ]]; then
+        sudo nginx -t && sudo systemctl reload nginx
+    fi
+}
+
 # ---------------------------------------------------------------- uninstall
 if [[ "${UNINSTALL}" -eq 1 ]]; then
     if [[ -L "${CONFIG_DIR}/auto_eject.cfg" ]]; then
@@ -87,6 +206,10 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
         ' "${MOONRAKER_CONF}" > "${MOONRAKER_CONF}.tmp" && mv "${MOONRAKER_CONF}.tmp" "${MOONRAKER_CONF}"
         log "Removed [update_manager klipper-auto-eject] from moonraker.conf"
     fi
+    if [[ -f "${NGINX_SNIPPET}" ]]; then
+        uninstall_web
+    fi
+    navi_entry remove
     log "Kept ${CONFIG_DIR}/auto_eject_settings.cfg and ${REPO_DIR} (delete them by hand if you want)."
     log "Restart Klipper to finish: FIRMWARE_RESTART"
     exit 0
@@ -164,6 +287,11 @@ EOF
     fi
 fi
 
+# ------------------------------------------------------------- web page
+if [[ "${WEB}" -eq 1 ]]; then
+    install_web
+fi
+
 cat <<EOF
 
   Installed. Next steps:
@@ -173,3 +301,10 @@ cat <<EOF
     4. Read docs/safety.md before running it unattended.
 
 EOF
+if [[ "${WEB}" -eq 1 ]]; then
+    echo "  The web page: http://$(hostname -I 2>/dev/null | awk '{print $1}')/auto-eject/"
+else
+    echo "  Optional: a web page with the bed map, the queue and the settings:"
+    echo "    ${REPO_DIR}/install.sh --web      (docs/web-page.md)"
+fi
+echo

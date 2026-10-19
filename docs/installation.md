@@ -28,7 +28,7 @@ The script:
 4. Adds an `[update_manager klipper-auto-eject]` section to `moonraker.conf`.
 
 Every file it changes is backed up first as `<file>.bak-auto-eject-<date>`. It does not need
-`sudo`.
+`sudo`, except for the optional web page (`--web`).
 
 ### Script options
 
@@ -39,6 +39,7 @@ Every file it changes is backed up first as `<file>.bak-auto-eject-<date>`. It d
 | `-b`, `--branch NAME` | `main` | Testing a development branch |
 | `--no-include` | | You manage `[include]` lines yourself |
 | `--no-update-manager` | | You don't use Moonraker, or you manage `moonraker.conf` yourself |
+| `-w`, `--web` | | Also setting up the web page at `http://<printer>/auto-eject/` and its Mainsail sidebar link. Needs `sudo` once, for nginx ([web-page.md](web-page.md)) |
 | `-u`, `--uninstall` | | Removing the link, the includes and the update manager section |
 
 Example for a second printer instance:

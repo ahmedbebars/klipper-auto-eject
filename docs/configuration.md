@@ -6,7 +6,7 @@ Settings come in three layers, each overriding the one before:
 |---|---|---|
 | Defaults | `_AUTO_EJECT_DEFAULTS` in `auto_eject.cfg` | Updated with each release |
 | Your settings | `_AUTO_EJECT_SETTINGS` in `auto_eject_settings.cfg` | You |
-| Saved by the guided setup | `[save_variables]` (`auto_eject_*`) | `AUTO_EJECT_SETUP` |
+| Saved | `[save_variables]` (`auto_eject_*`) | `AUTO_EJECT_SETUP`, the [web page](web-page.md) or `AUTO_EJECT_SET` |
 
 Your file only needs the values you want to change. Settings added in a new release work
 straight away with their defaults, and updates never touch your file.
@@ -16,6 +16,10 @@ without quotes. Run `FIRMWARE_RESTART` after editing.
 
 > **The easiest way** is the guided setup, `AUTO_EJECT_SETUP` ([setup-wizard.md](setup-wizard.md)).
 > `AUTO_EJECT_SETUP STEP=reset` forgets what it saved.
+>
+> **One setting at a time:** the Settings section of the [web page](web-page.md), or from the
+> console `AUTO_EJECT_SET KEY=cool_temp VALUE=35`. The value is checked and saved, and is kept
+> after a restart. `AUTO_EJECT_SET KEY=cool_temp RESET=1` goes back to your file.
 
 ## Strategy and direction
 
