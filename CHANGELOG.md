@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-19
+
+### Fixed
+- After an update, settings added in the new release were treated as unset when the user's
+  `auto_eject_settings.cfg` predated them, which silently disabled state saving. Every setting
+  now has a default in `_AUTO_EJECT_DEFAULTS`. Your file only overrides, and values saved by the
+  guided setup live in `_AUTO_EJECT_OVERRIDES`. Found on real hardware.
+
 ## [0.3.0] - 2026-10-19
 
 ### Added
@@ -48,7 +56,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ahmedbebars/klipper-auto-eject/releases/tag/v0.1.0

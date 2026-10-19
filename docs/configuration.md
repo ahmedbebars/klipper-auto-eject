@@ -1,18 +1,21 @@
 # Configuration
 
-All settings live in `auto_eject_settings.cfg`, as variables of the `_AUTO_EJECT_SETTINGS`
-macro. Text values must be in double quotes (`"columns"`). Numbers and `True`/`False` are written
+Settings come in three layers, each overriding the one before:
+
+| Layer | Where | Who changes it |
+|---|---|---|
+| Defaults | `_AUTO_EJECT_DEFAULTS` in `auto_eject.cfg` | Updated with each release |
+| Your settings | `_AUTO_EJECT_SETTINGS` in `auto_eject_settings.cfg` | You |
+| Saved by the guided setup | `[save_variables]` (`auto_eject_*`) | `AUTO_EJECT_SETUP` |
+
+Your file only needs the values you want to change. Settings added in a new release work
+straight away with their defaults, and updates never touch your file.
+
+Text values must be in double quotes (`"columns"`). Numbers and `True`/`False` are written
 without quotes. Run `FIRMWARE_RESTART` after editing.
 
 > **The easiest way** is the guided setup, `AUTO_EJECT_SETUP` ([setup-wizard.md](setup-wizard.md)).
-> Values it saves (in `[save_variables]`) **override** this file. `AUTO_EJECT_SETUP STEP=reset`
-> goes back to the file.
-
-You can also change a value for the current session without restarting, for example:
-
-```
-SET_GCODE_VARIABLE MACRO=_AUTO_EJECT_SETTINGS VARIABLE=push_z VALUE=2.0
-```
+> `AUTO_EJECT_SETUP STEP=reset` forgets what it saved.
 
 ## Strategy and direction
 

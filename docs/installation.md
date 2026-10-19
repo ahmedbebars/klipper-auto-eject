@@ -89,9 +89,9 @@ Restart Moonraker afterwards.
 - **Moonraker:** click *Update* next to `klipper-auto-eject` in the update panel.
 - **Shell:** `git -C ~/klipper-auto-eject pull`
 
-Then run `FIRMWARE_RESTART`. Your `auto_eject_settings.cfg` is never touched by an update. If a
-release adds new settings, [CHANGELOG.md](../CHANGELOG.md) lists them: copy the new
-`variable_...` lines from `config/auto_eject_settings.cfg` into your file.
+Then run `FIRMWARE_RESTART`. Updates never touch your `auto_eject_settings.cfg`. New settings
+work immediately with their defaults, and [CHANGELOG.md](../CHANGELOG.md) lists them if you want
+to change them.
 
 ## Uninstalling
 

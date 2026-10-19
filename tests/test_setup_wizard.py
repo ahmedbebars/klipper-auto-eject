@@ -182,8 +182,9 @@ def test_save_writes_values_klipper_can_parse(p):
     assert saved["auto_eject_direction"] == "left"
     assert saved["auto_eject_push_z"] == 2.3
     assert saved["auto_eject_blade_width"] == 90.0
-    apply(p, lines, "_AUTO_EJECT_SETTINGS")
-    assert p.status["gcode_macro _AUTO_EJECT_SETTINGS"]["direction"] == "left"
+    p.execute("AUTO_EJECT_SETUP", STEP="save")
+    data = p.status["gcode_macro _AUTO_EJECT_OVERRIDES"]["data"]
+    assert data["direction"] == "left" and data["push_z"] == 2.3
 
 
 def test_save_without_save_variables_prints_lines():
@@ -199,14 +200,15 @@ def test_saved_values_are_loaded_at_startup(p):
                                   "auto_eject_unknown": 5,
                                   "auto_eject_blade_width": None,
                                   "other_macro_var": 3})
-    lines = p.render("_AUTO_EJECT_APPLY_SAVED")
-    apply(p, lines, "_AUTO_EJECT_SETTINGS")
-    s = p.status["gcode_macro _AUTO_EJECT_SETTINGS"]
-    assert s["direction"] == "right" and s["push_z"] == 1.8
-    assert len(lines) == 2
+    lines = p.execute("_AUTO_EJECT_APPLY_SAVED")
+    data = p.status["gcode_macro _AUTO_EJECT_OVERRIDES"]["data"]
+    assert data == {"direction": "right", "push_z": 1.8}
+    assert len(lines) == 1     # unknown, None and foreign keys are ignored
 
 
 def test_reset_clears_saved_values(p):
     p.set_machine(save_variables={"auto_eject_push_z": 1.8, "other": 1})
-    lines = p.render("AUTO_EJECT_SETUP", STEP="reset")
-    assert lines == ["SAVE_VARIABLE VARIABLE=auto_eject_push_z VALUE=None"]
+    p.status["gcode_macro _AUTO_EJECT_OVERRIDES"]["data"] = {"push_z": 1.8}
+    lines = p.execute("AUTO_EJECT_SETUP", STEP="reset")
+    assert "SAVE_VARIABLE VARIABLE=auto_eject_push_z VALUE=None" in lines
+    assert p.status["gcode_macro _AUTO_EJECT_OVERRIDES"]["data"] == {}

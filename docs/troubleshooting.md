@@ -40,13 +40,11 @@ The probe found something at a part position after the sweep.
 Raise `max_extrude_cross_section` in `[extruder]` to the value shown, or lower `purge_length` /
 raise `purge_height`.
 
-### `Unknown command: "AUTO_EJECT"` / `Option 'variable_...' is not valid`
-`auto_eject.cfg` is not included, or the settings file is from an older version. Check the
-`[include]` lines, and compare your settings file with `config/auto_eject_settings.cfg`.
+### `Unknown command: "AUTO_EJECT"`
+`auto_eject.cfg` is not included. Check the `[include]` lines in `printer.cfg`.
 
-### `Error evaluating 'gcode_macro AUTO_EJECT:gcode': UndefinedError: ... has no attribute '...'`
-A setting is missing from your `auto_eject_settings.cfg`, usually after an update that added a
-new option. Copy the missing `variable_...` line from the example file.
+### A setting is missing from my `auto_eject_settings.cfg`
+That's fine: every setting has a default in `auto_eject.cfg`. Add a line to your file only to change it.
 
 ### `AUTO_EJECT_SETUP needs a [respond] section`
 Add `[respond]` to `printer.cfg` and run `FIRMWARE_RESTART`. The setup dialogs are sent with
