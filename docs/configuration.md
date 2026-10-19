@@ -87,6 +87,13 @@ Choose `push_current` so that a part that won't move makes the motor skip. Start
 | `cool_time` | `600` | Seconds, for `"time"` mode (also for beds without a `heater_bed`) |
 | `heaters_off` | `True` | Turn the hotend and bed heaters off before cooling |
 | `cool_fan_speed` | `1.0` | Part fan speed while cooling, from 0.0 to 1.0. Turned off after the sweep |
+| `cool_tour` | `True` | While waiting, circle over the parts so the fan blows on each one in turn |
+| `cool_tour_gap` | `8.0` | Gap in mm between the nozzle and the tallest part while circling. With an unknown print height the toolhead stays at `min_safe_z` |
+| `cool_tour_dwell` | `5.0` | Seconds over each part per pass |
+
+The bed is a heavy plate and its sensor cools at its own pace, but the air on the parts cools them
+and the sheet right under them, which is what makes them let go. Each pass checks the bed
+temperature (or the time) again, so the toolhead stops circling as soon as cooling is done.
 
 ## After the sweep
 

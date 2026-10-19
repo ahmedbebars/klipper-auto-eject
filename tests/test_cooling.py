@@ -1,0 +1,97 @@
+"""Cooling: the toolhead circles over the parts with the fan on."""
+
+import pytest
+
+from klipper_sim import Printer, rect, words
+
+PARTS = [("a", rect(100, 150, 125, 175)), ("b", rect(300, 200, 325, 225))]
+CENTRES = {(112.5, 162.5), (312.5, 212.5)}
+
+
+def make(height=10.0, bed=60.0, cooling=0.5, **settings):
+    p = Printer(extra_settings=settings)
+    p.set_machine(position=(225, 225, 10.2), save_variables={},
+                  probe={"x_offset": 0.0, "y_offset": 0.0, "z_offset": -0.3})
+    p.set_objects(PARTS)
+    p.execute("_AUTO_EJECT_CAPTURE")
+    p.status["gcode_macro _AUTO_EJECT_STATE"]["height"] = height
+    p.status["heater_bed"]["temperature"] = bed
+    p.bed_cooling = cooling
+    return p
+
+
+def hovers(lines):
+    """(x, y, z, seconds) for every dwell over a part."""
+    out, z, xy = [], None, None
+    for line in lines:
+        w = words(line)
+        if line.startswith("G1") and "Z" in w and "X" not in w:
+            z = w["Z"]
+        elif line.startswith("G1") and "X" in w and "Y" in w:
+            xy = (w["X"], w["Y"])
+        elif line.startswith("G4") and xy is not None:
+            out.append((xy[0], xy[1], z, w["P"] / 1000.0))
+            xy = None
+    return out
+
+
+def cooling_part(lines):
+    return lines[:lines.index("SAVE_GCODE_STATE NAME=_auto_eject")]
+
+
+def test_circles_over_every_part_until_the_bed_is_cool():
+    p = make(bed=60.0, cooling=0.5, cool_temp=32)       # 5 degrees per 10 s pass
+    lines = cooling_part(p.execute("AUTO_EJECT"))
+    assert "M106 S255" in lines
+    h = hovers(lines)
+    assert {(x, y) for x, y, _, _ in h} == CENTRES
+    assert all(z == pytest.approx(18.0) for _, _, z, _ in h)  # 10 mm part + 8 mm
+    assert len(h) == 12                                       # 6 passes x 2 parts
+    assert p.status["heater_bed"]["temperature"] <= 32
+    assert "TEMPERATURE_WAIT SENSOR=heater_bed MAXIMUM=32" in lines
+
+
+def test_stops_after_120_passes_and_falls_back_to_waiting():
+    p = make(cooling=0.0)
+    lines = cooling_part(p.execute("AUTO_EJECT"))
+    assert len(hovers(lines)) == 240
+    assert lines[-1].startswith("TEMPERATURE_WAIT")
+
+
+def test_tour_can_be_turned_off():
+    p = make(cool_tour=False)
+    lines = cooling_part(p.execute("AUTO_EJECT"))
+    assert hovers(lines) == []
+    assert any(l.startswith("TEMPERATURE_WAIT") for l in lines)
+
+
+def test_time_mode_circles_for_cool_time():
+    p = make(cool_mode="time", cool_time=60, cooling=0.0)
+    lines = cooling_part(p.execute("AUTO_EJECT"))
+    total = sum(s for *_, s in hovers(lines))
+    assert total == pytest.approx(60.0)                 # 6 passes x 2 parts x 5 s
+    assert not any(l.startswith("G4 P60000") for l in lines)
+
+
+def test_unknown_height_keeps_the_safe_height():
+    p = make(height=0.0, cooling=1.0)
+    h = hovers(cooling_part(p.execute("AUTO_EJECT")))
+    assert h and all(z >= 20.0 for _, _, z, _ in h)
+
+
+def test_blade_hanging_below_the_nozzle_gets_more_room():
+    p = make(cooling=1.0, blade_lift=-2.0)
+    h = hovers(cooling_part(p.execute("AUTO_EJECT")))
+    assert all(z == pytest.approx(20.0) for _, _, z, _ in h)
+
+
+def test_no_tour_without_cooling():
+    p = make()
+    assert hovers(cooling_part(p.execute("AUTO_EJECT", COOL=0))) == []
+    p.execute("AUTO_EJECT", DRY=1)
+    assert "_AUTO_EJECT_COOL_PASS" not in p.calls
+
+
+def test_bed_already_cool_means_no_pass():
+    p = make(bed=25.0, cool_temp=28)
+    assert hovers(cooling_part(p.execute("AUTO_EJECT"))) == []

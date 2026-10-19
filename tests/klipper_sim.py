@@ -63,6 +63,7 @@ class Printer:
         self.under_probe = 0.0   # height under the probe, or f(x, y) -> height
         self.g28_drops_z = False  # homing override that un-homes Z on G28 X Y
         self.calls = []
+        self.bed_cooling = 5.0   # degrees per second while dwelling (G4)
         self.set_machine()
 
     # ----------------------------------------------------------------- setup
@@ -78,6 +79,7 @@ class Printer:
             "position": Coord(position[0], position[1], position[2], 0.0),
             "homed_axes": homed,
             "max_accel": accel,
+            "estimated_print_time": 0.0,
         }
         settings = {
             "printer": {"kinematics": kinematics},
@@ -232,6 +234,11 @@ class Printer:
             th["homed_axes"] = "xyz"
         elif cmd == "PROBE":
             self.on_probe()
+        elif cmd == "G4":
+            seconds = words(line).get("P", 0.0) / 1000.0
+            th["estimated_print_time"] = th.get("estimated_print_time", 0.0) + seconds
+            if "heater_bed" in self.status:
+                self.status["heater_bed"]["temperature"] -= self.bed_cooling * seconds
         elif cmd == "UPDATE_DELAYED_GCODE":
             p = dict(a.split("=", 1) for a in shlex.split(raw))
             if float(p.get("DURATION", 0)) > 0:

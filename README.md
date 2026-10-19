@@ -51,7 +51,8 @@ the next print never lands on top of a leftover part.
 - **Three path strategies:** `columns` (works with any layout), `objects` (one part at a time),
   and `full_width` (no slicer labels needed). See [docs/strategies.md](docs/strategies.md).
 - **Any drop edge:** front, back, left or right.
-- **Three cooling modes:** wait for a bed temperature, wait a fixed time, or don't wait.
+- **Three cooling modes:** wait for a bed temperature, wait a fixed time, or don't wait. While it
+  waits, the toolhead circles over the parts with the fan on, so they cool and let go sooner.
 - **Reduced motor current while pushing,** detected automatically for TMC2130/2208/2209/2240/2660/5160/5262.
 - **Probe verification** with Tap, BLTouch or any `[probe]`, including hollow parts such as
   cookie cutters (`outline` mode). Offset probes never lower the nozzle onto a part, and eddy-current
