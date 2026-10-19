@@ -48,6 +48,12 @@ might still be. Check the bed by hand and run `AUTO_EJECT_CLEAR`. Spacing parts 
 Your probe senses the metal bed through plastic. Set `verify_probe_gcode` to its contact/touch
 command if it has one ([probes.md](probes.md)).
 
+### `too thin to push`
+The print is lower than `min_part_height`, so it was left on the bed and the job queue was paused.
+Remove it and click **Bed is clear - continue the queue**, or run `AUTO_EJECT_CONTINUE`. If a tall
+print is reported as thin, the height was not known correctly: pass it from the slicer with
+`AUTO_EJECT HEIGHT=[max_layer_z]` ([slicer-setup.md](slicer-setup.md)).
+
 ### The blade measurement stops
 The dialog names the reason. The usual ones:
 

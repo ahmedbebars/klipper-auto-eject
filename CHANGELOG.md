@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-19
+
+### Added
+- Thin prints such as stencils are left on the bed (`min_part_height`, default 2 mm,
+  `thin_parts_action`): no cool-down, no movement, no probing. The Moonraker job queue is paused
+  (`thin_pause_queue`) and a dialog asks to take them off. `AUTO_EJECT_CONTINUE` starts the
+  queue again.
+- `AUTO_EJECT HEIGHT=[max_layer_z]` passes the print height from the slicer.
+
+### Changed
+- The tracked print height ignores the start G-code (homing, probing, purge) when the slicer
+  reports layers, and follows the highest Z exactly instead of in 0.5 mm steps.
+- Verification looks for anything higher than half the print height (0.2 mm to
+  `verify_threshold`), so thin parts left on the bed are no longer missed.
+
 ## [0.7.0] - 2026-10-19
 
 ### Added
@@ -110,7 +125,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.4.0...v0.5.0

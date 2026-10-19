@@ -101,6 +101,28 @@ Choose `push_current` so that a part that won't move makes the motor skip. Start
 With the defaults, a part left after the first sweep is pushed once more at `push_z − 0.3` and
 `push_current + 0.15 A`, then checked again. If it is still there, the queue stops.
 
+## Thin parts
+
+Stencils, flat signs and other prints only a few layers tall are too thin for the blade to catch.
+`AUTO_EJECT` leaves them alone: no cool-down wait, no movement, no probing. It forgets them,
+pauses Moonraker's job queue so the next job does not print on top of them, and opens a dialog.
+Take the part off and click **Bed is clear - continue the queue** (or run `AUTO_EJECT_CONTINUE`).
+
+| Setting | Default | Description |
+|---|---|---|
+| `min_part_height` | `2.0` | Prints lower than this, in mm, count as thin. `0` turns this off |
+| `thin_parts_action` | `"ignore"` | `"ignore"` leaves them on the bed, `"eject"` pushes them anyway (for a blade that rides on the bed) |
+| `thin_pause_queue` | `True` | Pause Moonraker's job queue while thin parts are on the bed. Turn it off without Moonraker |
+
+The print height comes from the slicer when the end G-code passes it
+(`AUTO_EJECT HEIGHT=[max_layer_z]`, see [slicer-setup.md](slicer-setup.md)). Otherwise it is the
+highest Z seen while printing. Slicers that report layers (`SET_PRINT_STATS_INFO`, as OrcaSlicer
+does) keep homing and probing moves of the start G-code out of it. If the height is unknown, the
+parts are ejected as usual.
+
+Verification follows the height too: the probe treats anything higher than half the print height
+(at least 0.2 mm, at most `verify_threshold`) as a part still on the bed.
+
 ## Verification
 
 | Setting | Default | Description |

@@ -42,6 +42,9 @@ the next print never lands on top of a leftover part.
 - **Measures the blade by itself with Voron Tap:** the nozzle probe touches a calibration cube with
   the nozzle, then with the blade, and works out the blade's height above the nozzle tip and its
   distance ahead of the nozzle to a fraction of a millimetre (`AUTO_EJECT_CALIBRATE`).
+- **Leaves thin prints alone:** stencils and flat signs only a few layers tall are too thin to
+  push, so they are left on the bed, the job queue waits, and a dialog asks you to take them off
+  ([thin parts](docs/configuration.md#thin-parts)).
 - **Survives restarts and power cuts:** part outlines and print height are saved while printing.
   `AUTO_EJECT HOME=1` homes Z on a free spot so a part is never mistaken for the bed, and
   `AUTO_EJECT_GUARD` stops a new print from landing on old parts. See [docs/recovery.md](docs/recovery.md).
@@ -136,6 +139,7 @@ Prefer editing files? Every setting is also in `auto_eject_settings.cfg`
 | `AUTO_EJECT HOME=1` | After a restart: home safely around the parts, then eject |
 | `AUTO_EJECT_GUARD` | First line of the start G-code: never print on top of old parts |
 | `AUTO_EJECT_CLEAR` | Parts removed by hand: forget them |
+| `AUTO_EJECT_CONTINUE` | Thin parts removed by hand: start the job queue again |
 | `AUTO_EJECT_SETUP STEP=reset` | Forget the values saved by the setup |
 | `AUTO_EJECT` | Cool, sweep, verify |
 | `AUTO_EJECT DRY=1` | Trace the path at a safe height, with no cooling, current changes or probing |

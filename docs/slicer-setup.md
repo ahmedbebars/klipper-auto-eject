@@ -44,11 +44,13 @@ EJECT_PURGE
 **Machine end G-code**
 
 ```gcode
-AUTO_EJECT
+AUTO_EJECT HEIGHT=[max_layer_z]
 PRINT_END
 ```
 
 `M104 S0` / `M140 S0` before the macro stop Orca from adding its own heat-and-wait commands.
+`HEIGHT=[max_layer_z]` passes the print height, so stencils and other
+[thin prints](configuration.md#thin-parts) are recognised and left alone.
 
 ---
 
@@ -71,7 +73,7 @@ EJECT_PURGE
 **End G-code**
 
 ```gcode
-AUTO_EJECT
+AUTO_EJECT HEIGHT=[max_layer_z]
 PRINT_END
 ```
 
@@ -122,7 +124,9 @@ Restart Moonraker. Uploaded files that contain object tags are then rewritten wi
 
 ## Prints you will remove by hand
 
-Keep a second printer profile, or swap the end G-code, without `AUTO_EJECT`:
+Prints lower than `min_part_height` (2 mm), such as stencils, are left on the bed automatically
+([thin parts](configuration.md#thin-parts)). For anything else, keep a second printer profile, or
+swap the end G-code, without `AUTO_EJECT`:
 
 ```gcode
 PRINT_END

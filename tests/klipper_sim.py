@@ -58,6 +58,7 @@ class Printer:
         if extra_settings:
             self.status["gcode_macro _AUTO_EJECT_SETTINGS"].update(extra_settings)
         self.messages = []
+        self.remote_calls = []
         self.frame_shift = 0.0   # machine Z frame minus real nozzle height
         self.under_probe = 0.0   # height under the probe, or f(x, y) -> height
         self.g28_drops_z = False  # homing override that un-homes Z on G28 X Y
@@ -126,7 +127,7 @@ class Printer:
             "action_respond_info": self._respond,
             "action_raise_error": self._raise,
             "action_emergency_stop": self._raise,
-            "action_call_remote_method": lambda *a, **k: "",
+            "action_call_remote_method": self._remote,
         }
         text = tmpl.render(context)
         return [line.strip() for line in text.splitlines() if line.strip()]
@@ -180,7 +181,7 @@ class Printer:
             "action_respond_info": self._respond,
             "action_raise_error": self._raise,
             "action_emergency_stop": self._raise,
-            "action_call_remote_method": lambda *a, **k: "",
+            "action_call_remote_method": self._remote,
         })
         for line in (l.strip() for l in text.splitlines()):
             if line:
@@ -252,6 +253,10 @@ class Printer:
         pos[2] = z
         th["position"] = Coord(*pos)
         self.status["probe"]["last_z_result"] = z
+
+    def _remote(self, method, **kwargs):
+        self.remote_calls.append(method)
+        return ""
 
     def _respond(self, msg):
         self.messages.append(msg)
