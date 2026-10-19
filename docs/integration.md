@@ -82,7 +82,11 @@ sequenceDiagram
     K->>B: print
     K->>K: AUTO_EJECT: cool down
     K->>B: sweep parts off the edge
+    K->>K: home X and Y again
     K->>B: probe old part positions
+    opt a part is still there
+        K->>B: push it again, lower and harder, then probe again
+    end
     alt bed is clear
         K-->>Q: job complete
         Q->>K: start job 2

@@ -185,12 +185,23 @@ def test_verify_skipped_without_probe(printer):
     assert any("NOT verified" in m for m in printer.messages)
 
 
-def test_check_raises_when_part_left(printer):
+def test_check_records_part_left(printer):
     printer.set_machine(probe={"x_offset": 0.0, "y_offset": 0.0, "z_offset": -0.3})
     printer.execute("_AUTO_EJECT_PROBE_INFO")
     printer.status["probe"]["last_z_result"] = 14.0
-    with pytest.raises(MacroError, match="STILL ON THE BED"):
-        printer.render("_AUTO_EJECT_CHECK", NAME="front_part")
+    printer.execute("_AUTO_EJECT_CHECK", NAME="front_part")
+    printer.execute("_AUTO_EJECT_CHECK", NAME="front_part")
+    state = printer.status["gcode_macro _AUTO_EJECT_STATE"]
+    assert state["leftover"] == ["front_part"]
+    assert state["abort"] is False        # nozzle probe: keep checking
+
+
+def test_check_with_offset_probe_stops_further_probing(printer):
+    printer.set_machine(probe={"x_offset": 30.0, "y_offset": 0.0, "z_offset": 2.0})
+    printer.execute("_AUTO_EJECT_PROBE_INFO")
+    printer.status["probe"]["last_z_result"] = 19.0
+    printer.execute("_AUTO_EJECT_CHECK", NAME="front_part")
+    assert printer.status["gcode_macro _AUTO_EJECT_STATE"]["abort"] is True
 
 
 def test_check_passes_on_empty_bed(printer):

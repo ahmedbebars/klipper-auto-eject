@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-19
+
+### Added
+- X and Y are homed again after the sweep (`rehome_xy`), so steps skipped while pushing a stuck
+  part no longer affect verification or the next print. If the homing macro un-homes Z, Z is found
+  again around the parts.
+- A part still on the bed is pushed again, up to twice (`retries`), each time lower
+  (`retry_z_step`, `push_z_min`) and with more current (`retry_current_step`, capped at
+  `run_current`). Only the parts that were left are swept and probed again.
+
+### Changed
+- Verification collects every part still on the bed before deciding, instead of stopping at the
+  first one. The error now names all of them.
+- With an offset probe, finding a part skips the remaining probe points, and the parts they
+  belonged to count as still there.
+
 ## [0.5.0] - 2026-10-19
 
 ### Added
@@ -82,7 +98,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.0...v0.3.1

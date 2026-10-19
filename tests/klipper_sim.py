@@ -59,7 +59,9 @@ class Printer:
             self.status["gcode_macro _AUTO_EJECT_SETTINGS"].update(extra_settings)
         self.messages = []
         self.frame_shift = 0.0   # machine Z frame minus real nozzle height
-        self.under_probe = 0.0   # height of whatever the probe will hit
+        self.under_probe = 0.0   # height under the probe, or f(x, y) -> height
+        self.g28_drops_z = False  # homing override that un-homes Z on G28 X Y
+        self.calls = []
         self.set_machine()
 
     # ----------------------------------------------------------------- setup
@@ -163,6 +165,7 @@ class Printer:
         if name in self.active:
             raise MacroError("Macro %s called recursively" % name)
         self.active.add(name)
+        self.calls.append(name)
         try:
             self._run_template(self.macros[name], params, raw)
         finally:
@@ -210,6 +213,8 @@ class Printer:
         elif cmd == "G28":
             axes = [a for a in "XYZ" if a in raw.upper()] or list("XYZ")
             homed = set(th["homed_axes"]) | {a.lower() for a in axes}
+            if self.g28_drops_z and "Z" not in axes:
+                homed.discard("z")
             th["homed_axes"] = "".join(a for a in "xyz" if a in homed)
         elif cmd == "SET_KINEMATIC_POSITION":
             w = {k.upper(): float(v) for k, v in
@@ -236,9 +241,13 @@ class Printer:
         ``self.under_probe``. Like Klipper, the toolhead stays at the trigger
         point and last_z_result is the toolhead Z there."""
         settings = self.status["configfile"]["settings"]
-        z_offset = settings.get("probe", settings.get("bltouch", {})).get("z_offset", 0.0)
-        z = z_offset + self.under_probe + self.frame_shift
+        probe = settings.get("probe", settings.get("bltouch", {}))
         th = self.status["toolhead"]
+        height = self.under_probe
+        if callable(height):
+            height = height(th["position"][0] + probe.get("x_offset", 0.0),
+                            th["position"][1] + probe.get("y_offset", 0.0))
+        z = probe.get("z_offset", 0.0) + height + self.frame_shift
         pos = list(th["position"])
         pos[2] = z
         th["position"] = Coord(*pos)

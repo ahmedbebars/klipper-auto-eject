@@ -29,12 +29,15 @@ The blade cannot get behind a part near the far edge (the edge opposite the drop
 parts at least `rear_clearance + blade_offset` mm away from that edge.
 
 ### `'X' is STILL ON THE BED`
-The probe found something at a part position after the sweep.
+The probe found something at a part position after the sweep and after every retry
+(`retries`, see [configuration.md](configuration.md#after-the-sweep)).
 
 - The part really is still there: it did not release (bed not cool enough, see `cool_temp`), the
   blade passed over it (`push_z` too high), or the motor skipped (`push_current` too low).
 - False alarm: `verify_threshold` is too low for your probe's noise, or the probe triggered on
   the edge of a dent or a leftover purge line.
+- With an offset probe, a part listed as `not checked` was skipped because the nozzle could have
+  hit the part that was found. It may already be gone.
 
 ### `could not probe ... without the nozzle passing over a part`
 With an offset probe, some part could not be checked without lowering the nozzle where a part

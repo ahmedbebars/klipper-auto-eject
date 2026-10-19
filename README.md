@@ -29,14 +29,17 @@ flowchart LR
     A(["Print finished"]) --> B["Cool down<br/>heaters off, fan on"]
     B --> C["Plan the sweep<br/>from part outlines"]
     C --> D["Push parts off<br/>slow, low current"]
-    D --> E{"Probe:<br/>bed clear?"}
+    D --> H["Re-home X/Y"]
+    H --> E{"Probe:<br/>bed clear?"}
     E -- "yes" --> F(["Next queued job starts"])
-    E -- "no" --> G(["Queue stops<br/>and reports the part"])
+    E -- "no" --> R["Push that part again<br/>lower, more current"]
+    R --> H
+    E -- "still there<br/>after retries" --> G(["Queue stops<br/>and reports the part"])
 
     classDef ok fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef stop fill:#c62828,stroke:#8e0000,color:#ffffff
     classDef step fill:#1565c0,stroke:#0d47a1,color:#ffffff
-    class A,B,C,D step
+    class A,B,C,D,H,R step
     class F ok
     class G stop
 ```
@@ -44,9 +47,10 @@ flowchart LR
 `AUTO_EJECT` reads where every part sits from Klipper's `[exclude_object]` data, which the
 slicer writes into the G-code. From that it plans the sweep: the blade drops in **behind** the
 parts and pushes them over the edge at low speed and with reduced motor current, so a part
-that refuses to move makes the motor skip instead of breaking something. Afterwards it touches
-the old part locations with the probe and **stops the job queue** if anything is still there,
-so the next print never lands on top of a leftover part.
+that refuses to move makes the motor skip instead of breaking something. Afterwards it homes X
+and Y again and touches the old part locations with the probe. A part that is still there is
+pushed again, lower and harder. If it still won't move, the macro **stops the job queue**, so
+the next print never lands on top of a leftover part.
 
 ## Features
 
@@ -64,6 +68,8 @@ so the next print never lands on top of a leftover part.
 - **Probe verification** with Tap, BLTouch or any `[probe]`, including hollow parts such as
   cookie cutters (`outline` mode). Offset probes never lower the nozzle onto a part, and eddy-current
   probes are detected and handled ([docs/probes.md](docs/probes.md)).
+- **Retries a stuck part:** after the sweep X and Y are homed again (skipped steps no longer
+  matter), and a part the probe still finds is pushed again, lower and with more current.
 - **`EJECT_PURGE`:** a tall purge pellet placed where the sweep removes it, instead of a thin
   purge line that builds up on the bed.
 - **Dry-run mode** (`AUTO_EJECT DRY=1`) traces the whole path at a safe height.

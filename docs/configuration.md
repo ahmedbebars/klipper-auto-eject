@@ -84,6 +84,19 @@ Choose `push_current` so that a part that won't move makes the motor skip. Start
 | `heaters_off` | `True` | Turn the hotend and bed heaters off before cooling |
 | `cool_fan_speed` | `1.0` | Part fan speed while cooling, from 0.0 to 1.0. Turned off after the sweep |
 
+## After the sweep
+
+| Setting | Default | Description |
+|---|---|---|
+| `rehome_xy` | `True` | Home X and Y again after pushing. A part that would not move makes the motor skip on purpose, and re-homing makes the position exact again before probing. If your homing macro un-homes Z, Z is found again around the parts |
+| `retries` | `1` | How many times a part found still on the bed is pushed again (0–2). Each retry only sweeps the parts that were left |
+| `retry_z_step` | `0.3` | Each retry pushes this many mm lower than the one before |
+| `push_z_min` | `0.5` | A retry never pushes lower than this, and never higher than `push_z` |
+| `retry_current_step` | `0.15` | Each retry adds this many amps to `push_current`, never more than the stepper's `run_current` |
+
+With the defaults, a part left after the first sweep is pushed once more at `push_z − 0.3` and
+`push_current + 0.15 A`, then checked again. If it is still there, the queue stops.
+
 ## Verification
 
 | Setting | Default | Description |

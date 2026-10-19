@@ -21,8 +21,10 @@ the probe triggered. So:
   `home_clearance` (20 mm) from every stored part.
 - **Verification** only probes points where the nozzle is at least `nozzle_clearance` (5 mm) away
   from every part that has not been confirmed gone yet. Parts are checked in an order that makes
-  each one reachable: once a part is confirmed gone, the nozzle may pass over its spot. A failed
-  check stops everything, so this is safe.
+  each one reachable: once a part is confirmed gone, the nozzle may pass over its spot.
+- When a part **is** found, the rest of the plan is no longer safe (it assumed that part was
+  gone). The remaining points are skipped and those parts count as still there, so a
+  [retry](configuration.md#after-the-sweep) pushes them again and checks them again.
 - A part that still cannot be probed safely stops with an error (`verify_unsafe_action: "error"`).
   Check it by hand and run `AUTO_EJECT_CLEAR`.
 
