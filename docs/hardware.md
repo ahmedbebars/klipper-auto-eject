@@ -93,11 +93,9 @@ layers run along the load.
 ### Example: Voron Trident with Stealthburner
 
 <p align="center">
-  <img src="../hardware/images/voron-stealthburner-front.jpg" width="48%" alt="Blade fitted to a Voron Stealthburner, front view">
-  <img src="../hardware/images/voron-stealthburner-closeup.jpg" width="48%" alt="Mount, arm and blade on the Stealthburner front cover">
-</p>
-<p align="center">
-  <img src="../hardware/images/voron-stealthburner-side.jpg" width="80%" alt="Side view: the blade reaches ahead of the toolhead">
+  <img src="../hardware/images/voron-stealthburner-front.jpg" width="32%" alt="Blade fitted to a Voron Stealthburner, front view">
+  <img src="../hardware/images/voron-stealthburner-closeup.jpg" width="32%" alt="Mount, arm and blade on the Stealthburner front cover">
+  <img src="../hardware/images/voron-stealthburner-side.jpg" width="32%" alt="Side view: the blade reaches ahead of the toolhead">
 </p>
 
 - The mount uses the two lower screws of the Stealthburner front cover, a few millimetres
