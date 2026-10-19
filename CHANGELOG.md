@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-19
+
+### Added
+- Part outlines and print height are saved in `[save_variables]` while printing and restored
+  after a restart (`persist_state`). Cleared after a successful eject.
+- `AUTO_EJECT HOME=1`: home X/Y, then measure Z with the probe on the free spot furthest from
+  every stored part (`home_method`, `home_clearance`, `home_edge_margin`).
+- `AUTO_EJECT_GUARD` for the start G-code: stop, or eject first (`guard_action`), when parts from
+  an interrupted print may still be on the bed.
+- `AUTO_EJECT_CLEAR` to forget parts removed by hand. `SOURCE=saved` to eject stored parts.
+- Travel height also respects the stored print height.
+
+### Fixed
+- The setup welcome check reported `[exclude_object]` as missing when it was present.
+
 ## [0.2.0] - 2026-10-19
 
 ### Added
@@ -33,6 +48,7 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ahmedbebars/klipper-auto-eject/releases/tag/v0.1.0

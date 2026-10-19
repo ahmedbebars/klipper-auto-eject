@@ -5,12 +5,15 @@ Every slicer needs three things for auto-eject:
 | | What | Why |
 |:-:|---|---|
 | 1 | **Object labels** in the G-code | `AUTO_EJECT` plans the sweep from the part outlines |
-| 2 | **Start G-code** with `EJECT_PURGE` | A purge pellet the sweep can remove. Thin purge lines build up on the bed |
+| 2 | **Start G-code** with `AUTO_EJECT_GUARD` and `EJECT_PURGE` | Never print on old parts. A purge pellet the sweep can remove |
 | 3 | **End G-code** with `AUTO_EJECT` | Runs while the printer is still homed, before your end macro |
 
 The examples call your start macro `PRINT_START` and your end macro `PRINT_END`. Use the names
 your configuration uses (`START_PRINT`, `DEMON_START`, …).
 
+> **Guard.** `AUTO_EJECT_GUARD` goes first. It stops the print, or ejects first, if parts from an
+> interrupted print may still be on the bed ([recovery.md](recovery.md)).
+>
 > **Purge.** `EJECT_PURGE` runs *after* `PRINT_START`, so turn off the purge line inside your start
 > macro (KAMP `LINE_PURGE`, DEMON purge line, Voron purge). Otherwise you get both.
 
@@ -31,6 +34,7 @@ your configuration uses (`START_PRINT`, `DEMON_START`, …).
 **Printer settings → Machine G-code → Machine start G-code**
 
 ```gcode
+AUTO_EJECT_GUARD
 M104 S0
 M140 S0
 PRINT_START BED=[bed_temperature_initial_layer_single] EXTRUDER=[nozzle_temperature_initial_layer]
@@ -57,6 +61,7 @@ G-code flavor *Klipper*). Older SuperSlicer builds only write comments. If so, u
 **Printer Settings → Custom G-code → Start G-code**
 
 ```gcode
+AUTO_EJECT_GUARD
 M104 S0
 M140 S0
 PRINT_START BED=[first_layer_bed_temperature] EXTRUDER=[first_layer_temperature]
@@ -77,6 +82,7 @@ PRINT_END
 **Machine Settings → Printer → Start G-code**
 
 ```gcode
+AUTO_EJECT_GUARD
 PRINT_START BED={material_bed_temperature_layer_0} EXTRUDER={material_print_temperature_layer_0}
 EJECT_PURGE
 ```

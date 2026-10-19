@@ -4,8 +4,16 @@
 
 ### `AUTO_EJECT: printer is not homed`
 Something turned the steppers off (`M84`) or an idle timeout disabled them before
-`AUTO_EJECT` ran. Call `AUTO_EJECT` earlier in your end sequence
-([integration.md](integration.md)). Remove the parts by hand, then home.
+`AUTO_EJECT` ran. Run `AUTO_EJECT HOME=1` to home around the parts ([recovery.md](recovery.md)),
+and call `AUTO_EJECT` earlier in your end sequence ([integration.md](integration.md)).
+
+### `AUTO_EJECT_GUARD: ... may still be on the bed`
+A previous print was never ejected (restart, power loss, cancelled eject). Run
+`AUTO_EJECT HOME=1 SOURCE=saved`, or remove the parts by hand and run `AUTO_EJECT_CLEAR`.
+
+### `AUTO_EJECT HOME=1: no free spot ...`
+The stored parts cover the bed, leaving no spot `home_clearance` mm away from all of them. Remove
+the parts by hand and run `AUTO_EJECT_CLEAR`.
 
 ### `no labelled objects found`
 The G-code has no `EXCLUDE_OBJECT_DEFINE` lines. Turn on label/exclude objects in the slicer and

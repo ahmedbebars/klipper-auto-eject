@@ -53,6 +53,9 @@ so the next print never lands on top of a leftover part.
 - **Guided setup in Mainsail/Fluidd:** `AUTO_EJECT_SETUP` opens step-by-step dialogs. Jog the
   toolhead with buttons, and the blade height and offset are measured and saved for you. No config
   editing and no ruler. See [docs/setup-wizard.md](docs/setup-wizard.md).
+- **Survives restarts and power cuts:** part outlines and print height are saved while printing.
+  `AUTO_EJECT HOME=1` homes Z on a free spot so a part is never mistaken for the bed, and
+  `AUTO_EJECT_GUARD` stops a new print from landing on old parts. See [docs/recovery.md](docs/recovery.md).
 - **Three path strategies:** `columns` (works with any layout), `objects` (one part at a time),
   and `full_width` (no slicer labels needed). See [docs/strategies.md](docs/strategies.md).
 - **Any drop edge:** front, back, left or right.
@@ -120,6 +123,9 @@ Prefer editing files? Every setting is also in `auto_eject_settings.cfg`
 | Command | What it does |
 |---|---|
 | `AUTO_EJECT_SETUP` | Guided setup in Mainsail/Fluidd dialogs |
+| `AUTO_EJECT HOME=1` | After a restart: home safely around the parts, then eject |
+| `AUTO_EJECT_GUARD` | First line of the start G-code: never print on top of old parts |
+| `AUTO_EJECT_CLEAR` | Parts removed by hand: forget them |
 | `AUTO_EJECT_SETUP STEP=reset` | Forget the values saved by the setup |
 | `AUTO_EJECT` | Cool, sweep, verify |
 | `AUTO_EJECT DRY=1` | Trace the path at a safe height, with no cooling, current changes or probing |
@@ -152,6 +158,7 @@ ends in an error state and Moonraker **does not** start the next job. Details fo
 | [Guided setup](docs/setup-wizard.md) | The `AUTO_EJECT_SETUP` dialogs, step by step |
 | [Configuration](docs/configuration.md) | Every setting explained |
 | [Strategies](docs/strategies.md) | How each path strategy calculates the sweep |
+| [Recovery](docs/recovery.md) | Restarts, power loss, smart homing and the start guard |
 | [Slicer setup](docs/slicer-setup.md) | Start/end G-code for OrcaSlicer, PrusaSlicer, SuperSlicer and Cura |
 | [Integration](docs/integration.md) | Print end hooks, job queue, purge pellet, slicer settings |
 | [Hardware](docs/hardware.md) | Designing, printing and measuring the blade |

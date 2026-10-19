@@ -10,6 +10,7 @@ import ast
 import configparser
 import pathlib
 import re
+import shlex
 from collections import namedtuple
 
 import jinja2
@@ -53,6 +54,8 @@ class Printer:
         if extra_settings:
             self.status["gcode_macro _AUTO_EJECT_SETTINGS"].update(extra_settings)
         self.messages = []
+        self.frame_shift = 0.0   # machine Z frame minus real nozzle height
+        self.under_probe = 0.0   # height of whatever the probe will hit
         self.set_machine()
 
     # ----------------------------------------------------------------- setup
@@ -121,6 +124,93 @@ class Printer:
         }
         text = tmpl.render(context)
         return [line.strip() for line in text.splitlines() if line.strip()]
+
+    def set_section(self, name, options):
+        """Add a config section (to both .settings and .config)."""
+        self.status["configfile"]["settings"][name] = options
+        self.status["configfile"]["config"][name] = options
+
+    # --------------------------------------------------------------- execute
+    def execute(self, macro, **params):
+        """Run a macro the way Klipper does: render it, then run every line,
+        rendering nested macros only when they are reached. Returns the
+        non-macro commands that were run, in order."""
+        self.executed = []
+        self._run_macro(macro.upper(), {k.upper(): str(v) for k, v in params.items()},
+                        " ".join("%s=%s" % kv for kv in params.items()))
+        return self.executed
+
+    def _run_macro(self, name, params, raw):
+        tmpl = self.env.from_string(self.macros[name])
+        text = tmpl.render({
+            "printer": self.status,
+            "params": params,
+            "rawparams": raw,
+            "action_respond_info": self._respond,
+            "action_raise_error": self._raise,
+            "action_emergency_stop": self._raise,
+            "action_call_remote_method": lambda *a, **k: "",
+        })
+        for line in (l.strip() for l in text.splitlines()):
+            if line:
+                self._run_line(line)
+
+    def _run_line(self, line):
+        cmd, _, raw = line.partition(" ")
+        cmd = cmd.upper()
+        if cmd in self.macros:
+            params = dict(a.split("=", 1) for a in shlex.split(raw)) if raw else {}
+            self._run_macro(cmd, {k.upper(): v for k, v in params.items()}, raw)
+            return
+        self.executed.append(line)
+        th = self.status["toolhead"]
+        if cmd == "SET_GCODE_VARIABLE":
+            p = dict(a.split("=", 1) for a in shlex.split(raw))
+            macro = "gcode_macro " + p["MACRO"]
+            self.status[macro][p["VARIABLE"]] = ast.literal_eval(p["VALUE"])
+        elif cmd == "SAVE_VARIABLE":
+            p = dict(a.split("=", 1) for a in shlex.split(raw))
+            self.status["save_variables"]["variables"][p["VARIABLE"]] = \
+                ast.literal_eval(p["VALUE"])
+        elif cmd == "G1":
+            w = words(line)
+            pos = list(th["position"])
+            for i, axis in enumerate("XYZ"):
+                if axis in w:
+                    pos[i] = w[axis]
+            th["position"] = Coord(*pos)
+        elif cmd == "G28":
+            axes = [a for a in "XYZ" if a in raw.upper()] or list("XYZ")
+            homed = set(th["homed_axes"]) | {a.lower() for a in axes}
+            th["homed_axes"] = "".join(a for a in "xyz" if a in homed)
+        elif cmd == "SET_KINEMATIC_POSITION":
+            w = {k.upper(): float(v) for k, v in
+                 (a.split("=", 1) for a in shlex.split(raw)) if k.upper() in "XYZ"}
+            if "Z" in w:
+                # the real nozzle height does not change; only the frame does
+                real = th["position"][2] - self.frame_shift
+                self.frame_shift = w["Z"] - real
+            pos = list(th["position"])
+            for i, axis in enumerate("XYZ"):
+                if axis in w:
+                    pos[i] = w[axis]
+            th["position"] = Coord(*pos)
+            th["homed_axes"] = "xyz"
+        elif cmd == "PROBE":
+            self.on_probe()
+
+    def on_probe(self, _printer=None):
+        """Probe down to whatever is under it: the bed, or a part of height
+        ``self.under_probe``. Like Klipper, the toolhead stays at the trigger
+        point and last_z_result is the toolhead Z there."""
+        settings = self.status["configfile"]["settings"]
+        z_offset = settings.get("probe", settings.get("bltouch", {})).get("z_offset", 0.0)
+        z = z_offset + self.under_probe + self.frame_shift
+        th = self.status["toolhead"]
+        pos = list(th["position"])
+        pos[2] = z
+        th["position"] = Coord(*pos)
+        self.status["probe"]["last_z_result"] = z
 
     def _respond(self, msg):
         self.messages.append(msg)

@@ -7,7 +7,8 @@ print. Read this page before relying on it.
 
 | Risk | What the macros do |
 |---|---|
-| Homing with parts on the bed (wrong Z, then the blade hits the bed) | `AUTO_EJECT` **refuses to run unless X, Y and Z are homed**, and never homes by itself |
+| Homing with parts on the bed (wrong Z, then the blade hits the bed) | `AUTO_EJECT` refuses to run unhomed. `AUTO_EJECT HOME=1` homes X/Y normally and measures Z with the probe on the spot furthest from every stored part |
+| Printing on top of parts left by an interrupted print | Part outlines are saved while printing. `AUTO_EJECT_GUARD` in the start G-code stops the print, or ejects first |
 | A part that will not move | Motor current on the push steppers drops to `push_current`, so the motor skips instead of breaking the blade, the part or the belt |
 | Fast, violent moves | Pushing runs at `push_speed` and `push_accel`. The previous acceleration and currents are restored afterwards |
 | The blade landing on a part | Each push starts `rear_clearance` behind the parts. Starts that cannot get behind a part (too close to the far edge) are refused. `objects` checks the landing zone before anything moves |

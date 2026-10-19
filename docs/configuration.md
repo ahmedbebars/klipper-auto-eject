@@ -94,6 +94,18 @@ Choose `push_current` so that a part that won't move makes the motor skip. Start
 The probe's `x_offset`/`y_offset` are applied, so BLTouch-style probes probe at the right spot.
 Points the toolhead cannot reach are skipped.
 
+## Recovery
+
+| Setting | Default | Description |
+|---|---|---|
+| `persist_state` | `True` | Save part outlines and print height in `[save_variables]` while printing |
+| `guard_action` | `"error"` | What `AUTO_EJECT_GUARD` does when old parts may be on the bed: `"error"` or `"eject"` |
+| `home_method` | `"auto"` | `AUTO_EJECT HOME=1`: `"auto"`, `"probe"` or `"g28"` |
+| `home_clearance` | `20.0` | Minimum distance in mm between the Z probe spot and any part |
+| `home_edge_margin` | `15.0` | Distance in mm kept from the bed edges when choosing that spot |
+
+Details in [recovery.md](recovery.md).
+
 ## EJECT_PURGE
 
 | Setting | Default | Description |
