@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-10-19
+
+### Fixed
+- Parts taken off by hand without `AUTO_EJECT_CLEAR` stayed remembered, and the next prints
+  were never recorded. Old parts are still kept through the start G-code, so
+  `AUTO_EJECT_GUARD` can stop a print on top of them, but once a new print reaches its first
+  layer (or extrudes, if the slicer reports no layers) its parts replace them.
+
 ## [0.10.2] - 2026-10-19
 
 ### Fixed
@@ -192,7 +200,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.2...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.3...HEAD
+[0.10.3]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.9.1...v0.10.0

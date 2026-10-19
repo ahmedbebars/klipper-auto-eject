@@ -129,6 +129,7 @@ def test_tracker_never_overwrites_parts_that_were_not_ejected(p):
     p.execute("_AUTO_EJECT_CAPTURE")                     # old print, never ejected
     p.set_objects([("new_part", rect(10, 10, 30, 30))])  # next print starts
     start_print(p, filename="next.gcode")
+    p.status["print_stats"]["info"] = {"total_layer": 20, "current_layer": None}
     p.execute("_AUTO_EJECT_TRACK_STEP")
     assert [r[0] for r in state(p)["objects"]] == ["left_cutter", "right_cutter"]
     # once the old parts are cleared, the new print is captured
@@ -232,3 +233,26 @@ def test_home_keeps_the_blade_clear_of_parts(p):
     by0, by1 = xy["Y"] - 60, xy["Y"] - 55
     dy = max(165 - by1, 0, by0 - 180)
     assert dy >= 20.0
+
+
+def test_first_layer_of_a_new_print_replaces_old_parts(p):
+    # old parts were taken off by hand without AUTO_EJECT_CLEAR
+    p.execute("_AUTO_EJECT_CAPTURE")
+    p.set_objects([("new_part", rect(10, 10, 30, 30))])
+    start_print(p, filename="next.gcode")
+    p.status["print_stats"]["info"] = {"total_layer": 20, "current_layer": None}
+    p.execute("_AUTO_EJECT_TRACK_STEP")                 # start G-code: keep the old ones
+    assert len(state(p)["objects"]) == 2
+    p.status["print_stats"]["info"] = {"total_layer": 20, "current_layer": 1}
+    p.execute("_AUTO_EJECT_TRACK_STEP")                 # first layer: the bed was clear
+    assert [r[0] for r in state(p)["objects"]] == ["new_part"]
+    assert [r[0] for r in saved(p)["auto_eject_objects"]] == ["new_part"]
+
+
+def test_without_layer_info_extrusion_counts_as_started(p):
+    p.execute("_AUTO_EJECT_CAPTURE")
+    p.set_objects([("new_part", rect(10, 10, 30, 30))])
+    start_print(p, filename="next.gcode")
+    p.status["print_stats"]["filament_used"] = 120.0
+    p.execute("_AUTO_EJECT_TRACK_STEP")
+    assert [r[0] for r in state(p)["objects"]] == ["new_part"]
