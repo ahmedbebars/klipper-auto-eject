@@ -61,7 +61,7 @@ class Printer:
                     probe=None, steppers=("stepper_x", "stepper_y"),
                     driver="tmc5160", run_current=0.8, bed=True,
                     max_extrude_cross_section=50.0, kinematics="corexy",
-                    save_variables=None):
+                    save_variables=None, exclude_object_section=False):
         self.status["toolhead"] = {
             "axis_minimum": Coord(axis_min[0], axis_min[1], axis_min[2], 0.0),
             "axis_maximum": Coord(axis_max[0], axis_max[1], axis_max[2], 0.0),
@@ -79,7 +79,12 @@ class Printer:
             settings["%s %s" % (driver, st)] = {"run_current": run_current}
         if probe is not None:
             settings["probe"] = probe
-        self.status["configfile"] = {"settings": settings}
+        # Klipper's .config holds every section, .settings only sections
+        # with options, so empty ones like [exclude_object] are missing there.
+        raw = {name: {} for name in settings}
+        if exclude_object_section:
+            raw["exclude_object"] = {}
+        self.status["configfile"] = {"settings": settings, "config": raw}
         self.status["extruder"] = {"temperature": 220.0}
         if bed:
             self.status["heater_bed"] = {"temperature": 60.0}

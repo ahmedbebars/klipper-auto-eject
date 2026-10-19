@@ -62,8 +62,17 @@ def test_dialog_text_is_safe_for_klipper(p):
 
 def test_needs_respond_section(p):
     del p.status["configfile"]["settings"]["respond"]
+    del p.status["configfile"]["config"]["respond"]
     with pytest.raises(MacroError, match=r"\[respond\]"):
         p.render("AUTO_EJECT_SETUP")
+
+
+def test_empty_exclude_object_section_is_detected(p):
+    # regression: [exclude_object] has no options, so it is only in .config
+    p.set_machine(save_variables={}, exclude_object_section=True)
+    text = " | ".join(p.render("AUTO_EJECT_SETUP"))
+    assert "OK - exclude_object is enabled" in text
+    assert "MISSING" not in text
 
 
 def test_start_reports_checks(p):
