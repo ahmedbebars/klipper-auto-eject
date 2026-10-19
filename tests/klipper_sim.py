@@ -60,7 +60,8 @@ class Printer:
                     position=(200, 200, 30), homed="xyz", accel=3000,
                     probe=None, steppers=("stepper_x", "stepper_y"),
                     driver="tmc5160", run_current=0.8, bed=True,
-                    max_extrude_cross_section=50.0):
+                    max_extrude_cross_section=50.0, kinematics="corexy",
+                    save_variables=None):
         self.status["toolhead"] = {
             "axis_minimum": Coord(axis_min[0], axis_min[1], axis_min[2], 0.0),
             "axis_maximum": Coord(axis_max[0], axis_max[1], axis_max[2], 0.0),
@@ -69,6 +70,8 @@ class Printer:
             "max_accel": accel,
         }
         settings = {
+            "printer": {"kinematics": kinematics},
+            "respond": {},
             "extruder": {"min_extrude_temp": 170.0,
                          "max_extrude_cross_section": max_extrude_cross_section},
         }
@@ -83,6 +86,10 @@ class Printer:
         else:
             self.status.pop("heater_bed", None)
         self.status["probe"] = {"last_z_result": 0.0}
+        if save_variables is not None:
+            self.status["save_variables"] = {"variables": save_variables}
+        else:
+            self.status.pop("save_variables", None)
         self.status.setdefault("exclude_object", {"objects": []})
 
     def set_objects(self, objects):

@@ -41,6 +41,9 @@ so the next print never lands on top of a leftover part.
 
 ## Features
 
+- **Guided setup in Mainsail/Fluidd:** `AUTO_EJECT_SETUP` opens step-by-step dialogs. Jog the
+  toolhead with buttons, and the blade height and offset are measured and saved for you. No config
+  editing and no ruler. See [docs/setup-wizard.md](docs/setup-wizard.md).
 - **Three path strategies:** `columns` (works with any layout), `objects` (one part at a time),
   and `full_width` (no slicer labels needed). See [docs/strategies.md](docs/strategies.md).
 - **Any drop edge:** front, back, left or right.
@@ -62,7 +65,7 @@ so the next print never lands on top of a leftover part.
 | Firmware | Klipper v0.12 or newer, with `[exclude_object]` enabled |
 | Slicer | "Label objects" / "Exclude objects" turned on (OrcaSlicer, PrusaSlicer, SuperSlicer, Cura with the Klipper plugin) |
 | Hardware | A rigid blade on the toolhead carriage ([docs/hardware.md](docs/hardware.md)) and a bed surface parts release from when cool (PEI, CryoGrip, textured sheets) |
-| Optional | A `[probe]` / `[bltouch]` for verification, and the Moonraker job queue for back-to-back prints |
+| Optional | A `[probe]` / `[bltouch]` for verification, `[respond]` + `[save_variables]` for the guided setup, and the Moonraker job queue for back-to-back prints |
 
 ## Compatibility
 
@@ -94,18 +97,22 @@ instances are covered in [docs/installation.md](docs/installation.md).
 
 Then:
 
-1. Mount the blade and measure it ([docs/hardware.md](docs/hardware.md)).
-2. Set `blade_offset`, `blade_width`, `direction` and `push_z` in `auto_eject_settings.cfg`.
-3. `FIRMWARE_RESTART`
-4. Print something, then run **`AUTO_EJECT DRY=1`** and watch the path.
-5. Run `AUTO_EJECT` with the parts on the bed while you stand next to the printer.
-6. Hook it into your print end ([docs/integration.md](docs/integration.md)).
+1. Mount the blade ([docs/hardware.md](docs/hardware.md)).
+2. `FIRMWARE_RESTART`, then run **`AUTO_EJECT_SETUP`** and follow the dialogs. They cover direction,
+   blade height and offset, width, current, cooling, saving and a dry test.
+3. After your next print, run `AUTO_EJECT` with the parts on the bed while you stand next to the printer.
+4. Hook it into your print end ([docs/integration.md](docs/integration.md)).
+
+Prefer editing files? Every setting is also in `auto_eject_settings.cfg`
+([docs/configuration.md](docs/configuration.md)).
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `AUTO_EJECT` | Cool, sweep, verify, using the settings file |
+| `AUTO_EJECT_SETUP` | Guided setup in Mainsail/Fluidd dialogs |
+| `AUTO_EJECT_SETUP STEP=reset` | Forget the values saved by the setup |
+| `AUTO_EJECT` | Cool, sweep, verify |
 | `AUTO_EJECT DRY=1` | Trace the path at a safe height, with no cooling, current changes or probing |
 | `AUTO_EJECT STRATEGY=objects` | Override the strategy for one run (`columns`, `objects`, `full_width`) |
 | `AUTO_EJECT COOL=0` | Skip the cool-down wait |
@@ -133,6 +140,7 @@ ends in an error state and Moonraker **does not** start the next job. Details fo
 | | |
 |---|---|
 | [Installation](docs/installation.md) | Script, manual and Moonraker installs, updates, uninstalling |
+| [Guided setup](docs/setup-wizard.md) | The `AUTO_EJECT_SETUP` dialogs, step by step |
 | [Configuration](docs/configuration.md) | Every setting explained |
 | [Strategies](docs/strategies.md) | How each path strategy calculates the sweep |
 | [Integration](docs/integration.md) | Print end hooks, job queue, purge pellet, slicer settings |

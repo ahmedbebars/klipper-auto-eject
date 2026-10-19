@@ -4,6 +4,10 @@ All settings live in `auto_eject_settings.cfg`, as variables of the `_AUTO_EJECT
 macro. Text values must be in double quotes (`"columns"`). Numbers and `True`/`False` are written
 without quotes. Run `FIRMWARE_RESTART` after editing.
 
+> **The easiest way** is the guided setup, `AUTO_EJECT_SETUP` ([setup-wizard.md](setup-wizard.md)).
+> Values it saves (in `[save_variables]`) **override** this file. `AUTO_EJECT_SETUP STEP=reset`
+> goes back to the file.
+
 You can also change a value for the current session without restarting, for example:
 
 ```

@@ -40,6 +40,15 @@ raise `purge_height`.
 A setting is missing from your `auto_eject_settings.cfg`, usually after an update that added a
 new option. Copy the missing `variable_...` line from the example file.
 
+### `AUTO_EJECT_SETUP needs a [respond] section`
+Add `[respond]` to `printer.cfg` and run `FIRMWARE_RESTART`. The setup dialogs are sent with
+`RESPOND`.
+
+### The setup dialog does not appear
+Update Mainsail or Fluidd: older versions ignore Klipper's `action:prompt` messages. The console
+still shows the setup's progress. Run `AUTO_EJECT_SETUP STEP=close` to clear a half-open
+dialog.
+
 ## Behaviour
 
 **Parts are pushed but stay on the edge of the bed.** The push ends too early. Check `push_end`,
