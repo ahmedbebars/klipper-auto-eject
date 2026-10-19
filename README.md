@@ -43,7 +43,7 @@ so the next print never lands on top of a leftover part.
 
 - **Three path strategies:** `columns` (works with any layout), `objects` (one part at a time),
   and `full_width` (no slicer labels needed). See [docs/strategies.md](docs/strategies.md).
-- **Any drop edge:** front, back, left or right. Works on CoreXY, Cartesian and bed-slinger machines.
+- **Any drop edge:** front, back, left or right.
 - **Three cooling modes:** wait for a bed temperature, wait a fixed time, or don't wait.
 - **Reduced motor current while pushing,** detected automatically for TMC2130/2208/2209/2240/2660/5160/5262.
 - **Probe verification** with Tap, BLTouch or any `[probe]`, including hollow parts such as
@@ -63,6 +63,21 @@ so the next print never lands on top of a leftover part.
 | Slicer | "Label objects" / "Exclude objects" turned on (OrcaSlicer, PrusaSlicer, SuperSlicer, Cura with the Klipper plugin) |
 | Hardware | A rigid blade on the toolhead carriage ([docs/hardware.md](docs/hardware.md)) and a bed surface parts release from when cool (PEI, CryoGrip, textured sheets) |
 | Optional | A `[probe]` / `[bltouch]` for verification, and the Moonraker job queue for back-to-back prints |
+
+## Compatibility
+
+| Printer type | Status | Notes |
+|---|:---:|---|
+| CoreXY (Voron, RatRig, VzBot, Sovol SV08…) | ✅ | Ideal: fixed bed, full XY reach |
+| Cartesian, fixed bed | ✅ | |
+| Bed slinger (Ender 3, Prusa MK3-style) on Klipper | ✅ | Prefer `direction: "left"` or `"right"` so the bed doesn't shake the parts |
+| Vendor Klipper (Creality K1, Qidi, Sovol) | ⚠️ | Works if you can edit the config and the firmware is close to mainline |
+| Delta | ❌ | Path planning assumes a rectangular bed |
+| Marlin, Bambu Lab, stock Prusa firmware | ❌ | Klipper only |
+
+> **Field testing:** the macros are covered by automated tests and load cleanly on Klipper v0.13.
+> The first real-hardware runs are underway on a Voron Trident. Reports from other machines are
+> very welcome; [share yours here](https://github.com/ahmedbebars/klipper-auto-eject/discussions).
 
 ## Quick start
 
