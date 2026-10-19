@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.bak-auto-eject-*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,108 @@
+# Configuration
+
+All settings live in `auto_eject_settings.cfg`, as variables of the `_AUTO_EJECT_SETTINGS`
+macro. Text values must be in double quotes (`"columns"`). Numbers and `True`/`False` are written
+without quotes. Run `FIRMWARE_RESTART` after editing.
+
+You can also change a value for the current session without restarting, for example:
+
+```
+SET_GCODE_VARIABLE MACRO=_AUTO_EJECT_SETTINGS VARIABLE=push_z VALUE=2.0
+```
+
+## Strategy and direction
+
+| Setting | Default | Description |
+|---|---|---|
+| `strategy` | `"columns"` | How the path is calculated: `"columns"`, `"objects"` or `"full_width"`. See [strategies.md](strategies.md). Can be overridden per run with `AUTO_EJECT STRATEGY=...` |
+| `direction` | `"front"` | Edge the parts fall off: `"front"` (Y-), `"back"` (Y+), `"left"` (X-), `"right"` (X+) |
+| `no_objects_action` | `"skip"` | When the print has no labelled objects: `"skip"`, `"full_width"` or `"error"` |
+
+## Blade geometry
+
+Measure these after mounting the blade. See [hardware.md](hardware.md#measuring).
+
+| Setting | Default | Description |
+|---|---|---|
+| `blade_offset` | `20.0` | Distance from the nozzle to the blade's pushing face, along the push direction, in mm. Positive means the blade is ahead of the nozzle |
+| `blade_width` | `80.0` | Blade width across the push direction, in mm, centred on the nozzle |
+| `column_overlap` | `15.0` | Overlap between neighbouring lanes (`columns` / `full_width`) |
+| `head_depth` | `40.0` | Toolhead depth behind the blade. `objects` uses it to check there is room to lower the blade |
+| `side_margin` | `5.0` | Extra side margin for that check |
+
+If the blade is not centred on the nozzle, centre it in the hardware, or use a width that
+covers the offset side as well.
+
+## Motion
+
+| Setting | Default | Description |
+|---|---|---|
+| `push_z` | `1.5` | Nozzle Z while pushing. The blade's lower edge sits at `push_z + blade lift`. Start high (3–5 mm) and lower it after watching a run |
+| `push_end` | `"auto"` | Where each push ends on the push axis. `"auto"` = the axis limit on the drop side. A number pushes only to that coordinate |
+| `rear_clearance` | `10.0` | Gap behind a part before the blade comes down |
+| `allow_clamped_start` | `False` | Allow a push to start at the axis limit when the blade cannot get fully behind a part. The blade may then land on the part |
+| `push_speed` | `1500` | mm/min while pushing (25 mm/s) |
+| `travel_speed` | `9000` | mm/min for travel moves |
+| `z_speed` | `600` | mm/min for Z moves |
+| `push_accel` | `1500` | Acceleration while ejecting. The previous value is restored afterwards |
+| `z_hop` | `5.0` | Added to the current Z height for travel moves |
+| `min_safe_z` | `20.0` | Travel moves never go below this Z. It must be taller than your tallest part |
+| `dry_pause` | `500` | Pause in ms at each start point during `DRY=1` |
+
+> **Safe Z.** Travel height is `max(current Z + z_hop, min_safe_z)`. At the end of a print the
+> toolhead is above the tallest layer, so the current Z is usually enough. If your end G-code
+> lowers Z before calling `AUTO_EJECT`, raise `min_safe_z`.
+
+## Motor current
+
+| Setting | Default | Description |
+|---|---|---|
+| `reduce_current` | `True` | Lower the current of the steppers below while pushing |
+| `current_steppers` | `"stepper_x,stepper_y"` | Comma-separated stepper names. CoreXY needs both. A Cartesian printer pushing along Y needs `"stepper_y"` (add `stepper_y1` for dual Y) |
+| `push_current` | `0.5` | Amps while pushing. The configured `run_current` is restored afterwards |
+
+The TMC driver section (`tmc2209 stepper_x`, `tmc5160 stepper_y`, …) is found automatically.
+Steppers without a TMC section are skipped.
+
+Choose `push_current` so that a part that won't move makes the motor skip. Start around 50–60% of
+`run_current`, and lower it if the blade can bend or tear anything.
+
+## Cooling
+
+| Setting | Default | Description |
+|---|---|---|
+| `cool_mode` | `"temperature"` | `"temperature"` waits for the bed to reach `cool_temp`, `"time"` waits `cool_time` seconds, `"none"` doesn't wait |
+| `cool_temp` | `28` | Bed temperature in °C at which parts release. PEI and CryoGrip usually release PLA below 30 °C |
+| `cool_time` | `600` | Seconds, for `"time"` mode (also for beds without a `heater_bed`) |
+| `heaters_off` | `True` | Turn the hotend and bed heaters off before cooling |
+| `cool_fan_speed` | `1.0` | Part fan speed while cooling, from 0.0 to 1.0. Turned off after the sweep |
+
+## Verification
+
+| Setting | Default | Description |
+|---|---|---|
+| `verify` | `True` | Probe where the parts were after the sweep. Requires `[probe]` or `[bltouch]` |
+| `verify_points` | `"outline"` | `"outline"` probes three points just inside each part's outline, which works for hollow parts like cookie cutters and frames. `"center"` probes one point in the centre, for solid parts |
+| `verify_inset` | `1.0` | How far inside the outline the `outline` points are, in mm |
+| `verify_threshold` | `1.0` | A probe trigger more than this many mm above the empty-bed trigger height (`z_offset`) means a part is still there |
+| `verify_z` | `10.0` | Z height for moves between probe points |
+
+The probe's `x_offset`/`y_offset` are applied, so BLTouch-style probes probe at the right spot.
+Points the toolhead cannot reach are skipped.
+
+## EJECT_PURGE
+
+| Setting | Default | Description |
+|---|---|---|
+| `purge_length` | `30.0` | Filament to purge, in mm |
+| `purge_height` | `6.0` | Pellet height in mm. The nozzle rises while extruding |
+| `purge_start_z` | `0.4` | Z where the pellet starts |
+| `purge_flow` | `8.0` | Volumetric flow in mm³/s. Sets how fast the nozzle rises |
+| `purge_retract` | `0.8` | Retraction after the pellet |
+| `purge_gap` | `15.0` | Distance between the pellet and the nearest part |
+| `purge_edge_margin` | `50.0` | Minimum distance between the pellet and the drop edge. Keep the pellet on the build surface |
+| `filament_diameter` | `1.75` | |
+
+A pellet extrudes a lot of filament over a short move, so Klipper's
+`max_extrude_cross_section` in `[extruder]` must be large enough. `EJECT_PURGE` tells you the
+value it needs. 50 is a common setting on printers that already use adaptive purging.

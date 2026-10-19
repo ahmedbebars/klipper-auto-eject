@@ -1,0 +1,47 @@
+name: Bug report
+description: Something went wrong while ejecting
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please check [troubleshooting](https://github.com/ahmedbebars/klipper-auto-eject/blob/main/docs/troubleshooting.md) first.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: printer
+    attributes:
+      label: Printer
+      description: Kinematics, model, toolhead, probe and bed surface
+      placeholder: "CoreXY Voron Trident 300, Stealthburner + Tap, textured PEI"
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: klipper-auto-eject version, Klipper version, and the macro set you use (DEMON, Klippain, stock…)
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: auto_eject_settings.cfg
+      render: ini
+    validations:
+      required: true
+  - type: textarea
+    id: dryrun
+    attributes:
+      label: Console output of AUTO_EJECT DRY=1
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: klippy.log
+      description: Attach the log of the failing run (drag and drop the file here)

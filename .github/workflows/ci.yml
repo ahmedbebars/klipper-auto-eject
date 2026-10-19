@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macros:
+    name: Macro tests (Jinja2 ${{ matrix.jinja }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Jinja2 version shipped with Klipper's klippy-env
+          - python: "3.9"
+            jinja: "2.11.3"
+            extra: "markupsafe==2.0.1"
+          - python: "3.12"
+            jinja: "3.1.*"
+            extra: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install dependencies
+        run: python -m pip install "jinja2==${{ matrix.jinja }}" ${{ matrix.extra }} pytest
+      - name: Run tests
+        run: python -m pytest -q tests
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck
+        run: shellcheck install.sh
+
+  installer:
+    name: Installer smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install into a fake config directory
+        run: |
+          mkdir -p /tmp/cfg
+          printf '[printer]\nkinematics: corexy\n\n#*# <---------------------- SAVE_CONFIG ---------------------->\n#*# DO NOT EDIT THIS BLOCK OR BELOW.\n' > /tmp/cfg/printer.cfg
+          printf '[server]\nhost: 0.0.0.0\n' > /tmp/cfg/moonraker.conf
+          ./install.sh --config-dir /tmp/cfg
+          ./install.sh --config-dir /tmp/cfg   # second run must be a no-op
+          test -L /tmp/cfg/auto_eject.cfg
+          test -f /tmp/cfg/auto_eject_settings.cfg
+          test "$(grep -c '^\[include auto_eject.cfg\]' /tmp/cfg/printer.cfg)" = 1
+          test "$(grep -c '^\[update_manager klipper-auto-eject\]' /tmp/cfg/moonraker.conf)" = 1
+          # includes must sit above the SAVE_CONFIG block
+          awk '/include auto_eject.cfg/{i=NR} /SAVE_CONFIG/{s=NR} END{exit !(i<s)}' /tmp/cfg/printer.cfg
+      - name: Uninstall
+        run: |
+          ./install.sh --config-dir /tmp/cfg --uninstall
+          test ! -e /tmp/cfg/auto_eject.cfg
+          ! grep -q 'include auto_eject' /tmp/cfg/printer.cfg
+          ! grep -q 'klipper-auto-eject' /tmp/cfg/moonraker.conf

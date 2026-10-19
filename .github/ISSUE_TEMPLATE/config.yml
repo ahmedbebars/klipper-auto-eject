@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Share your setup or ask a question
+    url: https://github.com/ahmedbebars/klipper-auto-eject/discussions
+    about: Blade designs, settings for your printer, and general questions
