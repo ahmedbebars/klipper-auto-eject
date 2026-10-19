@@ -24,25 +24,7 @@
 
 ## What it does
 
-```mermaid
-flowchart LR
-    A(["Print finished"]) --> B["Cool down<br/>heaters off, fan on"]
-    B --> C["Plan the sweep<br/>from part outlines"]
-    C --> D["Push parts off<br/>slow, low current"]
-    D --> H["Re-home X/Y"]
-    H --> E{"Probe:<br/>bed clear?"}
-    E -- "yes" --> F(["Next queued job starts"])
-    E -- "no" --> R["Push that part again<br/>lower, more current"]
-    R --> H
-    E -- "still there<br/>after retries" --> G(["Queue stops<br/>and reports the part"])
-
-    classDef ok fill:#2e7d32,stroke:#1b5e20,color:#ffffff
-    classDef stop fill:#c62828,stroke:#8e0000,color:#ffffff
-    classDef step fill:#1565c0,stroke:#0d47a1,color:#ffffff
-    class A,B,C,D,H,R step
-    class F ok
-    class G stop
-```
+<p align="center"><img src="docs/images/how-it-works.svg" alt="One AUTO_EJECT run: cool down, plan, push, re-home, probe, retry or stop" width="900"></p>
 
 `AUTO_EJECT` reads where every part sits from Klipper's `[exclude_object]` data, which the
 slicer writes into the G-code. From that it plans the sweep: the blade drops in **behind** the
@@ -96,6 +78,15 @@ the next print never lands on top of a leftover part.
 A three-part printable blade with slotted joints that fits most toolheads. Height and reach adjust
 with the slots, and `AUTO_EJECT_SETUP` measures the rest. STL files and the parametric OpenSCAD
 source are in [`hardware/`](hardware/), and the guide is [docs/hardware.md](docs/hardware.md).
+
+### It measures itself
+
+With Voron Tap or any probe that touches with the nozzle, you do not measure the blade at all.
+Put a calibration cube under the nozzle and run `AUTO_EJECT_CALIBRATE`: the printer touches the
+cube with the nozzle, then with the blade, and works out how high the blade sits and how far
+ahead of the nozzle, in about 2–3 minutes.
+
+<p align="center"><img src="docs/images/blade-measurement.svg" alt="How the blade is measured with Voron Tap" width="900"></p>
 
 ## Compatibility
 

@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 320" width="950" height="320" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#57606a"/>
+    </marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ef6c00"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2e7d32"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c62828"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="950" height="320" rx="12" fill="#ffffff"/>
+  <text x="20" y="32" font-size="16" font-weight="600" fill="#24292f">One AUTO_EJECT run, at the end of every print</text>
+
+  <!-- cards: x = 20 + i * 152, width 130 -->
+  <g font-size="11" fill="#57606a">
+    <g transform="translate(20,60)">
+      <rect width="130" height="100" rx="10" fill="#eef4fb" stroke="#1565c0"/>
+      <circle cx="22" cy="22" r="12" fill="#1565c0"/><text x="22" y="26" text-anchor="middle" fill="#fff" font-weight="600">1</text>
+      <text x="12" y="56" font-size="13" font-weight="600" fill="#0d47a1">Print finished</text>
+      <text x="12" y="74">parts stay where</text><text x="12" y="88">they were printed</text>
+    </g>
+    <g transform="translate(172,60)">
+      <rect width="130" height="100" rx="10" fill="#eef4fb" stroke="#1565c0"/>
+      <circle cx="22" cy="22" r="12" fill="#1565c0"/><text x="22" y="26" text-anchor="middle" fill="#fff" font-weight="600">2</text>
+      <text x="12" y="56" font-size="13" font-weight="600" fill="#0d47a1">Cool down</text>
+      <text x="12" y="74">heaters off, fan on,</text><text x="12" y="88">parts let go</text>
+    </g>
+    <g transform="translate(324,60)">
+      <rect width="130" height="100" rx="10" fill="#eef4fb" stroke="#1565c0"/>
+      <circle cx="22" cy="22" r="12" fill="#1565c0"/><text x="22" y="26" text-anchor="middle" fill="#fff" font-weight="600">3</text>
+      <text x="12" y="56" font-size="13" font-weight="600" fill="#0d47a1">Plan the sweep</text>
+      <text x="12" y="74">from the outlines</text><text x="12" y="88">the slicer labelled</text>
+    </g>
+    <g transform="translate(476,60)">
+      <rect width="130" height="100" rx="10" fill="#eef4fb" stroke="#1565c0"/>
+      <circle cx="22" cy="22" r="12" fill="#1565c0"/><text x="22" y="26" text-anchor="middle" fill="#fff" font-weight="600">4</text>
+      <text x="12" y="56" font-size="13" font-weight="600" fill="#0d47a1">Push them off</text>
+      <text x="12" y="74">blade behind each</text><text x="12" y="88">part, low current</text>
+    </g>
+    <g transform="translate(628,60)">
+      <rect width="130" height="100" rx="10" fill="#eef4fb" stroke="#1565c0"/>
+      <circle cx="22" cy="22" r="12" fill="#1565c0"/><text x="22" y="26" text-anchor="middle" fill="#fff" font-weight="600">5</text>
+      <text x="12" y="56" font-size="13" font-weight="600" fill="#0d47a1">Re-home X and Y</text>
+      <text x="12" y="74">skipped steps no</text><text x="12" y="88">longer matter</text>
+    </g>
+    <g transform="translate(780,60)">
+      <rect width="130" height="100" rx="10" fill="#eef4fb" stroke="#1565c0"/>
+      <circle cx="22" cy="22" r="12" fill="#1565c0"/><text x="22" y="26" text-anchor="middle" fill="#fff" font-weight="600">6</text>
+      <text x="12" y="56" font-size="13" font-weight="600" fill="#0d47a1">Probe the bed</text>
+      <text x="12" y="74">where every part</text><text x="12" y="88">used to be</text>
+    </g>
+  </g>
+
+  <!-- flow arrows -->
+  <g stroke="#57606a" stroke-width="2" fill="none" marker-end="url(#a)">
+    <line x1="150" y1="110" x2="170" y2="110"/>
+    <line x1="302" y1="110" x2="322" y2="110"/>
+    <line x1="454" y1="110" x2="474" y2="110"/>
+    <line x1="606" y1="110" x2="626" y2="110"/>
+    <line x1="758" y1="110" x2="778" y2="110"/>
+  </g>
+
+  <!-- retry loop -->
+  <path d="M820,160 V198 H541 V163" stroke="#ef6c00" stroke-width="2" fill="none" marker-end="url(#ao)"/>
+  <text x="680" y="190" font-size="11" font-weight="600" fill="#ef6c00" text-anchor="middle">a part is still there: push it again, lower and harder</text>
+
+  <!-- outcomes -->
+  <line x1="880" y1="160" x2="880" y2="238" stroke="#2e7d32" stroke-width="2" marker-end="url(#ag)"/>
+  <g transform="translate(640,240)">
+    <rect width="270" height="60" rx="10" fill="#e8f5e9" stroke="#2e7d32"/>
+    <text x="16" y="25" font-size="13" font-weight="600" fill="#1b5e20">Bed clear</text>
+    <text x="16" y="44" font-size="11" fill="#57606a">the next queued job starts by itself</text>
+  </g>
+  <line x1="541" y1="198" x2="541" y2="238" stroke="#c62828" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+  <text x="550" y="224" font-size="11" fill="#c62828">after the retries</text>
+  <g transform="translate(330,240)">
+    <rect width="290" height="60" rx="10" fill="#ffebee" stroke="#c62828"/>
+    <text x="16" y="25" font-size="13" font-weight="600" fill="#b71c1c">Still there</text>
+    <text x="16" y="44" font-size="11" fill="#57606a">the queue stops and names the part</text>
+  </g>
+</svg>
