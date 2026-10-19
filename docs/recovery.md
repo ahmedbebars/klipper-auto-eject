@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Recovery
+
 # Recovery after a restart or power loss
 
 A restart, power cut or emergency stop makes Klipper forget two things: where the toolhead is,

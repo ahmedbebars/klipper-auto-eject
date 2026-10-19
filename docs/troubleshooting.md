@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Troubleshooting
+
 # Troubleshooting
 
 ## Errors
@@ -57,12 +59,19 @@ print is reported as thin, the height was not known correctly: pass it from the 
 ### The blade measurement stops
 The dialog names the reason. The usual ones:
 
-- `no block found under the nozzle`: the nozzle came down on the bed. Put the block right under
-  the nozzle.
+- `no block found under the nozzle`: the nozzle came down on the bed. Print the calibration
+  block, or put it right under the nozzle.
+- `the bed is at .. C`: a warm printed block goes soft. Let the bed cool to 55 °C or less.
 - `the blade lower edge is not above the nozzle tip`: the measurement needs the blade 1–2 mm above
-  the tip. Loosen the arm screws, raise the blade and run `AUTO_EJECT_CALIBRATE` again.
-- `the blade never came down on the block`: the blade is not mounted, or reaches further than
-  about 100 mm ahead of the nozzle.
+  the tip. Loosen the arm screws, set the height with the blade gauge and measure again.
+- `the blade never came down on the block`: the blade sits too high above the nozzle tip, or the
+  fan duct reaches the block first. Set the blade 1.5 mm above the tip with the gauge, and use the
+  3.5 mm calibration block.
+- `something other than the blade touched the block`: usually the fan duct. Use the 3.5 mm block.
+- `the block moved while it was measured`: it slid or gave way. Print it with 100 % infill on a
+  50–55 °C bed and measure right after the print, while it is still stuck.
+- `the blade is on the other side of the nozzle`: you chose the wrong drop edge in step 1. Start
+  again and choose the edge the dialog names.
 - `too close to the edge of the bed`: the search needs room behind the block. Put it nearer the
   middle.
 
@@ -83,6 +92,14 @@ That's fine: every setting has a default in `auto_eject.cfg`. Add a line to your
 ### `AUTO_EJECT_SETUP needs a [respond] section`
 Add `[respond]` to `printer.cfg` and run `FIRMWARE_RESTART`. The setup dialogs are sent with
 `RESPOND`.
+
+### The web page does not open
+- `404 Not Found` at `/auto-eject/`: the page is not set up in nginx. Run
+  `~/klipper-auto-eject/install.sh --web` ([web-page.md](web-page.md)).
+- *Moonraker did not let this browser in*: add your network to `trusted_clients` in
+  `moonraker.conf`, as for Mainsail.
+- *The auto-eject macros were not found*: the `[include]` lines are missing from `printer.cfg`.
+- An old version keeps showing after an update: reload the page with Ctrl+F5.
 
 ### The setup dialog does not appear
 Update Mainsail or Fluidd: older versions ignore Klipper's `action:prompt` messages. The console

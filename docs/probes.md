@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Probes
+
 # Probes
 
 The probe is used twice: to **verify** the bed is clear after a sweep, and to find Z when

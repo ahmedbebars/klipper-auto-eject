@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Installation
+
 # Installation
 
 There are three ways to install klipper-auto-eject. All of them end with the same two files in
@@ -9,6 +11,9 @@ your Klipper config folder:
 | `auto_eject_settings.cfg` | Your settings | **Never.** It is yours to edit |
 
 ## Option 1: install script (recommended)
+
+Run these on the printer's computer over SSH. New to SSH? [Getting started, step 4](getting-started.md#4-install-the-macros)
+shows how to connect.
 
 ```bash
 cd ~
@@ -80,7 +85,13 @@ Restart Moonraker afterwards.
 
 ## After installing
 
-- Enable `[exclude_object]` in `printer.cfg`, if it isn't already there.
+- Make sure `printer.cfg` has these sections, and add the ones that are missing:
+  ```ini
+  [exclude_object]
+  [respond]
+  [save_variables]
+  filename: ~/printer_data/config/variables.cfg
+  ```
 - Turn on **Label objects** in your slicer (OrcaSlicer: *Process → Others → Label objects*;
   PrusaSlicer: *Print Settings → Output options → Label objects: Firmware-specific*).
 - Configure the blade: see [hardware.md](hardware.md) and [configuration.md](configuration.md).

@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Slicer setup
+
 # Slicer setup
 
 Every slicer needs three things for auto-eject:

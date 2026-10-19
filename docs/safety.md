@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Safety
+
 # Safety
 
 klipper-auto-eject moves the printer on its own, without anyone watching, and can start the next

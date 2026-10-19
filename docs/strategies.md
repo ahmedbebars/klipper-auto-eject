@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Strategies
+
 # Path strategies
 
 `AUTO_EJECT` turns the part outlines from `[exclude_object]` into a list of pushes. Each push

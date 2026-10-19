@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Web page
+
 # Web page
 
 An **Auto-eject** page for the printer's web interface: what the printer is doing, a map of the
@@ -8,7 +10,7 @@ setting. In Mainsail it gets its own entry in the sidebar.
 
 It is optional. Everything it does can also be done from the console, and it never does
 anything the console could not: every button runs one of the commands from the
-[README](../README.md#commands) or a Moonraker job queue call.
+[command list](commands.md) or a Moonraker job queue call.
 
 **Try it without a printer:** open `web/index.html?demo` from a local web server (see
 [Trying it on a computer](#trying-it-on-a-computer)). The demo printer prints, cools, clears the

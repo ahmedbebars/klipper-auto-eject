@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Guided setup
+
 # Guided setup
 
 `AUTO_EJECT_SETUP` sets everything up in five short dialogs inside Mainsail or Fluidd. You press
@@ -113,14 +115,15 @@ After that, put `AUTO_EJECT HEIGHT=[max_layer_z]` in your slicer's end G-code
 ## Automatic blade measurement
 
 With a probe that touches with the nozzle, such as Voron Tap, anything that pushes the toolhead
-up triggers the probe, the blade included. The wizard uses that to measure the blade against a
-block, for example a 20 mm calibration cube, placed under the nozzle:
+up triggers the probe, the blade included. The wizard uses that to measure the blade against the
+printed calibration block (`hardware/test/calibration_block.stl`, 20 × 20 × 3.5 mm) stuck to the
+bed:
 
 <p align="center"><img src="images/blade-measurement.svg" alt="How the blade is measured" width="900"></p>
 
 1. **The nozzle finds the block:** it touches the top, then steps off the front and rear edges,
    halving the step each time, to find where they are.
-2. **The blade lands on the block:** with the nozzle 6 mm behind the block, only the blade can
+2. **The blade lands on the block:** with the nozzle behind the block, only the blade can
    touch it. The difference to the block height is how far the blade's lower edge sits above the
    nozzle tip (`blade_lift`).
 3. **Step back until the blade misses:** the point where the blade comes off the rear edge gives
@@ -135,9 +138,13 @@ To measure again later, for example after moving the blade in its slots:
 AUTO_EJECT_CALIBRATE
 ```
 
-It saves only `push_z`, `blade_offset` and `blade_lift`. The block must be rigid, 10–30 mm tall and
-10–30 mm deep, with the blade's lower edge above the nozzle tip. If something does not fit, the
-measurement stops and the dialog says why. Nothing is changed until you click **Use these values**.
+It saves only `push_z`, `blade_offset` and `blade_lift`. The block must stay put: print it with
+100 % infill, leave it stuck to the bed, and measure while the bed is still warm (55 °C at most).
+It is low on purpose: on a taller block the fan duct under the toolhead touches it before the
+blade does. The blade's lower edge must be 1–2 mm above the nozzle tip. If something does not
+fit, the measurement stops and the dialog says why
+([troubleshooting](troubleshooting.md#the-blade-measurement-stops)). Nothing is changed until you
+click **Use these values**.
 
 ## Where the values go
 

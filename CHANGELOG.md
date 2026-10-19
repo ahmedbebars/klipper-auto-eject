@@ -18,6 +18,14 @@ All notable changes to this project are documented here. The format is based on
 - `AUTO_EJECT_SET KEY=<setting> VALUE=<value>` changes one setting, checks the value against the
   setting's type and keeps it after a restart. `RESET=1` goes back to the settings file.
 
+### Documentation
+- Rewritten for beginners. A new step-by-step guide (`docs/getting-started.md`) goes from checking
+  the bed to printing in a row, with a check after every step. New pages: FAQ, glossary, every
+  command with its options, and a documentation home (`docs/README.md`) grouped by what you want
+  to do. The README now leads with how it works, who it is for and the eight steps.
+- The blade measurement pages described a 20 mm cube; they now describe the 3.5 mm printed
+  calibration block, and the troubleshooting page lists every reason the measurement can stop.
+
 ## [0.10.5] - 2026-10-19
 
 ### Fixed

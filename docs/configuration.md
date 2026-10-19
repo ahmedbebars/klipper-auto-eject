@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Configuration
+
 # Configuration
 
 Settings come in three layers, each overriding the one before:

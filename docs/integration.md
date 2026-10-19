@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Integration
+
 # Integration
 
 `AUTO_EJECT` must run **while the printer is still homed**, before anything turns the steppers

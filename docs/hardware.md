@@ -1,3 +1,5 @@
+[klipper-auto-eject](../README.md) › [Documentation](README.md) › Hardware
+
 # Hardware: the blade
 
 The blade (or "plow") is a rigid printed part fixed to the toolhead. It pushes the parts,
@@ -110,7 +112,7 @@ layers run along the load.
 
 ### Test parts
 
-[`hardware/test/`](../hardware/test/) has two parts for a first run:
+[`hardware/test/`](../hardware/test/) has three parts for the setup and a first run:
 
 - `test_hollow_cube.stl`: a 25 × 25 × 10 mm square ring with 1.6 mm walls, like a cookie cutter.
   Print two or three and eject them while you watch.
@@ -121,7 +123,7 @@ layers run along the load.
   block well stuck: on sheets that release cold parts, a cooled block can slide.
 - `blade_gauge.stl`: a 1.5 mm strip to set the blade height (assembly step 5).
 
-Both come from `test_parts.scad` if you want other sizes.
+All three come from `test_parts.scad` if you want other sizes.
 
 ### Make your own size
 
@@ -146,8 +148,8 @@ mount, for when you design around one specific toolhead.
 
 ## Measuring
 
-With Voron Tap or another probe that touches with the nozzle, let the printer do it: run
-`AUTO_EJECT_CALIBRATE` with a calibration cube under the nozzle
+With Voron Tap or another probe that touches with the nozzle, let the printer do it: print the
+calibration block, leave it on the bed and run `AUTO_EJECT_CALIBRATE`
 ([setup-wizard.md](setup-wizard.md#automatic-blade-measurement)). Otherwise, measure by hand with the
 hotend cold and the printer homed.
 
