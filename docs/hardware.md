@@ -86,8 +86,11 @@ layers run along the load.
 2. Screw the mount to the front of the toolhead.
 3. Bolt the arm to the mount through the upright's slots. Leave the screws loose.
 4. Bolt the blade's tab under the arm's foot. Leave the screws loose.
-5. Lower the nozzle onto a sheet of paper. Slide the arm until the blade's lower edge is **1–2 mm
-   above the nozzle tip**, and the blade's face is ahead of everything else on the toolhead. Tighten.
+5. Set the blade height with `hardware/test/blade_gauge.stl`, a 1.5 mm strip: home the printer,
+   move the nozzle over an empty part of the bed and down to Z 0.2, slide the gauge under the
+   blade, loosen the arm screws and let the blade rest on the gauge. Tighten. The blade's lower
+   edge now sits **1.5 mm above the nozzle tip**, and its face must be ahead of everything else
+   on the toolhead.
 6. Run `AUTO_EJECT_SETUP`.
 
 ### Example: Voron Trident with Stealthburner
@@ -112,8 +115,10 @@ layers run along the load.
 - `test_hollow_cube.stl`: a 25 × 25 × 10 mm square ring with 1.6 mm walls, like a cookie cutter.
   Print two or three and eject them while you watch.
 - `calibration_block.stl`: a low 20 × 20 × 3.5 mm block for `AUTO_EJECT_CALIBRATE` and the
-  setup. Print it anywhere but the middle of the bed and leave it stuck: the setup finds it and
-  homes around it. It is low so the fan duct under the toolhead cannot reach it.
+  setup. Print it **solid (100 % infill)** anywhere but the middle of the bed and leave it stuck:
+  the setup finds it and homes around it. It is low so the fan duct under the toolhead cannot
+  reach it. Measure once the bed is below 40 °C, when the block is hard.
+- `blade_gauge.stl`: a 1.5 mm strip to set the blade height (assembly step 5).
 
 Both come from `test_parts.scad` if you want other sizes.
 

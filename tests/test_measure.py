@@ -20,11 +20,12 @@ class Rig:
 
     def __init__(self, p, direction="front", offset=25.0, lift=1.5, width=80.0,
                  thickness=3.0, block=(215.0, 215.0, 235.0, 235.0), height=20.0,
-                 duct=None):
+                 duct=None, sink=0.0):
         self.p, self.direction = p, direction
         self.offset, self.lift, self.width, self.thickness = offset, lift, width, thickness
         self.block, self.height = block, height
         self.duct = duct            # (half size, height above the tip) of the fan duct
+        self.sink = sink            # mm a soft block gives way at every touch
         p.under_probe = self.surface
 
     def blade_box(self, x, y):
@@ -36,6 +37,8 @@ class Rig:
 
     def surface(self, x, y):
         bx0, by0, bx1, by1 = self.block
+        if self.sink and bx0 <= x <= bx1 and by0 <= y <= by1:
+            self.height -= self.sink
         nozzle = self.height if bx0 <= x <= bx1 and by0 <= y <= by1 else 0.0
         f = self.blade_box(x, y)
         on = f[0] < bx1 and f[2] > bx0 and f[1] < by1 and f[3] > by0
@@ -54,6 +57,7 @@ def make(position=(226.5, 223.8, 50.0), probe_offset=(0.0, 0.0), **settings):
                   save_variables={}, exclude_object_section=True,
                   probe={"x_offset": probe_offset[0], "y_offset": probe_offset[1],
                          "z_offset": Z_OFFSET})
+    p.status["heater_bed"]["temperature"] = 25.0
     return p
 
 
@@ -135,7 +139,7 @@ def test_error_stops_all_later_probing():
     p = make(position=(100.0, 100.0, 50.0))
     Rig(p)
     measure(p)
-    assert [l for l in p.executed if l.startswith("PROBE")] == ["PROBE"]
+    assert [l for l in p.executed if l.startswith("PROBE")] == ["PROBE SAMPLES=1"]
 
 
 # ------------------------------------------------------------------ wizard
@@ -271,3 +275,27 @@ def test_setup_goes_to_the_printed_block_and_homes_around_it():
     cal = p.status["gcode_macro _AUTO_EJECT_CAL"]
     assert cal["error"] == ""
     assert cal["offset"] == pytest.approx(60.0, abs=0.7)
+
+
+def test_warm_bed_is_refused():
+    p = make()
+    p.status["heater_bed"]["temperature"] = 52.0
+    Rig(p, height=3.5)
+    cal = measure(p)
+    assert "below 40 C" in cal["error"]
+    assert not any(l.startswith("PROBE") for l in p.executed)
+
+
+def test_block_that_gives_way_is_caught():
+    p = make()
+    Rig(p, offset=60.0, height=3.5, sink=0.06)        # soft, sparse block
+    cal = measure(p)
+    assert "gave way" in cal["error"]
+
+
+def test_only_single_taps_are_used():
+    p = make()
+    Rig(p, offset=60.0, height=3.5)
+    measure(p)
+    probes = [l for l in p.executed if l.startswith("PROBE")]
+    assert probes and all(l == "PROBE SAMPLES=1" for l in probes)

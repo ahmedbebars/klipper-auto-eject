@@ -9,7 +9,9 @@ AUTO_EJECT_SETUP
 
 > **In short** (Voron Tap, parts falling off the front):
 >
-> 1. Print `hardware/test/calibration_block.stl` away from the middle of the bed. Leave it there.
+> 1. Set the blade 1.5 mm above the nozzle tip with `hardware/test/blade_gauge.stl`. Print
+>    `hardware/test/calibration_block.stl` with 100 % infill, away from the middle of the bed,
+>    leave it there and let the bed cool below 40 °C.
 > 2. Run `AUTO_EJECT_SETUP` and press **Start**, then **Front**.
 > 3. Clear everything else off the bed and press **Bed is clear - move**. The toolhead goes to the
 >    block by itself. Press **Measure** and wait 2–3 minutes, then **Next**.
