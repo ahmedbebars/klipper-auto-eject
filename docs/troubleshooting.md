@@ -48,6 +48,18 @@ might still be. Check the bed by hand and run `AUTO_EJECT_CLEAR`. Spacing parts 
 Your probe senses the metal bed through plastic. Set `verify_probe_gcode` to its contact/touch
 command if it has one ([probes.md](probes.md)).
 
+### The blade measurement stops
+The dialog names the reason. The usual ones:
+
+- `no block found under the nozzle`: the nozzle came down on the bed. Put the block right under
+  the nozzle.
+- `the blade lower edge is not above the nozzle tip`: the measurement needs the blade 1–2 mm above
+  the tip. Loosen the arm screws, raise the blade and run `AUTO_EJECT_CALIBRATE` again.
+- `the blade never came down on the block`: the blade is not mounted, or reaches further than
+  about 100 mm ahead of the nozzle.
+- `too close to the edge of the bed`: the search needs room behind the block. Put it nearer the
+  middle.
+
 ### The setup stops after the first click
 Update. Versions before 0.5.0 called the setup macro from inside itself, which Klipper refuses
 (`Macro AUTO_EJECT_SETUP called recursively`).

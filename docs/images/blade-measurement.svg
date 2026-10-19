@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 330" width="950" height="330" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1565c0"/>
+    </marker>
+    <marker id="down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c62828"/>
+    </marker>
+    <!-- one toolhead, drawn around the nozzle tip at (0,0); blade 62 ahead, edge 10 above the tip -->
+    <g id="head">
+      <rect x="-20" y="-100" width="70" height="66" rx="8" fill="#37474f"/>
+      <rect x="-62" y="-80" width="42" height="8" fill="#ef6c00"/>
+      <rect x="-62" y="-80" width="8" height="70" fill="#ef6c00"/>
+      <rect x="-12" y="-34" width="24" height="14" rx="2" fill="#b0bec5"/>
+      <polygon points="-7,-20 7,-20 1.5,0 -1.5,0" fill="#c9a227"/>
+    </g>
+  </defs>
+
+  <rect x="0" y="0" width="950" height="330" rx="12" fill="#ffffff"/>
+  <text x="20" y="28" font-size="16" font-weight="600" fill="#24292f">AUTO_EJECT_CALIBRATE: side view, parts fall off to the left</text>
+
+  <!-- ============================================================ panel 1 -->
+  <g transform="translate(15,45)">
+    <rect x="0" y="0" width="300" height="270" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
+    <text x="14" y="24" font-size="13" font-weight="600" fill="#24292f">1 · The nozzle finds the block</text>
+    <text x="14" y="42" font-size="11" fill="#57606a">its top, front edge and rear edge</text>
+    <line x1="10" y1="210" x2="290" y2="210" stroke="#455a64" stroke-width="3"/>
+    <rect x="120" y="160" width="50" height="50" fill="#9e9e9e"/>
+    <use href="#head" transform="translate(145,160)"/>
+    <circle cx="145" cy="160" r="4" fill="#c62828"/>
+    <line x1="113" y1="138" x2="113" y2="156" stroke="#c62828" stroke-width="2" marker-end="url(#down)"/>
+    <line x1="177" y1="138" x2="177" y2="156" stroke="#c62828" stroke-width="2" marker-end="url(#down)"/>
+    <text x="100" y="232" font-size="11" fill="#57606a" text-anchor="middle">front</text>
+    <text x="190" y="232" font-size="11" fill="#57606a" text-anchor="middle">rear</text>
+    <text x="145" y="252" font-size="11" fill="#57606a" text-anchor="middle">touch on top · miss just past each edge</text>
+  </g>
+
+  <!-- ============================================================ panel 2 -->
+  <g transform="translate(325,45)">
+    <rect x="0" y="0" width="300" height="270" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
+    <text x="14" y="24" font-size="13" font-weight="600" fill="#24292f">2 · The blade lands on the block</text>
+    <text x="14" y="42" font-size="11" fill="#57606a">nozzle behind it, so only the blade can touch</text>
+    <line x1="10" y1="210" x2="290" y2="210" stroke="#455a64" stroke-width="3"/>
+    <rect x="120" y="160" width="50" height="50" fill="#9e9e9e"/>
+    <use href="#head" transform="translate(185,170)"/>
+    <circle cx="127" cy="160" r="4" fill="#c62828"/>
+    <line x1="196" y1="160" x2="250" y2="160" stroke="#1565c0" stroke-dasharray="3 3"/>
+    <line x1="190" y1="170" x2="250" y2="170" stroke="#1565c0" stroke-dasharray="3 3"/>
+    <line x1="244" y1="146" x2="244" y2="159" stroke="#1565c0" stroke-width="1.5" marker-end="url(#ah)"/>
+    <line x1="244" y1="184" x2="244" y2="171" stroke="#1565c0" stroke-width="1.5" marker-end="url(#ah)"/>
+    <text x="254" y="169" font-size="12" font-weight="600" fill="#1565c0">lift</text>
+    <text x="150" y="240" font-size="11" fill="#57606a" text-anchor="middle">blade_lift = block top − nozzle height</text>
+    <text x="150" y="256" font-size="11" fill="#57606a" text-anchor="middle">at the moment the blade touches</text>
+  </g>
+
+  <!-- ============================================================ panel 3 -->
+  <g transform="translate(635,45)">
+    <rect x="0" y="0" width="300" height="270" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
+    <text x="14" y="24" font-size="13" font-weight="600" fill="#24292f">3 · Step back until the blade misses</text>
+    <text x="14" y="42" font-size="11" fill="#57606a">the blade face is then at the rear edge</text>
+    <line x1="10" y1="210" x2="290" y2="210" stroke="#455a64" stroke-width="3"/>
+    <rect x="120" y="160" width="50" height="50" fill="#9e9e9e"/>
+    <use href="#head" transform="translate(232,200)"/>
+    <line x1="170" y1="190" x2="170" y2="232" stroke="#1565c0" stroke-dasharray="3 3"/>
+    <line x1="232" y1="200" x2="232" y2="232" stroke="#1565c0" stroke-dasharray="3 3"/>
+    <line x1="172" y1="228" x2="230" y2="228" stroke="#1565c0" stroke-width="1.5" marker-start="url(#ah)" marker-end="url(#ah)"/>
+    <text x="201" y="248" font-size="12" font-weight="600" fill="#1565c0" text-anchor="middle">blade_offset</text>
+    <text x="150" y="264" font-size="11" fill="#57606a" text-anchor="middle">found by halving the step, ±0.5 mm</text>
+  </g>
+</svg>

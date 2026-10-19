@@ -27,12 +27,16 @@ without quotes. Run `FIRMWARE_RESTART` after editing.
 
 ## Blade geometry
 
-Measure these after mounting the blade. See [hardware.md](hardware.md#measuring).
+Measure these after mounting the blade, with `AUTO_EJECT_SETUP` or by hand
+([hardware.md](hardware.md#measuring)). With Voron Tap, `AUTO_EJECT_CALIBRATE` measures them for you
+([setup-wizard.md](setup-wizard.md#automatic-blade-measurement)).
 
 | Setting | Default | Description |
 |---|---|---|
 | `blade_offset` | `20.0` | Distance from the nozzle to the blade's pushing face, along the push direction, in mm. Positive means the blade is ahead of the nozzle |
 | `blade_width` | `80.0` | Blade width across the push direction, in mm, centred on the nozzle |
+| `blade_lift` | `"unknown"` | Height of the blade's lower edge above the nozzle tip, in mm. Set by `AUTO_EJECT_CALIBRATE`. Retries use it so a blade hanging below the nozzle never drags on the bed |
+| `blade_clearance` | `1.0` | Where `AUTO_EJECT_CALIBRATE` puts the blade's lower edge while pushing, in mm above the bed. The nozzle never goes below `push_z_min` |
 | `column_overlap` | `15.0` | Overlap between neighbouring lanes (`columns` / `full_width`) |
 | `head_depth` | `40.0` | Toolhead depth behind the blade. `objects` uses it to check there is room to lower the blade |
 | `side_margin` | `5.0` | Extra side margin for that check |

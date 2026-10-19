@@ -3,11 +3,11 @@
 The probe is used twice: to **verify** the bed is clear after a sweep, and to find Z when
 **homing around parts** (`AUTO_EJECT HOME=1`). How well each works depends on the probe.
 
-| Probe | Examples | Verify the bed | Smart homing |
-|---|---|:-:|:-:|
-| **Nozzle contact** | Voron Tap, load cells | ✅ | ✅ |
-| **Offset contact** | BLTouch, CR Touch, Klicky, inductive | ✅ The nozzle is kept clear of parts (below) | ✅ Probe **and** nozzle spot both kept clear |
-| **Eddy current** | BTT Eddy, Beacon, Cartographer, Eddy-NG | ⚠️ **Only with a contact/touch mode** | ✅ Mainline `probe_eddy_current`, or your own command |
+| Probe | Examples | Verify the bed | Smart homing | Measure the blade |
+|---|---|:-:|:-:|:-:|
+| **Nozzle contact** | Voron Tap, load cells | ✅ | ✅ | ✅ `AUTO_EJECT_CALIBRATE` |
+| **Offset contact** | BLTouch, CR Touch, Klicky, inductive | ✅ The nozzle is kept clear of parts (below) | ✅ Probe **and** nozzle spot both kept clear | By hand in the setup |
+| **Eddy current** | BTT Eddy, Beacon, Cartographer, Eddy-NG | ⚠️ **Only with a contact/touch mode** | ✅ Mainline `probe_eddy_current`, or your own command | By hand in the setup |
 
 `AUTO_EJECT_SETUP` shows which kind it detected on its first screen.
 

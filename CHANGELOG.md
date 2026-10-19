@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-19
+
+### Added
+- Automatic blade measurement for probes that touch with the nozzle, such as Voron Tap:
+  `AUTO_EJECT_CALIBRATE`, and a "Measure automatically" choice in `AUTO_EJECT_SETUP`. The probe
+  touches a calibration cube with the nozzle, then with the blade, and finds the blade's height
+  above the nozzle tip (`blade_lift`) and its distance ahead of the nozzle (`blade_offset`).
+  `push_z` follows from `blade_clearance`.
+- Retries never lower a blade that hangs below the nozzle closer than 0.2 mm to the bed, when
+  `blade_lift` is known.
+- `docs/images/blade-measurement.svg`.
+
 ## [0.6.0] - 2026-10-19
 
 ### Added
@@ -98,7 +110,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.1...v0.4.0

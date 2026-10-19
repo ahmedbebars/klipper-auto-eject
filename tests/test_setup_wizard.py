@@ -8,7 +8,8 @@ from klipper_sim import MacroError, Printer
 
 DIALOG_STEPS = ["start", "direction", "surface", "surface_no", "prepare",
                 "height", "offset_intro", "offset_blade", "offset_nozzle",
-                "width", "edge", "edge_check", "edge_no", "summary", "done"]
+                "width", "edge", "edge_check", "edge_no", "summary", "done",
+                "cal_prepare", "measure", "auto_intro", "auto_result", "cal_save"]
 
 
 def params_of(line):
@@ -232,6 +233,7 @@ def test_whole_wizard_can_be_clicked_through(p):
         ("Front", "2 of 8"),
         ("It slides off", "3 of 8"),
         ("Bed is clear - move", "4 of 8"),
+        ("Measure by hand", "4 of 8"),
         ("Z -1", "4 of 8"),
         ("Save this height", "5 of 8"),
         ("Block is in place", "5 of 8"),

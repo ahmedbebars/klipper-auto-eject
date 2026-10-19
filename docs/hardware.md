@@ -113,7 +113,10 @@ mount, for when you design around one specific toolhead.
 
 ## Measuring
 
-Do this with the hotend cold and the printer homed.
+With Voron Tap or another probe that touches with the nozzle, let the printer do it: run
+`AUTO_EJECT_CALIBRATE` with a calibration cube under the nozzle
+([setup-wizard.md](setup-wizard.md#automatic-blade-measurement)). Otherwise, measure by hand with the
+hotend cold and the printer homed.
 
 1. **`blade_offset`:** move the nozzle to the centre of the bed and lower it to Z=5. Measure
    along the push axis from the nozzle tip to the blade's pushing face. Positive means the face

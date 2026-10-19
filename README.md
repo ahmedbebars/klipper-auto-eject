@@ -57,6 +57,9 @@ the next print never lands on top of a leftover part.
 - **Guided setup in Mainsail/Fluidd:** `AUTO_EJECT_SETUP` opens step-by-step dialogs. Jog the
   toolhead with buttons, and the blade height and offset are measured and saved for you. No config
   editing and no ruler. See [docs/setup-wizard.md](docs/setup-wizard.md).
+- **Measures the blade by itself with Voron Tap:** the nozzle probe touches a calibration cube with
+  the nozzle, then with the blade, and works out the blade's height above the nozzle tip and its
+  distance ahead of the nozzle to a fraction of a millimetre (`AUTO_EJECT_CALIBRATE`).
 - **Survives restarts and power cuts:** part outlines and print height are saved while printing.
   `AUTO_EJECT HOME=1` homes Z on a free spot so a part is never mistaken for the bed, and
   `AUTO_EJECT_GUARD` stops a new print from landing on old parts. See [docs/recovery.md](docs/recovery.md).
@@ -138,6 +141,7 @@ Prefer editing files? Every setting is also in `auto_eject_settings.cfg`
 | Command | What it does |
 |---|---|
 | `AUTO_EJECT_SETUP` | Guided setup in Mainsail/Fluidd dialogs |
+| `AUTO_EJECT_CALIBRATE` | Measure the blade again with a nozzle probe (Voron Tap), e.g. after moving it |
 | `AUTO_EJECT HOME=1` | After a restart: home safely around the parts, then eject |
 | `AUTO_EJECT_GUARD` | First line of the start G-code: never print on top of old parts |
 | `AUTO_EJECT_CLEAR` | Parts removed by hand: forget them |
