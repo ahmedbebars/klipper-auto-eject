@@ -20,12 +20,14 @@ class Rig:
 
     def __init__(self, p, direction="front", offset=25.0, lift=1.5, width=80.0,
                  thickness=3.0, block=(215.0, 215.0, 235.0, 235.0), height=20.0,
-                 duct=None, sink=0.0):
+                 duct=None, sink=0.0, slide=None):
         self.p, self.direction = p, direction
         self.offset, self.lift, self.width, self.thickness = offset, lift, width, thickness
         self.block, self.height = block, height
         self.duct = duct            # (half size, height above the tip) of the fan duct
         self.sink = sink            # mm a soft block gives way at every touch
+        self.slide = slide          # (touches, mm): a loose block slides back after that many
+        self.touches = 0
         p.under_probe = self.surface
 
     def blade_box(self, x, y):
@@ -39,6 +41,11 @@ class Rig:
         bx0, by0, bx1, by1 = self.block
         if self.sink and bx0 <= x <= bx1 and by0 <= y <= by1:
             self.height -= self.sink
+        if self.slide and bx0 - 3 <= x <= bx1 + 3 and by0 - 3 <= y <= by1 + 3:
+            self.touches += 1
+            if self.touches == self.slide[0]:
+                self.block = (bx0, by0 + self.slide[1], bx1, by1 + self.slide[1])
+                bx0, by0, bx1, by1 = self.block
         nozzle = self.height if bx0 <= x <= bx1 and by0 <= y <= by1 else 0.0
         f = self.blade_box(x, y)
         on = f[0] < bx1 and f[2] > bx0 and f[1] < by1 and f[3] > by0
@@ -279,10 +286,10 @@ def test_setup_goes_to_the_printed_block_and_homes_around_it():
 
 def test_warm_bed_is_refused():
     p = make()
-    p.status["heater_bed"]["temperature"] = 52.0
+    p.status["heater_bed"]["temperature"] = 62.0
     Rig(p, height=3.5)
     cal = measure(p)
-    assert "below 40 C" in cal["error"]
+    assert "55 C or less" in cal["error"]
     assert not any(l.startswith("PROBE") for l in p.executed)
 
 
@@ -299,3 +306,19 @@ def test_only_single_taps_are_used():
     measure(p)
     probes = [l for l in p.executed if l.startswith("PROBE")]
     assert probes and all(l == "PROBE SAMPLES=1" for l in probes)
+
+
+def test_block_sliding_under_the_nozzle_is_named():
+    # a loose block pushed 10 mm back by the edge search ends up under the
+    # nozzle when the blade is searched: that is not a blade problem
+    p = make()
+    Rig(p, offset=75.0, lift=1.3, height=3.5, slide=(9, 10.0))
+    cal = measure(p)
+    assert "block moved" in cal["error"]
+
+
+def test_warm_bed_up_to_55_is_fine():
+    p = make()
+    p.status["heater_bed"]["temperature"] = 54.0
+    Rig(p, offset=60.0, height=3.5)
+    assert measure(p)["error"] == ""

@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-10-19
+
+### Fixed
+- On build sheets that release cold parts (such as BIQU CryoGrip), a calibration block on a
+  bed below 40 °C was not stuck well, and the edge search pushed it back. The block then ended
+  up under the nozzle and the blade was reported as level with the nozzle tip. The measurement
+  now runs on a warm bed (up to 55 °C) right after the block is printed, checks the block's
+  front edge again at the end, and says plainly when the block moved.
+
 ## [0.10.3] - 2026-10-19
 
 ### Fixed
@@ -200,7 +209,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.3...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.4...HEAD
+[0.10.4]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.0...v0.10.1

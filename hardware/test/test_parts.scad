@@ -11,7 +11,8 @@
 //                      there. It must stay lower than the fan duct, which sits
 //                      only a few millimetres above the nozzle tip.
 //                      Print it SOLID (100 % infill): the probe presses on it
-//                      dozens of times. Measure once the bed is below 40 C.
+//                      dozens of times. Measure right after the print, with
+//                      the bed still warm (55 C at most) so it stays stuck.
 //
 // Copyright (C) 2026 Ahmed Bebars
 // This file may be distributed under the terms of the GNU GPLv3 license.

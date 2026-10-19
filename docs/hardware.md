@@ -117,7 +117,8 @@ layers run along the load.
 - `calibration_block.stl`: a low 20 × 20 × 3.5 mm block for `AUTO_EJECT_CALIBRATE` and the
   setup. Print it **solid (100 % infill)** anywhere but the middle of the bed and leave it stuck:
   the setup finds it and homes around it. It is low so the fan duct under the toolhead cannot
-  reach it. Measure once the bed is below 40 °C, when the block is hard.
+  reach it. Measure right after the print, while the bed is still warm (55 °C at most) and the
+  block well stuck: on sheets that release cold parts, a cooled block can slide.
 - `blade_gauge.stl`: a 1.5 mm strip to set the blade height (assembly step 5).
 
 Both come from `test_parts.scad` if you want other sizes.
