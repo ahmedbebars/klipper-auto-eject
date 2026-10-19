@@ -170,7 +170,7 @@ def test_home_probes_far_from_parts_and_fixes_z(p):
     p.execute("_AUTO_EJECT_CAPTURE")
     restart(p)
     p.frame_shift = 123.0           # Z position is unknown after the restart
-    lines = p.execute("_AUTO_EJECT_HOME")
+    lines = [l for l in p.execute("_AUTO_EJECT_HOME") if not l.startswith("SET_GCODE_VARIABLE")]
     assert lines[0] == "G28 X Y"
     probe_xy = [words(l) for l in lines if l.startswith("G1") and "X" in words(l)][0]
     for _name, x0, x1, y0, y1, *_ in state(p)["objects"]:
@@ -184,7 +184,7 @@ def test_home_without_free_spot_refuses(p):
     p.set_objects([("plate", rect(0, 0, 450, 450))])
     p.execute("_AUTO_EJECT_CAPTURE")
     restart(p)
-    with pytest.raises(MacroError, match="no free spot"):
+    with pytest.raises(MacroError, match="no spot where both"):
         p.execute("_AUTO_EJECT_HOME")
 
 
@@ -196,7 +196,8 @@ def test_home_refuses_with_z_switch(p):
 
 def test_home_g28_method(p):
     p.status["gcode_macro _AUTO_EJECT_SETTINGS"]["home_method"] = "g28"
-    assert p.execute("_AUTO_EJECT_HOME") == ["G28"]
+    lines = [l for l in p.execute("_AUTO_EJECT_HOME") if not l.startswith("SET_GCODE_VARIABLE")]
+    assert lines == ["G28"]
 
 
 def test_home_needs_force_move(p):

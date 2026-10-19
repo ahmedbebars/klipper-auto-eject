@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-19
+
+### Added
+- Probe detection (`probe_type`): contact probes vs eddy-current probes (`probe_eddy_current`,
+  `beacon`, `cartographer`, `scanner`, `probe_eddy_ng`), shown on the setup welcome screen.
+- Offset probes: smart homing keeps both the probe and the nozzle clear of parts. Verification
+  never lowers the nozzle over a part that is not yet confirmed gone, and orders the checks so
+  that each part is reachable (`nozzle_clearance`, `verify_unsafe_action`).
+- Eddy-current probes: verification uses `verify_probe_gcode` (contact/touch mode), or is skipped
+  with a warning. `home_z_gcode` for probes that home Z with their own command.
+- `docs/probes.md`.
+
+### Fixed
+- The guided setup called itself to move between steps, which Klipper refuses
+  (`Macro AUTO_EJECT_SETUP called recursively`), so it stopped after the first click. Steps now hand
+  over through a `delayed_gcode`. The test harness now enforces Klipper's recursion rule and
+  clicks through the whole setup.
+
 ## [0.4.0] - 2026-10-19
 
 ### Added
@@ -64,7 +82,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.2.0...v0.3.0

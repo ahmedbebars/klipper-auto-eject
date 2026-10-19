@@ -97,6 +97,18 @@ Choose `push_current` so that a part that won't move makes the motor skip. Start
 The probe's `x_offset`/`y_offset` are applied, so BLTouch-style probes probe at the right spot.
 Points the toolhead cannot reach are skipped.
 
+## Probe
+
+| Setting | Default | Description |
+|---|---|---|
+| `probe_type` | `"auto"` | `"auto"` detects `[probe]`/`[bltouch]` as **contact**, and `probe_eddy_current`, `beacon`, `cartographer`, `scanner` and `probe_eddy_ng` as **eddy**. Set `"contact"` or `"eddy"` to override |
+| `verify_probe_gcode` | `"PROBE"` | Command run at each verification point. Eddy probes need their contact/touch command here, otherwise verification is skipped with a warning |
+| `home_z_gcode` | `"PROBE"` | Command `AUTO_EJECT HOME=1` uses to find Z at the chosen spot. With `"PROBE"`, Z is set from the probe result. Any other command must home Z by itself at the current XY |
+| `nozzle_clearance` | `5.0` | Offset probes: while probing, the nozzle stays at least this far from where any part was |
+| `verify_unsafe_action` | `"error"` | A part that cannot be probed without the nozzle passing over a part: `"error"` stops, `"skip"` warns |
+
+See [probes.md](probes.md) for how offset and eddy-current probes are handled.
+
 ## Recovery
 
 | Setting | Default | Description |

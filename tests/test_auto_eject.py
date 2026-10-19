@@ -99,7 +99,7 @@ def test_dry_run_never_lowers_or_changes_current(printer):
     text = "\n".join(lines)
     assert "SET_TMC_CURRENT" not in text
     assert "TEMPERATURE_WAIT" not in text
-    assert "PROBE" not in text
+    assert "PROBE" not in lines
     zs = [words(l)["Z"] for l in lines if l.startswith("G1") and "Z" in words(l)]
     assert min(zs) >= 20.0
 
@@ -158,6 +158,7 @@ def test_push_end_override():
 # ------------------------------------------------------------- verification
 def test_verify_outline_probes_three_points_per_part(printer):
     printer.set_machine(probe={"x_offset": 0.0, "y_offset": 0.0, "z_offset": -0.3})
+    printer.execute("_AUTO_EJECT_PROBE_INFO")
     printer.execute("_AUTO_EJECT_CAPTURE")
     lines = printer.execute("_AUTO_EJECT_VERIFY")
     assert lines.count("PROBE") == 6
@@ -167,21 +168,26 @@ def test_verify_outline_probes_three_points_per_part(printer):
 def test_verify_applies_probe_offset(printer):
     printer.set_machine(probe={"x_offset": 30.0, "y_offset": 0.0, "z_offset": 2.0})
     printer.status["gcode_macro _AUTO_EJECT_SETTINGS"]["verify_points"] = "center"
+    printer.execute("_AUTO_EJECT_PROBE_INFO")
     printer.execute("_AUTO_EJECT_CAPTURE")
     lines = printer.execute("_AUTO_EJECT_VERIFY")
     moves = [words(l) for l in lines if l.startswith("G1") and "X" in words(l)]
-    assert moves[0]["X"] == pytest.approx(130 - 30)
+    # probing the centre (130) would put the nozzle at X=100, over the part,
+    # so a corner is used instead: probe at 101, nozzle at 71
+    assert moves[0]["X"] == pytest.approx(101 - 30)
 
 
 def test_verify_skipped_without_probe(printer):
+    printer.execute("_AUTO_EJECT_PROBE_INFO")
     printer.execute("_AUTO_EJECT_CAPTURE")
     lines = printer.execute("_AUTO_EJECT_VERIFY")
     assert "PROBE" not in lines
-    assert any("bed check skipped" in m for m in printer.messages)
+    assert any("NOT verified" in m for m in printer.messages)
 
 
 def test_check_raises_when_part_left(printer):
     printer.set_machine(probe={"x_offset": 0.0, "y_offset": 0.0, "z_offset": -0.3})
+    printer.execute("_AUTO_EJECT_PROBE_INFO")
     printer.status["probe"]["last_z_result"] = 14.0
     with pytest.raises(MacroError, match="STILL ON THE BED"):
         printer.render("_AUTO_EJECT_CHECK", NAME="front_part")
@@ -189,6 +195,7 @@ def test_check_raises_when_part_left(printer):
 
 def test_check_passes_on_empty_bed(printer):
     printer.set_machine(probe={"x_offset": 0.0, "y_offset": 0.0, "z_offset": 2.5})
+    printer.execute("_AUTO_EJECT_PROBE_INFO")
     printer.status["probe"]["last_z_result"] = 2.6
     printer.render("_AUTO_EJECT_CHECK", NAME="front_part")
 

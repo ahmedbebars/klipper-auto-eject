@@ -40,8 +40,12 @@ class Printer:
         self.cfg = load_config("auto_eject.cfg", "auto_eject_settings.cfg")
         self.env = jinja2.Environment("{%", "%}", "{", "}")
         self.macros = {}
+        self.delayed = {}
         self.status = {}
         for section in self.cfg.sections():
+            if section.startswith("delayed_gcode "):
+                self.delayed[section.split(None, 1)[1].upper()] = self.cfg.get(section, "gcode")
+                continue
             if not section.startswith("gcode_macro "):
                 continue
             name = section.split(None, 1)[1]
@@ -136,12 +140,36 @@ class Printer:
         rendering nested macros only when they are reached. Returns the
         non-macro commands that were run, in order."""
         self.executed = []
+        self.active = set()
+        self.pending = []
         self._run_macro(macro.upper(), {k.upper(): str(v) for k, v in params.items()},
                         " ".join("%s=%s" % kv for kv in params.items()))
+        # delayed_gcode timers fire once the current command has finished
+        for _ in range(100):
+            if not self.pending:
+                break
+            name = self.pending.pop(0)
+            self._run_template(self.delayed[name], {}, "")
         return self.executed
 
+    def run_gcode(self, line):
+        """Run one console line (e.g. a dialog button's G-code)."""
+        cmd, _, raw = line.partition(" ")
+        params = dict(a.split("=", 1) for a in shlex.split(raw)) if raw else {}
+        return self.execute(cmd, **params)
+
     def _run_macro(self, name, params, raw):
-        tmpl = self.env.from_string(self.macros[name])
+        # Klipper: "Macro %s called recursively"
+        if name in self.active:
+            raise MacroError("Macro %s called recursively" % name)
+        self.active.add(name)
+        try:
+            self._run_template(self.macros[name], params, raw)
+        finally:
+            self.active.discard(name)
+
+    def _run_template(self, source, params, raw):
+        tmpl = self.env.from_string(source)
         text = tmpl.render({
             "printer": self.status,
             "params": params,
@@ -198,6 +226,10 @@ class Printer:
             th["homed_axes"] = "xyz"
         elif cmd == "PROBE":
             self.on_probe()
+        elif cmd == "UPDATE_DELAYED_GCODE":
+            p = dict(a.split("=", 1) for a in shlex.split(raw))
+            if float(p.get("DURATION", 0)) > 0:
+                self.pending.append(p["ID"].upper())
 
     def on_probe(self, _printer=None):
         """Probe down to whatever is under it: the bed, or a part of height

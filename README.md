@@ -62,7 +62,8 @@ so the next print never lands on top of a leftover part.
 - **Three cooling modes:** wait for a bed temperature, wait a fixed time, or don't wait.
 - **Reduced motor current while pushing,** detected automatically for TMC2130/2208/2209/2240/2660/5160/5262.
 - **Probe verification** with Tap, BLTouch or any `[probe]`, including hollow parts such as
-  cookie cutters (`outline` mode).
+  cookie cutters (`outline` mode). Offset probes never lower the nozzle onto a part, and eddy-current
+  probes are detected and handled ([docs/probes.md](docs/probes.md)).
 - **`EJECT_PURGE`:** a tall purge pellet placed where the sweep removes it, instead of a thin
   purge line that builds up on the bed.
 - **Dry-run mode** (`AUTO_EJECT DRY=1`) traces the whole path at a safe height.
@@ -166,6 +167,7 @@ ends in an error state and Moonraker **does not** start the next job. Details fo
 | [Guided setup](docs/setup-wizard.md) | The `AUTO_EJECT_SETUP` dialogs, step by step |
 | [Configuration](docs/configuration.md) | Every setting explained |
 | [Strategies](docs/strategies.md) | How each path strategy calculates the sweep |
+| [Probes](docs/probes.md) | Offset probes (BLTouch …) and eddy-current probes (Eddy, Beacon, Cartographer) |
 | [Recovery](docs/recovery.md) | Restarts, power loss, smart homing and the start guard |
 | [Slicer setup](docs/slicer-setup.md) | Start/end G-code for OrcaSlicer, PrusaSlicer, SuperSlicer and Cura |
 | [Integration](docs/integration.md) | Print end hooks, job queue, purge pellet, slicer settings |

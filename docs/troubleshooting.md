@@ -36,6 +36,19 @@ The probe found something at a part position after the sweep.
 - False alarm: `verify_threshold` is too low for your probe's noise, or the probe triggered on
   the edge of a dent or a leftover purge line.
 
+### `could not probe ... without the nozzle passing over a part`
+With an offset probe, some part could not be checked without lowering the nozzle where a part
+might still be. Check the bed by hand and run `AUTO_EJECT_CLEAR`. Spacing parts further apart, or
+`verify_points: "center"`, usually avoids it. See [probes.md](probes.md).
+
+### `WARNING - eddy-current probes cannot see plastic parts`
+Your probe senses the metal bed through plastic. Set `verify_probe_gcode` to its contact/touch
+command if it has one ([probes.md](probes.md)).
+
+### The setup stops after the first click
+Update. Versions before 0.5.0 called the setup macro from inside itself, which Klipper refuses
+(`Macro AUTO_EJECT_SETUP called recursively`).
+
 ### `EJECT_PURGE: [extruder] max_extrude_cross_section must be at least ...`
 Raise `max_extrude_cross_section` in `[extruder]` to the value shown, or lower `purge_length` /
 raise `purge_height`.

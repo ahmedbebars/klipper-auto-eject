@@ -25,6 +25,8 @@ print. Read this page before relying on it.
 - **Keep the drop zone clear,** and make sure the box cannot overflow back onto the bed.
 - **Check the blade after crashes.** A bent blade changes its height and offset.
 - **Re-measure after toolhead changes:** a new nozzle, hotend or probe changes the geometry.
+- **Eddy-current probes cannot see plastic.** Without a contact/touch command in
+  `verify_probe_gcode`, the bed is not verified ([probes.md](probes.md)).
 - **Verification has limits.** Three outline points can miss a part that was pushed partly off
   and rotated, and `center` mode cannot see hollow parts. Thin, flat leftovers (under
   `verify_threshold`) are not detected.
