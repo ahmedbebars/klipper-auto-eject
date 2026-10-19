@@ -19,10 +19,12 @@ class Rig:
     """
 
     def __init__(self, p, direction="front", offset=25.0, lift=1.5, width=80.0,
-                 thickness=3.0, block=(215.0, 215.0, 235.0, 235.0), height=20.0):
+                 thickness=3.0, block=(215.0, 215.0, 235.0, 235.0), height=20.0,
+                 duct=None):
         self.p, self.direction = p, direction
         self.offset, self.lift, self.width, self.thickness = offset, lift, width, thickness
         self.block, self.height = block, height
+        self.duct = duct            # (half size, height above the tip) of the fan duct
         p.under_probe = self.surface
 
     def blade_box(self, x, y):
@@ -38,7 +40,12 @@ class Rig:
         f = self.blade_box(x, y)
         on = f[0] < bx1 and f[2] > bx0 and f[1] < by1 and f[3] > by0
         blade = (self.height if on else 0.0) - self.lift
-        return max(nozzle, blade)
+        duct = 0.0
+        if self.duct:
+            r, h = self.duct
+            if x - r < bx1 and x + r > bx0 and y - r < by1 and y + r > by0:
+                duct = self.height - h
+        return max(nozzle, blade, duct)
 
 
 def make(position=(226.5, 223.8, 50.0), probe_offset=(0.0, 0.0), **settings):
@@ -213,3 +220,54 @@ def test_no_expression_starts_with_a_minus():
     for f in CONFIG_DIR.glob("*.cfg"):
         text = f.read_text(encoding="utf-8")
         assert not re.search(r"(?<![%{])\{-(?!%)", text), f.name
+
+
+# --------------------------------------------- the Voron Stealthburner case
+STEALTHBURNER_DUCT = (15.0, 4.7)       # reaches 15 mm around the nozzle, 4.7 mm up
+
+
+def test_low_block_measures_under_a_fan_duct():
+    p = make()
+    Rig(p, offset=75.0, lift=1.5, width=100.0, height=3.5, duct=STEALTHBURNER_DUCT)
+    cal = measure(p)
+    assert cal["error"] == ""
+    assert cal["offset"] == pytest.approx(75.0, abs=0.7)
+    assert cal["lift"] == pytest.approx(1.5, abs=0.01)
+
+
+def test_tall_block_under_a_fan_duct_is_refused():
+    p = make()
+    Rig(p, offset=75.0, lift=1.5, width=100.0, height=12.0, duct=STEALTHBURNER_DUCT)
+    cal = measure(p)
+    assert "3.5 mm calibration block" in cal["error"]
+    assert cal["lift"] == 0.0
+
+
+@pytest.mark.parametrize("mounted, chosen", [("front", "back"), ("back", "front"),
+                                            ("left", "right")])
+def test_wrong_drop_edge_is_named(mounted, chosen):
+    p = make()
+    Rig(p, direction=mounted, offset=40.0, lift=1.5, height=3.5)
+    cal = measure(p, direction=chosen)
+    assert "choose %s" % mounted.upper() in cal["error"]
+
+
+def test_setup_goes_to_the_printed_block_and_homes_around_it():
+    p = make(position=(225.0, 225.0, 5.0))
+    p.set_section("force_move", {"enable_force_move": True})
+    p.set_section("stepper_z", {"endstop_pin": "probe:z_virtual_endstop"})
+    p.set_objects([("calibration_block.stl_id_1_copy_0", rect(290, 140, 310, 160))])
+    p.execute("_AUTO_EJECT_CAPTURE")
+    p.status["toolhead"]["homed_axes"] = ""
+    p.run_gcode("AUTO_EJECT_SETUP")
+    click(p, "Start", "Front", "Bed is clear - move")
+    assert "G28" not in p.executed                     # smart homing, not on the block
+    pos = p.status["toolhead"]["position"]
+    assert (pos.x, pos.y, pos.z) == pytest.approx((300.0, 150.0, 50.0))
+    assert "the calibration block you printed" in " ".join(p.executed)
+    Rig(p, block=(290, 140, 310, 160), offset=60.0, lift=1.2, height=3.5,
+        duct=STEALTHBURNER_DUCT)
+    click(p, "Measure")
+    cal = p.status["gcode_macro _AUTO_EJECT_CAL"]
+    assert cal["error"] == ""
+    assert cal["offset"] == pytest.approx(60.0, abs=0.7)

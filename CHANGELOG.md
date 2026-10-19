@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-19
+
+### Fixed
+- On a Stealthburner the fan duct sits about 5 mm above the nozzle tip, so on the 12 mm
+  calibration block it touched the block before the blade did, pushed a loose block around and
+  was taken for the blade. The calibration block is now 3.5 mm tall and stays stuck to the bed
+  where it was printed. A measurement on a tall block that sees something other than the blade
+  stops with a clear message.
+
+### Added
+- The setup goes to a printed calibration block by itself, and homes around it.
+- If the blade is not found on the side of the chosen drop edge, the measurement looks on the
+  other side and names the edge to choose.
+
 ## [0.10.0] - 2026-10-19
 
 ### Changed
@@ -165,7 +179,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.8.1...v0.9.0

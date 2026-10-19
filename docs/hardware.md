@@ -111,7 +111,9 @@ layers run along the load.
 
 - `test_hollow_cube.stl`: a 25 × 25 × 10 mm square ring with 1.6 mm walls, like a cookie cutter.
   Print two or three and eject them while you watch.
-- `calibration_block.stl`: a solid 20 × 20 × 12 mm block for `AUTO_EJECT_CALIBRATE`.
+- `calibration_block.stl`: a low 20 × 20 × 3.5 mm block for `AUTO_EJECT_CALIBRATE` and the
+  setup. Print it anywhere but the middle of the bed and leave it stuck: the setup finds it and
+  homes around it. It is low so the fan duct under the toolhead cannot reach it.
 
 Both come from `test_parts.scad` if you want other sizes.
 

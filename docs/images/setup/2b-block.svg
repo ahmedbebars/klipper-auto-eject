@@ -18,11 +18,11 @@
   <rect x="20" y="50" width="410" height="14" fill="#2b3338"/>
   <text x="36" y="48" font-size="14" fill="#ffffff" font-weight="600" text-anchor="start">Auto-eject setup - 2 of 5 - measure the blade</text>
   <text x="408" y="48" font-size="14" fill="#90a4ae" font-weight="normal" text-anchor="start">x</text>
-  <text x="36" y="90" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">Put the block under the nozzle, with a flat side</text>
-  <text x="36" y="109" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">facing the front edge.</text>
+  <text x="36" y="90" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">The nozzle is above the calibration block you</text>
+  <text x="36" y="109" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">printed. Leave it stuck to the bed.</text>
   <text x="36" y="128" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start"></text>
-  <text x="36" y="147" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">Then press Measure. The probe touches the block</text>
-  <text x="36" y="166" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">about 25 times (2-3 minutes).</text>
+  <text x="36" y="147" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">Press Measure. The probe touches the block about 25</text>
+  <text x="36" y="166" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">times (2-3 minutes).</text>
   <rect x="36" y="191" width="378" height="34" rx="6" fill="#1e88e5"/>
   <rect x="33" y="188" width="384" height="40" rx="8" fill="none" stroke="#ef6c00" stroke-width="3"/>
   <text x="225.0" y="213" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">MEASURE</text>
@@ -33,14 +33,13 @@
   <text x="426" y="30" font-size="15" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
   <rect x="470" y="270" width="410" height="10" fill="#90a4ae"/>
   <rect x="470" y="267" width="410" height="3" fill="#4fc3f7"/>
-  <rect x="660" y="210" width="60" height="57" fill="#9e9e9e"/>
-  <rect x="655" y="210" width="5" height="57" fill="#2e7d32"/>
-  <use href="#head" transform="translate(690,150)"/>
-  <line x1="690" y1="157" x2="690" y2="203" stroke="#1565c0" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#ab)"/>
-  <line x1="650" y1="238" x2="560" y2="238" stroke="#2e7d32" stroke-width="3" marker-end="url(#ag)"/>
-  <text x="540" y="232" font-size="13" fill="#2e7d32" font-weight="700" text-anchor="end">front</text>
-  <text x="605" y="258" font-size="12" fill="#2e7d32" font-weight="normal" text-anchor="middle">flat side</text>
-  <text x="470" y="306" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">Block right under the nozzle, a flat side toward the front.</text>
-  <text x="470" y="326" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">Press MEASURE and keep your hands off the printer.</text>
+  <rect x="650" y="252" width="80" height="15" fill="#9e9e9e"/>
+  <text x="690" y="290" font-size="12" fill="#57606a" font-weight="normal" text-anchor="middle">printed block, 3.5 mm</text>
+  <use href="#head" transform="translate(690,160)"/>
+  <line x1="690" y1="167" x2="690" y2="245" stroke="#1565c0" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#ab)"/>
+  <line x1="745" y1="114" x2="745" y2="252" stroke="#ef6c00" stroke-dasharray="3 3"/>
+  <text x="752" y="200" font-size="12" fill="#ef6c00" font-weight="600" text-anchor="start">the fan duct stays</text>
+  <text x="752" y="216" font-size="12" fill="#ef6c00" font-weight="600" text-anchor="start">above a low block</text>
+  <text x="470" y="316" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">Press MEASURE and keep your hands off the printer.</text>
 
 </svg>

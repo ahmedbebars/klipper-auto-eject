@@ -13,30 +13,33 @@
   </defs>
   <title>Welcome screen</title>
   <rect width="900" height="340" rx="14" fill="#ffffff"/>
-  <rect x="20" y="20" width="410" height="263" rx="10" fill="#1e2428"/>
+  <rect x="20" y="20" width="410" height="282" rx="10" fill="#1e2428"/>
   <rect x="20" y="20" width="410" height="44" rx="10" fill="#2b3338"/>
   <rect x="20" y="50" width="410" height="14" fill="#2b3338"/>
   <text x="36" y="48" font-size="14" fill="#ffffff" font-weight="600" text-anchor="start">Auto-eject setup - welcome</text>
   <text x="408" y="48" font-size="14" fill="#90a4ae" font-weight="normal" text-anchor="start">x</text>
   <text x="36" y="90" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">5 short steps, about 10 minutes. You need the blade</text>
-  <text x="36" y="109" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">on the toolhead and a small block, such as the 20 mm</text>
-  <text x="36" y="128" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">calibration block from hardware/test.</text>
-  <text x="36" y="147" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start"></text>
-  <text x="36" y="166" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">Printer check: all OK.</text>
-  <rect x="36" y="191" width="378" height="34" rx="6" fill="#1e88e5"/>
-  <rect x="33" y="188" width="384" height="40" rx="8" fill="none" stroke="#ef6c00" stroke-width="3"/>
-  <text x="225.0" y="213" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">START</text>
-  <text x="410" y="257" font-size="12" fill="#90a4ae" font-weight="600" text-anchor="end">CANCEL</text>
+  <text x="36" y="109" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">on the toolhead and, with Voron Tap, the 3.5 mm</text>
+  <text x="36" y="128" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">calibration block from hardware/test, printed</text>
+  <text x="36" y="147" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">anywhere but the middle of the bed and left there.</text>
+  <text x="36" y="166" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start"></text>
+  <text x="36" y="185" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">Printer check: all OK.</text>
+  <rect x="36" y="210" width="378" height="34" rx="6" fill="#1e88e5"/>
+  <rect x="33" y="207" width="384" height="40" rx="8" fill="none" stroke="#ef6c00" stroke-width="3"/>
+  <text x="225.0" y="232" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">START</text>
+  <text x="410" y="276" font-size="12" fill="#90a4ae" font-weight="600" text-anchor="end">CANCEL</text>
   <text x="470" y="50" font-size="16" fill="#24292f" font-weight="700" text-anchor="start">You need</text>
   <rect x="470" y="70" width="190" height="150" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
   <use href="#head" transform="translate(575,190)"/>
   <text x="565" y="245" font-size="13" fill="#57606a" font-weight="normal" text-anchor="middle">the blade, mounted</text>
   <rect x="690" y="70" width="190" height="150" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
-  <rect x="755" y="120" width="60" height="60" fill="#9e9e9e"/>
-  <polygon points="755,120 772,104 832,104 815,120" fill="#bdbdbd"/>
-  <polygon points="815,120 832,104 832,164 815,180" fill="#757575"/>
-  <text x="785" y="245" font-size="13" fill="#57606a" font-weight="normal" text-anchor="middle">a block, 20 x 20 x 12 mm</text>
-  <text x="470" y="290" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">Open the Mainsail console, type AUTO_EJECT_SETUP</text>
-  <text x="470" y="310" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">and press Enter. Then press START.</text>
+  <rect x="705" y="165" width="160" height="10" fill="#4fc3f7"/>
+  <rect x="750" y="153" width="70" height="12" fill="#9e9e9e"/>
+  <polygon points="750,153 764,141 834,141 820,153" fill="#bdbdbd"/>
+  <polygon points="820,153 834,141 834,153 820,165" fill="#757575"/>
+  <text x="785" y="245" font-size="13" fill="#57606a" font-weight="normal" text-anchor="middle">calibration block, 3.5 mm,</text>
+  <text x="785" y="263" font-size="13" fill="#57606a" font-weight="normal" text-anchor="middle">printed on the bed</text>
+  <text x="470" y="300" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">Open the Mainsail console, type AUTO_EJECT_SETUP</text>
+  <text x="470" y="320" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">and press Enter. Then press START.</text>
 
 </svg>

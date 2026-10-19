@@ -3,8 +3,11 @@
 //
 //   hollow_cube        a square ring with thin walls, like a cookie cutter.
 //                      Print two or three, eject them, watch.
-//   calibration_block  a solid block for AUTO_EJECT_CALIBRATE (Voron Tap
-//                      and other probes that touch with the nozzle).
+//   calibration_block  a low, solid block for AUTO_EJECT_CALIBRATE (Voron Tap
+//                      and other probes that touch with the nozzle). Print it
+//                      anywhere but the middle of the bed and leave it stuck
+//                      there. It must stay lower than the fan duct, which sits
+//                      only a few millimetres above the nozzle tip.
 //
 // Copyright (C) 2026 Ahmed Bebars
 // This file may be distributed under the terms of the GNU GPLv3 license.
@@ -19,7 +22,7 @@ wall = 1.6;
 
 /* [Calibration block] */
 block_size = 20;
-block_height = 12;
+block_height = 3.5;
 
 if (part == "hollow_cube") {
     difference() {

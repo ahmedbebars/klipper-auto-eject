@@ -10,9 +10,11 @@ AUTO_EJECT_SETUP
 ## Before you start
 
 - The blade is mounted on the toolhead.
-- You have a small block with a flat side, such as a 20 mm calibration cube.
-- With a probe that touches with the nozzle (Voron Tap and similar), the blade's lower edge
-  should sit 1–2 mm above the nozzle tip. The wizard can then measure the blade by itself.
+- With a probe that touches with the nozzle (Voron Tap and similar): print
+  [`hardware/test/calibration_block.stl`](../hardware/test/) (20 × 20 × 3.5 mm) anywhere but the
+  middle of the bed and leave it stuck there. The blade's lower edge should sit 1–2 mm above the
+  nozzle tip. The wizard then measures the blade by itself.
+- With other probes: a small block with a flat side, such as a 20 mm calibration cube.
 - `printer.cfg` has a `[respond]` section (the dialogs need it) and, ideally, `[save_variables]`
   so the results survive a restart.
 - A recent Mainsail or Fluidd. Both show Klipper's `action:prompt` dialogs.
@@ -38,19 +40,25 @@ usually the front, on a bed slinger left or right.
 
 ### 2. Measure the blade
 
-Clear the bed and press **Bed is clear - move**. The toolhead homes and stops 5 cm above the
-middle of the bed.
+Clear the bed, but leave the printed calibration block, and press **Bed is clear - move**. The
+toolhead homes around the block and stops 5 cm above it (or above the middle of the bed, if no
+block was printed).
 
 <p align="center"><img src="images/setup/2a-clear-bed.svg" alt="Step 2: clear the bed" width="900"></p>
 
-With Voron Tap or another probe that touches with the nozzle, put the block under the nozzle,
-a flat side toward the drop edge, and press **Measure**. The probe finds the blade by itself in
-2–3 minutes ([how](#automatic-blade-measurement)).
+With Voron Tap or another probe that touches with the nozzle, press **Measure**. The probe finds
+the blade by itself in 2–3 minutes ([how](#automatic-blade-measurement)).
+
+> **Why a low, printed block?** The fan duct under the toolhead sits only a few millimetres
+> above the nozzle tip. On a tall block it would touch the block before the blade does, and a
+> loose block slides when it is touched. A 3.5 mm block stuck to the bed avoids both. Without a
+> printed block, tape a flat piece 2–6 mm tall under the nozzle.
 
 <p align="center"><img src="images/setup/2b-block.svg" alt="Step 2: block under the nozzle" width="900"></p>
 
 When it is done, press **Next**. If it says *Could not measure*, the reason is on the screen: fix
-it and press **Try again**, or press **Measure by hand**.
+it and press **Try again**, or press **Measure by hand**. If the blade is on the other side of the
+nozzle from the drop edge you chose, it says so and names the edge to choose.
 
 <p align="center"><img src="images/setup/2c-result.svg" alt="Step 2: measured" width="900"></p>
 
