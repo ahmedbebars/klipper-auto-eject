@@ -110,7 +110,7 @@ Then:
 2. `FIRMWARE_RESTART`, then run **`AUTO_EJECT_SETUP`** and follow the dialogs. They cover direction,
    blade height and offset, width, current, cooling, saving and a dry test.
 3. After your next print, run `AUTO_EJECT` with the parts on the bed while you stand next to the printer.
-4. Hook it into your print end ([docs/integration.md](docs/integration.md)).
+4. Add `AUTO_EJECT` to your slicer's end G-code ([docs/slicer-setup.md](docs/slicer-setup.md)).
 
 Prefer editing files? Every setting is also in `auto_eject_settings.cfg`
 ([docs/configuration.md](docs/configuration.md)).
@@ -152,6 +152,7 @@ ends in an error state and Moonraker **does not** start the next job. Details fo
 | [Guided setup](docs/setup-wizard.md) | The `AUTO_EJECT_SETUP` dialogs, step by step |
 | [Configuration](docs/configuration.md) | Every setting explained |
 | [Strategies](docs/strategies.md) | How each path strategy calculates the sweep |
+| [Slicer setup](docs/slicer-setup.md) | Start/end G-code for OrcaSlicer, PrusaSlicer, SuperSlicer and Cura |
 | [Integration](docs/integration.md) | Print end hooks, job queue, purge pellet, slicer settings |
 | [Hardware](docs/hardware.md) | Designing, printing and measuring the blade |
 | [Safety](docs/safety.md) | What can go wrong and what the macros do about it |

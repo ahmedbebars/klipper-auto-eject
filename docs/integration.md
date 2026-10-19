@@ -108,19 +108,8 @@ job_transition_delay: 5
 
 ## Slicer settings
 
-| Slicer | Setting |
-|---|---|
-| OrcaSlicer | *Process → Others*: turn on **Label objects** and **Exclude objects** |
-| PrusaSlicer / SuperSlicer | *Print Settings → Output options → Label objects: Firmware-specific* |
-| Cura | Install the *Klipper preprocessor* or *Exclude objects* post-processing plugin |
-| Any slicer | Without labels, use `STRATEGY=full_width` or `no_objects_action: "full_width"` |
-
-Also:
-
-- **Turn off the skirt** or keep it within the area of the parts. A skirt is too thin for the blade to catch.
-- **Brims** come away with the parts and are fine.
-- **Purge lines** are also too thin for the blade, and build up over many prints. Replace them
-  with `EJECT_PURGE` (below).
+Copy-paste start and end G-code for OrcaSlicer, PrusaSlicer, SuperSlicer and Cura, plus how to
+turn on object labels in each, are in **[slicer-setup.md](slicer-setup.md)**.
 
 ## `EJECT_PURGE` instead of a purge line
 
@@ -137,5 +126,5 @@ EJECT_PURGE
 or at a fixed spot: `EJECT_PURGE X=200 Y=60`.
 
 - KAMP: replace the `LINE_PURGE` call in your print start with `EJECT_PURGE`.
-- DEMON: turn the purge line off (`PURGE_LINE_TOGGLE` / `variable_purge_line`) and call `EJECT_PURGE` from `_CUSTOM_PRE_PRINT`.
+- DEMON: turn DEMON's purge line off in your DEMON settings (or with `PURGE_LINE_TOGGLE`) and call `EJECT_PURGE` from `_CUSTOM_PRE_PRINT`.
 - `[extruder] max_extrude_cross_section` must allow the pellet. The macro tells you the value it needs.
