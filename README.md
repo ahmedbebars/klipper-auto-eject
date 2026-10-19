@@ -24,12 +24,21 @@
 
 ## What it does
 
-```
-   1. print finishes         2. bed cools             3. blade sweeps            4. bed is probed
-   ┌────────────────┐        ┌────────────────┐       ┌────────────────┐         ┌────────────────┐
-   │   ▲   ▲   ▲    │        │   ▲   ▲   ▲    │       │  ║ ║  →→ drop   │         │   ✓   ✓   ✓    │
-   │   ▲   ▲   ▲    │   →    │   (28 °C)      │   →   │  ║ ║  →→ edge   │    →    │  empty → next  │
-   └────────────────┘        └────────────────┘       └────────────────┘         └────────────────┘
+```mermaid
+flowchart LR
+    A(["Print finished"]) --> B["Cool down<br/>heaters off, fan on"]
+    B --> C["Plan the sweep<br/>from part outlines"]
+    C --> D["Push parts off<br/>slow, low current"]
+    D --> E{"Probe:<br/>bed clear?"}
+    E -- "yes" --> F(["Next queued job starts"])
+    E -- "no" --> G(["Queue stops<br/>and reports the part"])
+
+    classDef ok fill:#2e7d32,stroke:#1b5e20,color:#ffffff
+    classDef stop fill:#c62828,stroke:#8e0000,color:#ffffff
+    classDef step fill:#1565c0,stroke:#0d47a1,color:#ffffff
+    class A,B,C,D step
+    class F ok
+    class G stop
 ```
 
 `AUTO_EJECT` reads where every part sits from Klipper's `[exclude_object]` data, which the

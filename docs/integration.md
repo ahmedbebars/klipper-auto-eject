@@ -72,6 +72,27 @@ park and `M84`, calling `AUTO_EJECT` there works too.
 
 ## Moonraker job queue
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Q as Moonraker job queue
+    participant K as Klipper
+    participant B as Bed
+    Q->>K: start job 1
+    K->>B: print
+    K->>K: AUTO_EJECT: cool down
+    K->>B: sweep parts off the edge
+    K->>B: probe old part positions
+    alt bed is clear
+        K-->>Q: job complete
+        Q->>K: start job 2
+    else a part is still there
+        K-->>Q: error
+        Note over Q: queue pauses until you clear the bed
+    end
+```
+
+
 ```ini
 # moonraker.conf
 [job_queue]

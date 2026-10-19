@@ -18,6 +18,43 @@ AUTO_EJECT_SETUP
 
 ## The steps
 
+```mermaid
+flowchart TD
+    S(["AUTO_EJECT_SETUP"]) --> W["Welcome<br/>checks: exclude_object, probe, saving"]
+    W -- "Start" --> D["1 · Drop edge<br/>Front · Back · Left · Right"]
+    D --> B{"2 · Do cooled parts<br/>slide off?"}
+    B -- "No" --> X(["Advice, then exit"])
+    B -- "Yes" --> P["3 · Clear the bed<br/>home and move to centre"]
+    P --> H["4 · Blade height<br/>jog Z, then Save"]
+    H --> O1["5a · Blade touches the block"]
+    O1 --> O2["5b · Nozzle above the same face<br/>offset is calculated"]
+    O2 -- "value looks wrong" --> O1
+    O2 --> WD["6 · Blade width"]
+    WD --> E{"7 · Blade past<br/>the bed edge?"}
+    E -- "No" --> EN["Advice: longer reach"]
+    EN -- "Continue anyway" --> C
+    E -- "Yes" --> C["8 · Push current and cool-down"]
+    C --> SUM["Summary"]
+    SUM -- "Start over" --> D
+    SUM -- "Save" --> SV[("save_variables")]
+    SV --> T["Dry test<br/>whole bed, safe height"]
+    T --> DONE(["Done"])
+
+    classDef start fill:#1565c0,stroke:#0d47a1,color:#ffffff
+    classDef measure fill:#6a1b9a,stroke:#4a148c,color:#ffffff
+    classDef ok fill:#2e7d32,stroke:#1b5e20,color:#ffffff
+    classDef warn fill:#ef6c00,stroke:#e65100,color:#ffffff
+    class S,DONE start
+    class H,O1,O2 measure
+    class SV,T ok
+    class X,EN warn
+```
+
+> Purple steps move the toolhead with on-screen buttons: **Z ±1 / ±0.1** for height, and
+> **toward edge / away 10 / 1 / 0.1** for the blade position. Z never goes below 0.5 mm.
+
+### Step by step
+
 | # | Step | What you do | What it sets |
 |:-:|---|---|---|
 | | Welcome | Read the checks: exclude_object, probe, saving | |
