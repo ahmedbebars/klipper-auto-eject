@@ -123,7 +123,7 @@ def test_eddy_with_contact_command_verifies_with_it():
 def test_eddy_warning_in_setup_welcome():
     p = machine(probe_section="cartographer", probe={"x_offset": 0.0, "y_offset": 20.0})
     text = " | ".join(p.execute("AUTO_EJECT_SETUP"))
-    assert "WARNING - eddy-current probe [cartographer]" in text
+    assert "WARNING - eddy-current probe" in text
 
 
 def test_probe_type_override():

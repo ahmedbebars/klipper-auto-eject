@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 340" width="900" height="340" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1565c0"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ef6c00"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2e7d32"/></marker>
+    <g id="head">
+      <rect x="-20" y="-100" width="70" height="66" rx="8" fill="#37474f"/>
+      <rect x="-62" y="-80" width="42" height="8" fill="#ef6c00"/>
+      <rect x="-62" y="-80" width="8" height="70" fill="#ef6c00"/>
+      <rect x="-12" y="-34" width="24" height="14" rx="2" fill="#b0bec5"/>
+      <polygon points="-7,-20 7,-20 1.5,0 -1.5,0" fill="#c9a227"/>
+    </g>
+  </defs>
+  <title>Step 1: drop edge</title>
+  <rect width="900" height="340" rx="14" fill="#ffffff"/>
+  <rect x="20" y="20" width="410" height="250" rx="10" fill="#1e2428"/>
+  <rect x="20" y="20" width="410" height="44" rx="10" fill="#2b3338"/>
+  <rect x="20" y="50" width="410" height="14" fill="#2b3338"/>
+  <text x="36" y="48" font-size="14" fill="#ffffff" font-weight="600" text-anchor="start">Auto-eject setup - 1 of 5 - drop edge</text>
+  <text x="408" y="48" font-size="14" fill="#90a4ae" font-weight="normal" text-anchor="start">x</text>
+  <text x="36" y="90" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">Which bed edge should the parts fall off? Put a box</text>
+  <text x="36" y="109" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">under that edge.</text>
+  <rect x="36" y="134" width="185" height="34" rx="6" fill="#1e88e5"/>
+  <rect x="33" y="131" width="191" height="40" rx="8" fill="none" stroke="#ef6c00" stroke-width="3"/>
+  <text x="128.5" y="156" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">FRONT</text>
+  <rect x="229" y="134" width="185" height="34" rx="6" fill="#1e88e5"/>
+  <text x="321.5" y="156" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">BACK</text>
+  <rect x="36" y="178" width="185" height="34" rx="6" fill="#1e88e5"/>
+  <text x="128.5" y="200" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">LEFT</text>
+  <rect x="229" y="178" width="185" height="34" rx="6" fill="#1e88e5"/>
+  <text x="321.5" y="200" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">RIGHT</text>
+  <text x="410" y="244" font-size="12" fill="#90a4ae" font-weight="600" text-anchor="end">CANCEL</text>
+  <circle cx="426" cy="24" r="17" fill="#ef6c00"/>
+  <text x="426" y="30" font-size="15" fill="#ffffff" font-weight="700" text-anchor="middle">1</text>
+  <rect x="520" y="40" width="240" height="200" rx="8" fill="#90a4ae"/>
+  <rect x="530" y="50" width="220" height="180" rx="4" fill="#4fc3f7"/>
+  <text x="510" y="234" font-size="12" fill="#57606a" font-weight="700" text-anchor="end">FRONT</text>
+  <rect x="560" y="90" width="26" height="26" rx="3" fill="#ef6c00"/>
+  <rect x="640" y="120" width="26" height="26" rx="3" fill="#ef6c00"/>
+  <rect x="700" y="80" width="26" height="26" rx="3" fill="#ef6c00"/>
+  <rect x="590" y="170" width="26" height="26" rx="3" fill="#ef6c00"/>
+  <line x1="640" y1="150" x2="640" y2="250" stroke="#1565c0" stroke-width="5" marker-end="url(#ab)"/>
+  <path d="M590,262 L602,296 L678,296 L690,262 Z" fill="#c8a165" stroke="#8d6e3f"/>
+  <text x="640.0" y="285" font-size="12" fill="#5d4037" font-weight="600" text-anchor="middle">box</text>
+  <text x="470" y="316" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">Pick the edge the parts should fall off, usually FRONT.</text>
+
+</svg>

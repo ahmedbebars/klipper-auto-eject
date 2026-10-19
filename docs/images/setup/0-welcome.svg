@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 340" width="900" height="340" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1565c0"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ef6c00"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2e7d32"/></marker>
+    <g id="head">
+      <rect x="-20" y="-100" width="70" height="66" rx="8" fill="#37474f"/>
+      <rect x="-62" y="-80" width="42" height="8" fill="#ef6c00"/>
+      <rect x="-62" y="-80" width="8" height="70" fill="#ef6c00"/>
+      <rect x="-12" y="-34" width="24" height="14" rx="2" fill="#b0bec5"/>
+      <polygon points="-7,-20 7,-20 1.5,0 -1.5,0" fill="#c9a227"/>
+    </g>
+  </defs>
+  <title>Welcome screen</title>
+  <rect width="900" height="340" rx="14" fill="#ffffff"/>
+  <rect x="20" y="20" width="410" height="263" rx="10" fill="#1e2428"/>
+  <rect x="20" y="20" width="410" height="44" rx="10" fill="#2b3338"/>
+  <rect x="20" y="50" width="410" height="14" fill="#2b3338"/>
+  <text x="36" y="48" font-size="14" fill="#ffffff" font-weight="600" text-anchor="start">Auto-eject setup - welcome</text>
+  <text x="408" y="48" font-size="14" fill="#90a4ae" font-weight="normal" text-anchor="start">x</text>
+  <text x="36" y="90" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">5 short steps, about 10 minutes. You need the blade</text>
+  <text x="36" y="109" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">on the toolhead and a small block, such as the 20 mm</text>
+  <text x="36" y="128" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">calibration block from hardware/test.</text>
+  <text x="36" y="147" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start"></text>
+  <text x="36" y="166" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">Printer check: all OK.</text>
+  <rect x="36" y="191" width="378" height="34" rx="6" fill="#1e88e5"/>
+  <rect x="33" y="188" width="384" height="40" rx="8" fill="none" stroke="#ef6c00" stroke-width="3"/>
+  <text x="225.0" y="213" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">START</text>
+  <text x="410" y="257" font-size="12" fill="#90a4ae" font-weight="600" text-anchor="end">CANCEL</text>
+  <text x="470" y="50" font-size="16" fill="#24292f" font-weight="700" text-anchor="start">You need</text>
+  <rect x="470" y="70" width="190" height="150" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
+  <use href="#head" transform="translate(575,190)"/>
+  <text x="565" y="245" font-size="13" fill="#57606a" font-weight="normal" text-anchor="middle">the blade, mounted</text>
+  <rect x="690" y="70" width="190" height="150" rx="10" fill="#f6f8fa" stroke="#d0d7de"/>
+  <rect x="755" y="120" width="60" height="60" fill="#9e9e9e"/>
+  <polygon points="755,120 772,104 832,104 815,120" fill="#bdbdbd"/>
+  <polygon points="815,120 832,104 832,164 815,180" fill="#757575"/>
+  <text x="785" y="245" font-size="13" fill="#57606a" font-weight="normal" text-anchor="middle">a block, 20 x 20 x 12 mm</text>
+  <text x="470" y="290" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">Open the Mainsail console, type AUTO_EJECT_SETUP</text>
+  <text x="470" y="310" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">and press Enter. Then press START.</text>
+
+</svg>

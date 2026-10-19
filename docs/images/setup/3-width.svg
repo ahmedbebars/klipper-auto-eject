@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 340" width="900" height="340" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1565c0"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ef6c00"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2e7d32"/></marker>
+    <g id="head">
+      <rect x="-20" y="-100" width="70" height="66" rx="8" fill="#37474f"/>
+      <rect x="-62" y="-80" width="42" height="8" fill="#ef6c00"/>
+      <rect x="-62" y="-80" width="8" height="70" fill="#ef6c00"/>
+      <rect x="-12" y="-34" width="24" height="14" rx="2" fill="#b0bec5"/>
+      <polygon points="-7,-20 7,-20 1.5,0 -1.5,0" fill="#c9a227"/>
+    </g>
+  </defs>
+  <title>Step 3: blade width</title>
+  <rect width="900" height="340" rx="14" fill="#ffffff"/>
+  <rect x="20" y="20" width="410" height="231" rx="10" fill="#1e2428"/>
+  <rect x="20" y="20" width="410" height="44" rx="10" fill="#2b3338"/>
+  <rect x="20" y="50" width="410" height="14" fill="#2b3338"/>
+  <text x="36" y="48" font-size="14" fill="#ffffff" font-weight="600" text-anchor="start">Auto-eject setup - 3 of 5 - blade width</text>
+  <text x="408" y="48" font-size="14" fill="#90a4ae" font-weight="normal" text-anchor="start">x</text>
+  <text x="36" y="90" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">Which blade did you print?</text>
+  <rect x="36" y="115" width="121" height="34" rx="6" fill="#1e88e5"/>
+  <text x="96.33333333333334" y="137" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">60 MM</text>
+  <rect x="165" y="115" width="121" height="34" rx="6" fill="#1e88e5"/>
+  <text x="225.00000000000003" y="137" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">80 MM</text>
+  <rect x="293" y="115" width="121" height="34" rx="6" fill="#1e88e5"/>
+  <rect x="290" y="112" width="127" height="40" rx="8" fill="none" stroke="#ef6c00" stroke-width="3"/>
+  <text x="353.6666666666667" y="137" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">100 MM</text>
+  <rect x="36" y="159" width="121" height="34" rx="6" fill="#455a64"/>
+  <text x="96.33333333333334" y="181" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">-10</text>
+  <rect x="165" y="159" width="121" height="34" rx="6" fill="#455a64"/>
+  <text x="225.00000000000003" y="181" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">+10</text>
+  <rect x="293" y="159" width="121" height="34" rx="6" fill="#455a64"/>
+  <text x="353.6666666666667" y="181" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">USE 100 MM</text>
+  <text x="410" y="225" font-size="12" fill="#90a4ae" font-weight="600" text-anchor="end">CANCEL</text>
+  <circle cx="426" cy="24" r="17" fill="#ef6c00"/>
+  <text x="426" y="30" font-size="15" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
+  <rect x="590" y="70" width="180" height="22" rx="3" fill="#ffcc80"/>
+  <text x="680" y="112" font-size="13" fill="#57606a" font-weight="normal" text-anchor="middle">60 mm</text>
+  <rect x="560" y="140" width="240" height="22" rx="3" fill="#ffcc80"/>
+  <text x="680" y="182" font-size="13" fill="#57606a" font-weight="normal" text-anchor="middle">80 mm</text>
+  <rect x="530" y="210" width="300" height="22" rx="3" fill="#ef6c00"/>
+  <text x="680" y="252" font-size="13" fill="#24292f" font-weight="700" text-anchor="middle">100 mm</text>
+  <text x="470" y="300" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">Press the size of the blade you printed.</text>
+  <text x="470" y="320" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">It moves on by itself.</text>
+
+</svg>

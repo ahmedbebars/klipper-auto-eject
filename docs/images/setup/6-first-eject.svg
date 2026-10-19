@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 340" width="900" height="340" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1565c0"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ef6c00"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2e7d32"/></marker>
+    <g id="head">
+      <rect x="-20" y="-100" width="70" height="66" rx="8" fill="#37474f"/>
+      <rect x="-62" y="-80" width="42" height="8" fill="#ef6c00"/>
+      <rect x="-62" y="-80" width="8" height="70" fill="#ef6c00"/>
+      <rect x="-12" y="-34" width="24" height="14" rx="2" fill="#b0bec5"/>
+      <polygon points="-7,-20 7,-20 1.5,0 -1.5,0" fill="#c9a227"/>
+    </g>
+  </defs>
+  <title>Your first real eject</title>
+  <rect width="900" height="340" rx="14" fill="#ffffff"/>
+  <text x="30" y="44" font-size="18" fill="#24292f" font-weight="700" text-anchor="start">Your first real eject</text>
+  <text x="30" y="80" font-size="15" fill="#24292f" font-weight="normal" text-anchor="start">1. Leave the printed parts on the bed.</text>
+  <text x="30" y="101" font-size="15" fill="#24292f" font-weight="normal" text-anchor="start">2. Put a box under the front edge.</text>
+  <text x="30" y="122" font-size="15" fill="#24292f" font-weight="normal" text-anchor="start">3. Type AUTO_EJECT in the console and watch.</text>
+  <text x="30" y="143" font-size="15" fill="#24292f" font-weight="normal" text-anchor="start"></text>
+  <text x="30" y="164" font-size="15" fill="#24292f" font-weight="normal" text-anchor="start">The toolhead circles over the parts with the</text>
+  <text x="30" y="185" font-size="15" fill="#24292f" font-weight="normal" text-anchor="start">fan on until the bed is cool, then pushes them</text>
+  <text x="30" y="206" font-size="15" fill="#24292f" font-weight="normal" text-anchor="start">off, homes X and Y and checks with the probe.</text>
+  <rect x="520" y="230" width="340" height="10" fill="#90a4ae"/>
+  <rect x="540" y="227" width="320" height="3" fill="#4fc3f7"/>
+  <rect x="560" y="196" width="30" height="31" fill="none" stroke="#ef6c00" stroke-width="3"/>
+  <use href="#head" transform="translate(670,226)"/>
+  <line x1="590" y1="180" x2="540" y2="180" stroke="#1565c0" stroke-width="4" marker-end="url(#ab)"/>
+  <path d="M520,245 L480,300" stroke="#ef6c00" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ao)"/>
+  <path d="M430,300 L442,334 L528,334 L540,300 Z" fill="#c8a165" stroke="#8d6e3f"/>
+  <text x="485.0" y="323" font-size="12" fill="#5d4037" font-weight="600" text-anchor="middle">box</text>
+
+</svg>

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 340" width="900" height="340" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1565c0"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ef6c00"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2e7d32"/></marker>
+    <g id="head">
+      <rect x="-20" y="-100" width="70" height="66" rx="8" fill="#37474f"/>
+      <rect x="-62" y="-80" width="42" height="8" fill="#ef6c00"/>
+      <rect x="-62" y="-80" width="8" height="70" fill="#ef6c00"/>
+      <rect x="-12" y="-34" width="24" height="14" rx="2" fill="#b0bec5"/>
+      <polygon points="-7,-20 7,-20 1.5,0 -1.5,0" fill="#c9a227"/>
+    </g>
+  </defs>
+  <title>Step 2c: measured</title>
+  <rect width="900" height="340" rx="14" fill="#ffffff"/>
+  <rect x="20" y="20" width="410" height="269" rx="10" fill="#1e2428"/>
+  <rect x="20" y="20" width="410" height="44" rx="10" fill="#2b3338"/>
+  <rect x="20" y="50" width="410" height="14" fill="#2b3338"/>
+  <text x="36" y="48" font-size="14" fill="#ffffff" font-weight="600" text-anchor="start">Auto-eject setup - 2 of 5 - measure the blade</text>
+  <text x="408" y="48" font-size="14" fill="#90a4ae" font-weight="normal" text-anchor="start">x</text>
+  <text x="36" y="90" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">Done. The blade is 1.5 mm above the nozzle tip and</text>
+  <text x="36" y="109" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">54 mm ahead of it. It will push 2.0 mm above the</text>
+  <text x="36" y="128" font-size="13" fill="#cfd8dc" font-weight="normal" text-anchor="start">bed.</text>
+  <rect x="36" y="153" width="378" height="34" rx="6" fill="#1e88e5"/>
+  <rect x="33" y="150" width="384" height="40" rx="8" fill="none" stroke="#ef6c00" stroke-width="3"/>
+  <text x="225.0" y="175" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">NEXT</text>
+  <rect x="36" y="197" width="378" height="34" rx="6" fill="#455a64"/>
+  <text x="225.0" y="219" font-size="12" fill="#ffffff" font-weight="600" text-anchor="middle">MEASURE AGAIN</text>
+  <text x="410" y="263" font-size="12" fill="#90a4ae" font-weight="600" text-anchor="end">CANCEL</text>
+  <circle cx="426" cy="24" r="17" fill="#ef6c00"/>
+  <text x="426" y="30" font-size="15" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
+  <rect x="470" y="270" width="410" height="10" fill="#90a4ae"/>
+  <rect x="470" y="267" width="410" height="3" fill="#4fc3f7"/>
+  <use href="#head" transform="translate(720,262)"/>
+  <line x1="658" y1="252" x2="658" y2="290" stroke="#1565c0" stroke-dasharray="3 3"/>
+  <line x1="720" y1="262" x2="720" y2="290" stroke="#1565c0" stroke-dasharray="3 3"/>
+  <line x1="661" y1="292" x2="717" y2="292" stroke="#1565c0" stroke-width="2" marker-start="url(#ab)" marker-end="url(#ab)"/>
+  <text x="689" y="312" font-size="12" fill="#1565c0" font-weight="600" text-anchor="middle">ahead</text>
+  <line x1="730" y1="252" x2="780" y2="252" stroke="#1565c0" stroke-dasharray="3 3"/>
+  <line x1="730" y1="262" x2="780" y2="262" stroke="#1565c0" stroke-dasharray="3 3"/>
+  <text x="788" y="262" font-size="12" fill="#1565c0" font-weight="600" text-anchor="start">above the tip</text>
+  <circle cx="520" cy="60" r="15" fill="#2e7d32"/>
+  <path d="M513,60 l5,5 l9,-10" stroke="#fff" stroke-width="3" fill="none"/>
+  <text x="545" y="66" font-size="15" fill="#2e7d32" font-weight="700" text-anchor="start">The printer measured the blade.</text>
+  <text x="470" y="110" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">Nothing to type: press NEXT.</text>
+  <text x="470" y="130" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">If it says Could not measure, read the</text>
+  <text x="470" y="150" font-size="14" fill="#24292f" font-weight="normal" text-anchor="start">reason, fix it and press TRY AGAIN.</text>
+
+</svg>

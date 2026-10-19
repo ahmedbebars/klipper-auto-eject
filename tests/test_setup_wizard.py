@@ -6,10 +6,10 @@ import pytest
 
 from klipper_sim import MacroError, Printer
 
-DIALOG_STEPS = ["start", "direction", "surface", "surface_no", "prepare",
+DIALOG_STEPS = ["start", "direction", "prepare",
                 "height", "offset_intro", "offset_blade", "offset_nozzle",
                 "width", "edge", "edge_check", "edge_no", "summary", "done",
-                "cal_prepare", "measure", "auto_intro", "auto_result", "cal_save"]
+                "cal_prepare", "auto_intro", "auto_result", "cal_save"]
 
 
 def params_of(line):
@@ -72,8 +72,7 @@ def test_empty_exclude_object_section_is_detected(p):
     # regression: [exclude_object] has no options, so it is only in .config
     p.set_machine(save_variables={}, exclude_object_section=True)
     text = " | ".join(p.execute("AUTO_EJECT_SETUP"))
-    assert "OK - exclude_object is enabled" in text
-    assert "MISSING" not in text
+    assert "exclude_object" not in text        # no warning about it
 
 
 def test_start_reports_checks(p):
@@ -81,7 +80,7 @@ def test_start_reports_checks(p):
     text = "\n".join(lines)
     assert "action:prompt_show" in text
     assert "MISSING - add [exclude_object]" in text
-    assert "settings will be saved permanently" in text
+    assert "all OK" not in text
     assert buttons(lines)["Start"] == "AUTO_EJECT_SETUP STEP=direction"
 
 
@@ -173,7 +172,7 @@ def test_current_step_suggests_sixty_percent(p):
     apply(p, lines)
     w = p.status["gcode_macro _AUTO_EJECT_WIZARD"]
     assert w["push_current"] == pytest.approx(0.48)
-    assert (w["next_step"], w["next_value"]) == ("current", "shown")
+    assert w["next_step"] == "summary"                    # no dialog of its own
 
 
 def test_save_writes_values_klipper_can_parse(p):
@@ -229,18 +228,17 @@ def test_whole_wizard_can_be_clicked_through(p):
                   exclude_object_section=True)
     p.run_gcode("AUTO_EJECT_SETUP")
     clicks = [
-        ("Start", "1 of 8"),
-        ("Front", "2 of 8"),
-        ("It slides off", "3 of 8"),
-        ("Bed is clear - move", "4 of 8"),
-        ("Measure by hand", "4 of 8"),
-        ("Z -1", "4 of 8"),
-        ("Save this height", "5 of 8"),
-        ("Block is in place", "5 of 8"),
-        ("Toward edge 10", "5 of 8"),
-        ("Blade touches the block", "5 of 8"),
-        ("Away 10", "5 of 8"),
-        ("Nozzle is above the side", "5 of 8"),   # offset out of range: measure again
+        ("Start", "1 of 5"),
+        ("Front", "2 of 5"),
+        ("Bed is clear - move", "2 of 5 - measure the blade"),   # Tap: measure automatically
+        ("Measure by hand", "2 of 5 - blade height"),
+        ("Z -1", "2 of 5"),
+        ("Save this height", "2 of 5 - blade position"),
+        ("Block is in place", "2 of 5"),
+        ("Toward edge 10", "2 of 5"),
+        ("Blade touches the block", "2 of 5"),
+        ("Away 10", "2 of 5"),
+        ("Nozzle is above the side", "2 of 5"),   # offset out of range: measure again
     ]
     for label, expect in clicks:
         b = buttons(p.executed)
@@ -255,12 +253,13 @@ def test_wizard_finishes_with_save_and_dry_run(p):
     w = p.status["gcode_macro _AUTO_EJECT_WIZARD"]
     w.update(direction="front", push_z=2.0, blade_offset=22.0)
     p.run_gcode("AUTO_EJECT_SETUP STEP=width")
-    for label in ["+10", "Save width", "Bed is clear - move", "Yes, it is past the edge",
-                  "28 C", "Next", "Save", "Run dry test"]:
+    for label in ["100 mm", "Bed is clear - move", "Yes, it is past the edge",
+                  "32 C", "Save", "Dry test"]:
         b = buttons(p.executed)
         assert label in b, (label, list(b))
         p.run_gcode(b[label])
     assert "done" in dialog_title(p)
     data = p.status["gcode_macro _AUTO_EJECT_OVERRIDES"]["data"]
-    assert data["blade_width"] == 90.0 and data["push_z"] == 2.0
+    assert data["blade_width"] == 100.0 and data["push_z"] == 2.0
+    assert data["cool_temp"] == 32 and data["push_current"] == pytest.approx(0.48)
     assert p.status["save_variables"]["variables"]["auto_eject_blade_offset"] == 22.0

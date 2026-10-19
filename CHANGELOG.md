@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-19
+
+### Changed
+- `AUTO_EJECT_SETUP` is down to five short screens: drop edge, measure the blade, blade width
+  (60 / 80 / 100 mm buttons), edge check, save. The welcome screen only lists what is missing,
+  probes that touch with the nozzle go straight to the automatic measurement, and the push current
+  is set to 60 % of `run_current` without a screen of its own.
+
+### Added
+- An illustrated guide: a picture of every setup screen next to what to do at the printer
+  (`docs/images/setup/`, [setup-wizard.md](docs/setup-wizard.md)).
+
 ## [0.9.1] - 2026-10-19
 
 ### Fixed
@@ -153,7 +165,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.8.0...v0.8.1

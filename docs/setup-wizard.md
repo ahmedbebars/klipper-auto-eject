@@ -1,8 +1,7 @@
 # Guided setup
 
-`AUTO_EJECT_SETUP` walks you through the whole configuration in dialogs inside Mainsail or
-Fluidd. You click buttons and jog the toolhead. There are no files to edit and almost nothing to measure
-with a ruler.
+`AUTO_EJECT_SETUP` sets everything up in five short dialogs inside Mainsail or Fluidd. You press
+buttons; there are no files to edit and nothing to measure with a ruler.
 
 ```
 AUTO_EJECT_SETUP
@@ -20,64 +19,73 @@ AUTO_EJECT_SETUP
 
 ## The steps
 
-```mermaid
-flowchart TD
-    S(["AUTO_EJECT_SETUP"]) --> W["Welcome<br/>checks: exclude_object, probe, saving"]
-    W -- "Start" --> D["1 · Drop edge<br/>Front · Back · Left · Right"]
-    D --> B{"2 · Do cooled parts<br/>slide off?"}
-    B -- "No" --> X(["Advice, then exit"])
-    B -- "Yes" --> P["3 · Clear the bed<br/>home and move to centre"]
-    P --> N{"Probe touches<br/>with the nozzle?"}
-    N -- "No" --> H
-    N -- "Yes" --> M{"4 · Measure<br/>automatically?"}
-    M -- "By hand" --> H
-    M -- "Automatically" --> A["4 · Block under the nozzle<br/>about 25 touches"]
-    A -- "use the values" --> WD
-    A -- "stopped" --> M
-    H["4 · Blade height<br/>jog Z, then Save"] --> O1["5a · Blade touches the block"]
-    O1 --> O2["5b · Nozzle above the same face<br/>offset is calculated"]
-    O2 -- "value looks wrong" --> O1
-    O2 --> WD["6 · Blade width"]
-    WD --> E{"7 · Blade past<br/>the bed edge?"}
-    E -- "No" --> EN["Advice: longer reach"]
-    EN -- "Continue anyway" --> C
-    E -- "Yes" --> C["8 · Push current and cool-down"]
-    C --> SUM["Summary"]
-    SUM -- "Start over" --> D
-    SUM -- "Save" --> SV[("save_variables")]
-    SV --> T["Dry test<br/>whole bed, safe height"]
-    T --> DONE(["Done"])
+Five short screens. Each picture shows the dialog on the left and what to do at the printer on
+the right. The highlighted button is the one to press.
 
-    classDef start fill:#1565c0,stroke:#0d47a1,color:#ffffff
-    classDef measure fill:#6a1b9a,stroke:#4a148c,color:#ffffff
-    classDef ok fill:#2e7d32,stroke:#1b5e20,color:#ffffff
-    classDef warn fill:#ef6c00,stroke:#e65100,color:#ffffff
-    class S,DONE start
-    class H,O1,O2 measure
-    class A ok
-    class SV,T ok
-    class X,EN warn
-```
+### Start
 
-> Purple steps move the toolhead with on-screen buttons: **Z ±1 / ±0.1** for height, and
-> **toward edge / away 10 / 1 / 0.1** for the blade position. Z never goes below 0.5 mm.
+Type `AUTO_EJECT_SETUP` in the console and press Enter. The first screen lists anything missing
+from `printer.cfg`. If it says *all OK*, press **Start**.
 
-### Step by step
+<p align="center"><img src="images/setup/0-welcome.svg" alt="Welcome screen" width="900"></p>
 
-| # | Step | What you do | What it sets |
-|:-:|---|---|---|
-| | Welcome | Read the checks: exclude_object, probe, saving | |
-| 1 | Drop edge | Pick front, back, left or right | `direction`, `current_steppers` |
-| 2 | Bed surface | Confirm cooled parts slide off | |
-| 3 | Prepare | Clear the bed. The printer homes if needed and moves to the centre | |
-| 4 | Blade height | Jog Z until the blade is ~2 mm above the bed (Z never goes below 0.5) | `push_z` |
-| 4–5 | *or* measure automatically | Nozzle probes only: put the block under the nozzle and wait 2–3 minutes ([below](#automatic-blade-measurement)) | `push_z`, `blade_offset`, `blade_lift` |
-| 5 | Blade position | Touch the block with the **blade**, then put the **nozzle** above the same face. The difference is measured for you | `blade_offset` |
-| 6 | Blade width | Set it with the +/− buttons | `blade_width` |
-| 7 | Drop edge check | The toolhead goes to the edge with the blade lowered. Confirm the blade reaches past the build surface | |
-| 8 | Current and cooling | Accept or adjust the suggested push current (60% of `run_current`) and the cool-down | `push_current`, `cool_mode`, `cool_temp`, `cool_time` |
-| | Summary | Review everything, then **Save** | |
-| | Test | Run a dry test over the whole bed at a safe height | |
+### 1. Drop edge
+
+Choose the edge the parts should fall off and put a box under it. On a CoreXY printer that is
+usually the front, on a bed slinger left or right.
+
+<p align="center"><img src="images/setup/1-direction.svg" alt="Step 1: drop edge" width="900"></p>
+
+### 2. Measure the blade
+
+Clear the bed and press **Bed is clear - move**. The toolhead homes and stops 5 cm above the
+middle of the bed.
+
+<p align="center"><img src="images/setup/2a-clear-bed.svg" alt="Step 2: clear the bed" width="900"></p>
+
+With Voron Tap or another probe that touches with the nozzle, put the block under the nozzle,
+a flat side toward the drop edge, and press **Measure**. The probe finds the blade by itself in
+2–3 minutes ([how](#automatic-blade-measurement)).
+
+<p align="center"><img src="images/setup/2b-block.svg" alt="Step 2: block under the nozzle" width="900"></p>
+
+When it is done, press **Next**. If it says *Could not measure*, the reason is on the screen: fix
+it and press **Try again**, or press **Measure by hand**.
+
+<p align="center"><img src="images/setup/2c-result.svg" alt="Step 2: measured" width="900"></p>
+
+> **Other probes** (BLTouch, inductive, eddy current) measure by hand instead: jog Z until the
+> blade is about 2 mm above the bed, then touch the block with the blade and with the nozzle.
+> The screens tell you each move.
+
+### 3. Blade width
+
+Press the size of the blade you printed. For another size, use **-10 / +10**, then **Use**.
+
+<p align="center"><img src="images/setup/3-width.svg" alt="Step 3: blade width" width="900"></p>
+
+### 4. Edge check
+
+Take the block off the bed and press **Bed is clear - move**. The toolhead goes to the drop edge
+and lowers the blade. Look from the side: the blade must be past the edge of the sheet, or the
+parts would stay on the bed.
+
+<p align="center"><img src="images/setup/4-edge.svg" alt="Step 4: edge check" width="900"></p>
+
+### 5. Save
+
+Pick the bed temperature at which your parts let go (32 °C is a good start for PLA), press
+**Save**, then **Dry test** to watch the path traced 2 cm above the bed. The push current is set
+for you, to 60 % of your motors' `run_current`.
+
+<p align="center"><img src="images/setup/5-save.svg" alt="Step 5: save" width="900"></p>
+
+### Your first real eject
+
+<p align="center"><img src="images/setup/6-first-eject.svg" alt="Your first real eject" width="900"></p>
+
+After that, put `AUTO_EJECT HEIGHT=[max_layer_z]` in your slicer's end G-code
+([slicer-setup.md](slicer-setup.md)), and the printer clears the bed after every print.
 
 ## Automatic blade measurement
 
@@ -125,7 +133,7 @@ FIRMWARE_RESTART
 ## Tips
 
 - You can run the setup again at any time. It starts from your current settings.
-- The jog buttons label directions as **toward edge** and **away**, so they mean the same thing
-  whichever drop edge you chose.
+- When measuring by hand, the jog buttons label directions as **toward edge** and **away**, so
+  they mean the same thing whichever drop edge you chose.
 - If the blade offset comes out below 1 mm or above 200 mm, the wizard asks you to measure again.
   This usually means the nozzle was moved the wrong way.

@@ -142,19 +142,19 @@ def click(p, *labels):
 def test_setup_measures_the_blade_automatically():
     p = make(position=(225.0, 225.0, 5.0))
     p.run_gcode("AUTO_EJECT_SETUP")
-    click(p, "Start", "Front", "It slides off", "Bed is clear - move")
-    assert "4 of 8 - blade height and position" in dialog_title(p)
+    click(p, "Start", "Front", "Bed is clear - move")
+    assert "2 of 5 - measure the blade" in dialog_title(p)
     assert p.status["toolhead"]["position"].z == pytest.approx(50.0)
     Rig(p, offset=33.0, lift=0.8)
-    click(p, "Measure automatically", "Block is in place - measure")
+    click(p, "Measure")
     assert "measure the blade" in dialog_title(p)
-    click(p, "Use these values")
-    assert "6 of 8" in dialog_title(p)
+    click(p, "Next")
+    assert "3 of 5" in dialog_title(p)
     w = p.status["gcode_macro _AUTO_EJECT_WIZARD"]
     assert w["blade_offset"] == pytest.approx(33.0, abs=0.7)
     assert w["blade_lift"] == pytest.approx(0.8, abs=0.01)
     assert w["push_z"] == pytest.approx(0.5)
-    click(p, "Save width", "Bed is clear - move", "Yes, it is past the edge", "Next", "Save")
+    click(p, "100 mm", "Bed is clear - move", "Yes, it is past the edge", "Save")
     saved = p.status["save_variables"]["variables"]
     assert saved["auto_eject_blade_lift"] == pytest.approx(0.8, abs=0.01)
 
@@ -162,13 +162,13 @@ def test_setup_measures_the_blade_automatically():
 def test_failed_measurement_offers_the_manual_way():
     p = make(position=(225.0, 225.0, 5.0))
     p.run_gcode("AUTO_EJECT_SETUP")
-    click(p, "Start", "Front", "It slides off", "Bed is clear - move", "Measure automatically")
+    click(p, "Start", "Front", "Bed is clear - move")
     Rig(p, lift=-1.0)
-    click(p, "Block is in place - measure")
+    click(p, "Measure")
     b = buttons(p.executed)
     assert "Try again" in b and "Measure by hand" in b
     click(p, "Measure by hand")
-    assert "4 of 8 - blade height" in dialog_title(p)
+    assert "2 of 5 - blade height" in dialog_title(p)
     assert p.status["toolhead"]["position"].z == pytest.approx(5.0)
 
 
@@ -177,7 +177,7 @@ def test_calibrate_command_saves_only_the_blade():
     p.run_gcode("AUTO_EJECT_CALIBRATE")
     click(p, "Bed is clear - move")
     Rig(p, offset=40.0, lift=1.2)
-    click(p, "Block is in place - measure", "Use these values")
+    click(p, "Measure", "Next")
     data = p.status["gcode_macro _AUTO_EJECT_OVERRIDES"]["data"]
     assert set(data) == {"push_z", "blade_offset", "blade_lift"}
     assert data["blade_offset"] == pytest.approx(40.0, abs=0.7)

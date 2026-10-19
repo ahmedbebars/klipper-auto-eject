@@ -36,9 +36,9 @@ the next print never lands on top of a leftover part.
 
 ## Features
 
-- **Guided setup in Mainsail/Fluidd:** `AUTO_EJECT_SETUP` opens step-by-step dialogs. Jog the
-  toolhead with buttons, and the blade height and offset are measured and saved for you. No config
-  editing and no ruler. See [docs/setup-wizard.md](docs/setup-wizard.md).
+- **Guided setup in Mainsail/Fluidd:** `AUTO_EJECT_SETUP` takes five short dialogs, and the
+  blade is measured and saved for you. No config editing and no ruler. Every screen is shown with
+  a picture in [docs/setup-wizard.md](docs/setup-wizard.md).
 - **Measures the blade by itself with Voron Tap:** the nozzle probe touches a calibration cube with
   the nozzle, then with the blade, and works out the blade's height above the nozzle tip and its
   distance ahead of the nozzle to a fraction of a millimetre (`AUTO_EJECT_CALIBRATE`).
