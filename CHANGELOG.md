@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-19
+
+### Added
+- Universal three-part blade (`hardware/universal_plow.scad`): blade, arm and mount joined with
+  M3 screws, slotted for height and reach, and a mount that fits toolhead screws 28–50 mm apart
+  or straps. Print-oriented STLs (60/80/100 mm blades) and preview images are included.
+- `hardware/adapters/` for toolhead-specific mounts.
+
 ## [0.3.1] - 2026-10-19
 
 ### Fixed
@@ -56,7 +64,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.1.0...v0.2.0

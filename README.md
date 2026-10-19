@@ -76,8 +76,16 @@ so the next print never lands on top of a leftover part.
 |---|---|
 | Firmware | Klipper v0.12 or newer, with `[exclude_object]` enabled |
 | Slicer | "Label objects" / "Exclude objects" turned on (OrcaSlicer, PrusaSlicer, SuperSlicer, Cura with the Klipper plugin) |
-| Hardware | A rigid blade on the toolhead carriage ([docs/hardware.md](docs/hardware.md)) and a bed surface parts release from when cool (PEI, CryoGrip, textured sheets) |
+| Hardware | The printable [universal blade](docs/hardware.md#universal-blade-recommended) (fits most toolheads) and a bed surface parts release from when cool (PEI, CryoGrip, textured sheets) |
 | Optional | A `[probe]` / `[bltouch]` for verification, `[respond]` + `[save_variables]` for the guided setup, and the Moonraker job queue for back-to-back prints |
+
+## The blade
+
+<p align="center"><img src="hardware/images/assembly_front.png" width="420" alt="Universal blade"></p>
+
+A three-part printable blade with slotted joints that fits most toolheads. Height and reach adjust
+with the slots, and `AUTO_EJECT_SETUP` measures the rest. STL files and the parametric OpenSCAD
+source are in [`hardware/`](hardware/), and the guide is [docs/hardware.md](docs/hardware.md).
 
 ## Compatibility
 

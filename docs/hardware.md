@@ -41,13 +41,75 @@ so the nozzle never touches them.
 7. **Check the travel.** At the drop edge the blade sticks out past the toolhead, so make sure
    it cannot hit the frame, the bed mounting hardware or cable chains anywhere along the edge.
 
-## Parametric starting point
+## Universal blade (recommended)
 
-[`hardware/plow.scad`](../hardware/plow.scad) is an OpenSCAD model with a two-screw mount plate,
-two arms and a chamfered blade. Set the parameters (screw spacing, screw height above the nozzle,
-blade lift, reach and width), render it, and check the fit before printing. Every toolhead is
-different, so treat it as a template to adapt. Remixes for specific toolheads are very welcome
-in pull requests.
+<p align="center">
+  <img src="../hardware/images/assembly_front.png" width="48%" alt="Universal blade, front view">
+  <img src="../hardware/images/assembly_back.png" width="48%" alt="Universal blade, back view with nut traps">
+</p>
+
+Three printed parts joined with M3 screws. Every joint is slotted, so one design fits most
+toolheads, nozzle heights and toolhead depths:
+
+| Part | File | Adjusts |
+|---|---|---|
+| **Blade** | `hardware/stl/blade_60mm.stl`, `blade_80mm.stl`, `blade_100mm.stl` | **Reach**: slots in the tab, ±10 mm |
+| **Arm** | `hardware/stl/arm.stl` | **Height**: slots in the upright, 30 mm of travel |
+| **Mount**, screw version | `hardware/stl/mount_screws.stl` | Fits toolhead screws spaced **28–50 mm** apart |
+| **Mount**, strap version | `hardware/stl/mount_strap.stl` | For toolheads without usable screws: cable ties or a strap |
+
+Height and reach only need to be roughly right. `AUTO_EJECT_SETUP` measures the exact values
+after mounting ([setup-wizard.md](setup-wizard.md)).
+
+<p align="center">
+  <img src="../hardware/images/blade.png" width="32%" alt="Blade print orientation">
+  <img src="../hardware/images/arm.png" width="32%" alt="Arm print orientation">
+  <img src="../hardware/images/mount_screws.png" width="32%" alt="Mount print orientation">
+</p>
+
+The STL files are already oriented for printing: no supports, and the arm lies flat so its
+layers run along the load.
+
+**Print settings:** PETG, ABS or ASA (PLA softens near a hot bed). 4 walls, 40% infill, 0.2 mm layers.
+
+**Hardware**
+
+| Qty | Part | For |
+|:-:|---|---|
+| 2 | M3 × 10 screw + M3 nut | Arm foot to blade tab |
+| 2 | M3 × 10 screw + M3 nut | Arm upright to mount (nuts sit in the traps on the mount's back) |
+| 2 | Screws that fit your toolhead | Mount to toolhead (usually your existing front-cover screws, a few mm longer) |
+
+**Assembly**
+
+1. Press two M3 nuts into the traps on the back of the mount.
+2. Screw the mount to the front of the toolhead.
+3. Bolt the arm to the mount through the upright's slots. Leave the screws loose.
+4. Bolt the blade's tab under the arm's foot. Leave the screws loose.
+5. Lower the nozzle onto a sheet of paper. Slide the arm until the blade's lower edge is **1–2 mm
+   above the nozzle tip**, and the blade's face is ahead of everything else on the toolhead. Tighten.
+6. Run `AUTO_EJECT_SETUP`.
+
+### Make your own size
+
+`hardware/universal_plow.scad` has every dimension as a parameter: blade width and height, arm
+length, slot lengths, mount screw range and screw size. Open it in OpenSCAD, use the
+*Customizer* panel, choose the `part`, then *Render* (F6) and *Export as STL*. From a terminal:
+
+```bash
+openscad -o blade.stl -D 'part="blade"' -D blade_width=120 hardware/universal_plow.scad
+```
+
+### Toolhead adapters
+
+If your toolhead needs a dedicated mount, add it to
+[`hardware/adapters/`](../hardware/adapters/) and open a pull request, so others with the same
+toolhead can use it.
+
+## Single-piece template
+
+[`hardware/plow.scad`](../hardware/plow.scad) is a simpler one-piece blade with a fixed two-screw
+mount, for when you design around one specific toolhead.
 
 ## Measuring
 
