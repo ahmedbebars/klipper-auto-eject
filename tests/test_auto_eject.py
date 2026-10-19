@@ -75,7 +75,8 @@ def test_columns_start_behind_rearmost_part_and_end_at_edge(printer):
 def test_columns_cool_down_and_current_handling(printer):
     lines = printer.execute("AUTO_EJECT")
     text = "\n".join(lines)
-    assert "TEMPERATURE_WAIT SENSOR=heater_bed MAXIMUM=28" in text
+    assert any("waiting for the bed to reach 32 C" in m for m in printer.messages)
+    assert "TEMPERATURE_WAIT" not in text           # it can never hang
     assert "M140 S0" in text and "M104 S0" in text
     assert "SET_TMC_CURRENT STEPPER=stepper_x CURRENT=0.5" in text
     assert "SET_TMC_CURRENT STEPPER=stepper_y CURRENT=0.8" in text

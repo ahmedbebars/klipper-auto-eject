@@ -40,29 +40,31 @@ def cooling_part(lines):
 
 
 def test_circles_over_every_part_until_the_bed_is_cool():
-    p = make(bed=60.0, cooling=0.5, cool_temp=32)       # 5 degrees per 10 s pass
+    p = make(bed=60.0, cooling=0.5, cool_temp=32)       # 2 parts x 7.5 s: 7.5 degrees a pass
     lines = cooling_part(p.execute("AUTO_EJECT"))
     assert "M106 S255" in lines
     h = hovers(lines)
     assert {(x, y) for x, y, _, _ in h} == CENTRES
     assert all(z == pytest.approx(18.0) for _, _, z, _ in h)  # 10 mm part + 8 mm
-    assert len(h) == 12                                       # 6 passes x 2 parts
+    assert len(h) == 8                                        # 4 passes x 2 parts
     assert p.status["heater_bed"]["temperature"] <= 32
-    assert "TEMPERATURE_WAIT SENSOR=heater_bed MAXIMUM=32" in lines
+    assert not any("pushing anyway" in m for m in p.messages)
 
 
-def test_stops_after_120_passes_and_falls_back_to_waiting():
-    p = make(cooling=0.0)
-    lines = cooling_part(p.execute("AUTO_EJECT"))
-    assert len(hovers(lines)) == 240
-    assert lines[-1].startswith("TEMPERATURE_WAIT")
+def test_warm_room_pushes_anyway_after_cool_timeout():
+    p = make(cooling=0.0)                               # the bed never gets to 32 C
+    lines = p.execute("AUTO_EJECT")
+    waited = sum(s for *_, s in hovers(cooling_part(lines)))
+    assert waited == pytest.approx(1800.0)
+    assert any("pushing anyway" in m for m in p.messages)
+    assert any(l.startswith("SET_TMC_CURRENT") for l in lines)    # and it did push
 
 
 def test_tour_can_be_turned_off():
     p = make(cool_tour=False)
     lines = cooling_part(p.execute("AUTO_EJECT"))
     assert hovers(lines) == []
-    assert any(l.startswith("TEMPERATURE_WAIT") for l in lines)
+    assert "G4 P15000" in lines                         # still waits, standing still
 
 
 def test_time_mode_circles_for_cool_time():

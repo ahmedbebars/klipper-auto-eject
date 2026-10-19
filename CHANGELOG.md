@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-10-19
+
+### Fixed
+- In a warm room the bed may never cool to `cool_temp`, and `TEMPERATURE_WAIT` then waited
+  forever. Cooling now waits in short passes that give up after `cool_timeout` (30 min) and push
+  the parts anyway, with a warning. The default `cool_temp` is 32 °C instead of 28 °C.
+- "sweep finished" was printed when the macro started, before anything had moved. It now
+  appears once the sweep is done.
+
 ## [0.10.4] - 2026-10-19
 
 ### Fixed
@@ -209,7 +218,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.4...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.5...HEAD
+[0.10.5]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.1...v0.10.2

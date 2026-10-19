@@ -83,7 +83,8 @@ Choose `push_current` so that a part that won't move makes the motor skip. Start
 | Setting | Default | Description |
 |---|---|---|
 | `cool_mode` | `"temperature"` | `"temperature"` waits for the bed to reach `cool_temp`, `"time"` waits `cool_time` seconds, `"none"` doesn't wait |
-| `cool_temp` | `28` | Bed temperature in °C at which parts release. PEI and CryoGrip usually release PLA below 30 °C |
+| `cool_temp` | `32` | Bed temperature in °C at which parts release. PEI and CryoGrip usually release PLA below 30–35 °C |
+| `cool_timeout` | `1800` | The longest wait for `cool_temp`, in seconds. In a warm room the bed may never get there: after this the parts are pushed anyway, with a warning |
 | `cool_time` | `600` | Seconds, for `"time"` mode (also for beds without a `heater_bed`) |
 | `heaters_off` | `True` | Turn the hotend and bed heaters off before cooling |
 | `cool_fan_speed` | `1.0` | Part fan speed while cooling, from 0.0 to 1.0. Turned off after the sweep |
