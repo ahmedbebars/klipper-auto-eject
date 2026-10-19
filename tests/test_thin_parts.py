@@ -143,3 +143,33 @@ def test_tracker_without_layer_info_tracks_everything():
     start(p, 10.0)
     start(p, 10.0)
     assert p.status["gcode_macro _AUTO_EJECT_STATE"]["height"] == 10.0
+
+
+def test_tracker_ignores_parking_after_the_last_layer():
+    p = Printer()
+    p.set_machine(save_variables={})
+    p.set_objects(STENCIL)
+    start(p, 10.0, {"total_layer": 60, "current_layer": None})
+    start(p, 11.8, {"total_layer": 60, "current_layer": 59})
+    start(p, 55.0, {"total_layer": 60, "current_layer": 60})   # end G-code parks
+    assert p.status["gcode_macro _AUTO_EJECT_STATE"]["height"] == 11.8
+
+
+def test_tracker_ignores_our_own_moves():
+    p = Printer()
+    p.set_machine(save_variables={})
+    p.set_objects(STENCIL)
+    start(p, 10.0, {"total_layer": 60, "current_layer": None})
+    start(p, 12.0, {"total_layer": 60, "current_layer": 60})
+    p.status["gcode_macro _AUTO_EJECT_STATE"]["busy"] = True   # cooling tour
+    start(p, 20.0, {"total_layer": 60, "current_layer": 60})
+    assert p.status["gcode_macro _AUTO_EJECT_STATE"]["height"] == 12.0
+
+
+def test_height_from_the_slicer_sets_the_working_height():
+    p = make(height=55.0, cool_temp=58)
+    p.bed_cooling = 0.1
+    lines = p.execute("AUTO_EJECT", HEIGHT=12.0)
+    tour = [l for l in lines if l.startswith("G1 Z") and "X" not in l]
+    assert "G1 Z20.00 F600" in tour                       # 12 mm + 8 mm gap
+    assert p.status["gcode_macro _AUTO_EJECT_STATE"]["busy"] is False

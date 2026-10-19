@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-19
+
+### Fixed
+- The tracked print height picked up moves made after the last layer, such as the end G-code
+  parking the toolhead (a 12 mm print was stored as 55 mm). Heights above 0.6 mm per layer
+  printed so far are now ignored.
+- The tracker also ignores `AUTO_EJECT`'s own moves, which during the cooling tour would have
+  raised the tour a little higher every 30 seconds.
+- `AUTO_EJECT HEIGHT=...` now also sets the height used for travel moves and the cooling tour.
+
 ## [0.9.0] - 2026-10-19
 
 ### Added
@@ -143,7 +153,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.7.0...v0.8.0
