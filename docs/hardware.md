@@ -105,6 +105,16 @@ layers run along the load.
 - Check the blade height (step 5 above) before homing. Voron Tap homes on whatever touches
   first, so a blade below the nozzle tip would set Z wrong.
 
+### Test parts
+
+[`hardware/test/`](../hardware/test/) has two parts for a first run:
+
+- `test_hollow_cube.stl`: a 25 × 25 × 10 mm square ring with 1.6 mm walls, like a cookie cutter.
+  Print two or three and eject them while you watch.
+- `calibration_block.stl`: a solid 20 × 20 × 12 mm block for `AUTO_EJECT_CALIBRATE`.
+
+Both come from `test_parts.scad` if you want other sizes.
+
 ### Make your own size
 
 `hardware/universal_plow.scad` has every dimension as a parameter: blade width and height, arm

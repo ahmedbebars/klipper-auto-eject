@@ -184,7 +184,7 @@ def test_home_without_free_spot_refuses(p):
     p.set_objects([("plate", rect(0, 0, 450, 450))])
     p.execute("_AUTO_EJECT_CAPTURE")
     restart(p)
-    with pytest.raises(MacroError, match="no spot where both"):
+    with pytest.raises(MacroError, match="no spot where the probe, the nozzle and the blade"):
         p.execute("_AUTO_EJECT_HOME")
 
 
@@ -217,3 +217,18 @@ def test_source_saved_ignores_new_labels(p):
     p.set_objects([("new_part", rect(10, 10, 30, 30))])
     p.execute("AUTO_EJECT", DRY=1, SOURCE="saved")
     assert [r[0] for r in state(p)["objects"]] == ["left_cutter", "right_cutter"]
+
+
+def test_home_keeps_the_blade_clear_of_parts(p):
+    # blade 60 mm ahead of the nozzle, a row of parts across the bed: the
+    # nearest spot that suits the nozzle would put the blade on the row
+    s = p.status["gcode_macro _AUTO_EJECT_SETTINGS"]
+    s.update(blade_offset=60.0, blade_width=100.0, direction="front")
+    p.set_objects([("row", rect(0, 165, 453, 180))])
+    p.execute("_AUTO_EJECT_CAPTURE")
+    restart(p)
+    lines = [l for l in p.execute("_AUTO_EJECT_HOME") if not l.startswith("SET_GCODE_VARIABLE")]
+    xy = [words(l) for l in lines if l.startswith("G1") and "X" in words(l)][0]
+    by0, by1 = xy["Y"] - 60, xy["Y"] - 55
+    dy = max(165 - by1, 0, by0 - 180)
+    assert dy >= 20.0

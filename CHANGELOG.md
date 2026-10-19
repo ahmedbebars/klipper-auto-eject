@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-19
+
+### Added
+- `hardware/test/`: a hollow test cube and a calibration block for a first run.
+- Photos of the blade fitted to a Voron Trident with a Stealthburner toolhead.
+
+### Fixed
+- Smart homing (`AUTO_EJECT HOME=1`) kept the probe and the nozzle clear of the parts, but not
+  the blade. With a nozzle probe such as Tap, a blade coming down on a part would have set Z
+  wrong. The whole blade now stays `home_clearance` away from every part.
+
 ## [0.8.0] - 2026-10-19
 
 ### Added
@@ -125,7 +136,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.5.0...v0.6.0

@@ -17,7 +17,7 @@ While an offset probe comes down, the nozzle hangs `x_offset`/`y_offset` away fr
 few millimetres above the bed. If a part were under the nozzle, the nozzle would hit it before
 the probe triggered. So:
 
-- **Smart homing** picks a spot where both the probe **and** the nozzle are at least
+- **Smart homing** picks a spot where the probe, the nozzle **and** the blade are all at least
   `home_clearance` (20 mm) from every stored part.
 - **Verification** only probes points where the nozzle is at least `nozzle_clearance` (5 mm) away
   from every part that has not been confirmed gone yet. Parts are checked in an order that makes

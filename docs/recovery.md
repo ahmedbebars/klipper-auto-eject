@@ -39,7 +39,9 @@ move, so a stored position could be wrong. Z is always measured again.
 
 1. `G28 X Y`: X and Y never touch the bed. Your homing macro's Z lift still applies.
 2. Pick the probe spot **furthest from every stored part** (at least `home_clearance`, 20 mm),
-   preferring the centre when several are equally free.
+   preferring the centre when several are equally free. The probe, the nozzle and the whole
+   blade (`blade_offset`, `blade_width`) must all be that far from the parts, because a nozzle
+   probe such as Tap triggers on whatever touches first.
 3. Measure Z there with the probe, so a part is never mistaken for the bed.
 4. Continue with the normal eject.
 
