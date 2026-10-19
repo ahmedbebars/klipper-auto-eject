@@ -7,6 +7,19 @@ buttons; there are no files to edit and nothing to measure with a ruler.
 AUTO_EJECT_SETUP
 ```
 
+> **In short** (Voron Tap, parts falling off the front):
+>
+> 1. Print `hardware/test/calibration_block.stl` away from the middle of the bed. Leave it there.
+> 2. Run `AUTO_EJECT_SETUP` and press **Start**, then **Front**.
+> 3. Clear everything else off the bed and press **Bed is clear - move**. The toolhead goes to the
+>    block by itself. Press **Measure** and wait 2–3 minutes, then **Next**.
+> 4. Press the width of your blade: **60 mm**, **80 mm** or **100 mm**.
+> 5. Take the block off, press **Bed is clear - move** and check that the blade is past the edge
+>    of the sheet. Press **Yes, it is past the edge**.
+> 6. Pick a temperature (**32 C** for PLA), press **Save**, then **Dry test**.
+>
+> Every screen is shown below with a picture.
+
 ## Before you start
 
 - The blade is mounted on the toolhead.
