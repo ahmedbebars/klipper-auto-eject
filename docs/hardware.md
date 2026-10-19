@@ -90,6 +90,23 @@ layers run along the load.
    above the nozzle tip**, and the blade's face is ahead of everything else on the toolhead. Tighten.
 6. Run `AUTO_EJECT_SETUP`.
 
+### Example: Voron Trident with Stealthburner
+
+<p align="center">
+  <img src="../hardware/images/voron-stealthburner-front.jpg" width="48%" alt="Blade fitted to a Voron Stealthburner, front view">
+  <img src="../hardware/images/voron-stealthburner-closeup.jpg" width="48%" alt="Mount, arm and blade on the Stealthburner front cover">
+</p>
+<p align="center">
+  <img src="../hardware/images/voron-stealthburner-side.jpg" width="80%" alt="Side view: the blade reaches ahead of the toolhead">
+</p>
+
+- The mount uses the two lower screws of the Stealthburner front cover, a few millimetres
+  longer than stock.
+- 100 mm blade. The arm upright sits in front of the hotend fan: keep it as low as the slots
+  allow, or print the arm with a smaller `arm_height`, so it does not cover the fan intake.
+- Check the blade height (step 5 above) before homing. Voron Tap homes on whatever touches
+  first, so a blade below the nozzle tip would set Z wrong.
+
 ### Make your own size
 
 `hardware/universal_plow.scad` has every dimension as a parameter: blade width and height, arm

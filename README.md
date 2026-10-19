@@ -82,6 +82,13 @@ A three-part printable blade with slotted joints that fits most toolheads. Heigh
 with the slots, and `AUTO_EJECT_SETUP` measures the rest. STL files and the parametric OpenSCAD
 source are in [`hardware/`](hardware/), and the guide is [docs/hardware.md](docs/hardware.md).
 
+<p align="center">
+  <img src="hardware/images/voron-stealthburner-front.jpg" width="32%" alt="Blade fitted to a Voron Stealthburner, front view">
+  <img src="hardware/images/voron-stealthburner-closeup.jpg" width="32%" alt="Mount, arm and blade on the Stealthburner front cover">
+  <img src="hardware/images/voron-stealthburner-side.jpg" width="32%" alt="Side view: the blade reaches ahead of the toolhead">
+</p>
+<p align="center"><sub>Fitted to a Voron Trident 450 with a Stealthburner toolhead, 100 mm blade.</sub></p>
+
 ### It measures itself
 
 With Voron Tap or any probe that touches with the nozzle, you do not measure the blade at all.
