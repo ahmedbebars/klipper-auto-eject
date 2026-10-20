@@ -467,11 +467,11 @@ def test_the_parts_box_notifies(line):
 @needs_node
 @pytest.mark.parametrize("hostname, url", [
     ("192.168.1.102", "http://192.168.1.12/"),                      # at home: the local address
-    ("voron-450.tail1234.ts.net", "http://100.79.158.35/"),          # away, through Tailscale
-    ("100.87.229.120", "http://100.79.158.35/"),
+    ("farm.tail1234.ts.net", "http://100.70.1.12/"),          # away, through Tailscale
+    ("100.70.1.5", "http://100.70.1.12/"),
 ])
 def test_open_goes_through_tailscale_when_away(hostname, url):
-    p = {"page": "http://192.168.1.12/", "page_remote": "http://100.79.158.35/"}
+    p = {"page": "http://192.168.1.12/", "page_remote": "http://100.70.1.12/"}
     assert js("farmLink", p, hostname) == url
     # without Tailscale on that printer: no link away, its local address would not open
     away = js("farmAway", hostname)

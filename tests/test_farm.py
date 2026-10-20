@@ -515,11 +515,11 @@ def test_open_through_tailscale_when_away():
     big = farm.Printer("192.168.1.12", 7125, "big", macs=["48:8f:4c:16:d6:27"])
     other = farm.Printer("192.168.1.30", 7125, "mk3d", macs=["aa:aa:aa:aa:aa:aa"])
     big.page = "http://192.168.1.12/"
-    macs = {"100.79.158.35": ["48:8f:4c:16:d6:27"], "100.70.0.9": ["bb:bb:bb:bb:bb:bb"]}
-    f.link_tailscale([f.local, big, other], peers=[("100.79.158.35", "tatara-big"), ("100.70.0.9", "nas")],
+    macs = {"100.70.1.12": ["48:8f:4c:16:d6:27"], "100.70.0.9": ["bb:bb:bb:bb:bb:bb"]}
+    f.link_tailscale([f.local, big, other], peers=[("100.70.1.12", "printer-2"), ("100.70.0.9", "nas")],
                      macs_of=lambda ip, port: macs.get(ip, []))
-    assert big.ts_host == "100.79.158.35" and other.ts_host is None
-    assert big.public()["page_remote"] == "http://100.79.158.35/"
+    assert big.ts_host == "100.70.1.12" and other.ts_host is None
+    assert big.public()["page_remote"] == "http://100.70.1.12/"
     assert other.public()["page_remote"] is None
     assert f.local.public()["page_remote"] is None
 
