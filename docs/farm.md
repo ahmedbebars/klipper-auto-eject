@@ -102,8 +102,9 @@ Set up [remote access](remote-access.md) on the farm printer only:
 
 The farm printer reads the others for you, so from your phone you see every printer, its camera
 included, through that one printer. The other printers need no Tailscale. Only **Open** goes
-straight to the other printer, so it works when you are on the same network, or when that
-printer has Tailscale too.
+straight to the other printer: on the same network it opens its local address; away from it,
+through Tailscale, it opens the printer's Tailscale address when that printer has Tailscale too
+(the farm finds it by its network card).
 
 ## Notifications from every printer
 

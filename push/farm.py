@@ -178,6 +178,7 @@ class Printer:
         self.auto_off = int(auto_off or 0)              # minutes with nothing to do, then off; 0 = never
         self.auto_off_device = auto_off_device or ""
         self.idle_since = None
+        self.ts_host = None           # the same printer's Tailscale address, for Open from away
         self.id = pid or ("local" if local else printer_id(host, port))
         self.card = {"phase": "offline"}
         self.status = {}
@@ -284,8 +285,14 @@ class Printer:
             pass
         return "http://%s/" % self.host
 
+    def remote_page(self):
+        """The printer's page through Tailscale: Open from a phone away from home."""
+        if not self.page or not self.ts_host or self.ts_host == self.host:
+            return None
+        return self.page.replace("//%s/" % self.host, "//%s/" % self.ts_host, 1)
+
     def public(self):
-        return dict(self.card, id=self.id, name=self.name, host=self.host, local=self.local,
+        return dict(self.card, page_remote=None if self.local else self.remote_page(), id=self.id, name=self.name, host=self.host, local=self.local,
                     page=None if self.local else self.page, camera=bool(self.webcam), stats=self.stats,
                     power=self.power, auto_off=self.auto_off, auto_off_device=self.auto_off_device,
                     updated=self.updated)
@@ -401,6 +408,7 @@ class Farm:
         self.skipped = []                    # found but left out: suggested unticked next time
         self.loaded = False
         self.scan_state = {"running": False, "found": [], "finished": None}
+        self.ts_checked = 0.0                # when the Tailscale twins were last looked for
         self.load()
 
     def load(self):
@@ -439,6 +447,9 @@ class Farm:
         self.load()
         now = now or time.time()
         printers = self.all()
+        if now - self.ts_checked > 600:
+            self.ts_checked = now
+            self.link_tailscale(printers)
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, len(printers))) as pool:
             list(pool.map(lambda p: self._poll_one(p, now, watcher_factory), printers))
         if self.local_named is False and self.local.card.get("phase") != "offline":
@@ -556,6 +567,21 @@ class Farm:
                 p.name = name or p.host
                 self._save()
         return True
+
+    def link_tailscale(self, printers, peers=None, macs_of=None):
+        """Find each printer's Tailscale address: a Linux peer with the same
+        network card. Open then works from a phone away from the network."""
+        peers = tailscale_peers() if peers is None else peers
+        macs_of = macs_of or machine_macs
+        wanted = [p for p in printers if not p.local and p.macs and ipaddress.ip_address(p.host) not in TAILNET]
+        if not peers or not wanted:
+            return
+        for ip, _ in peers:
+            if any(p.host == ip for p in printers):
+                continue
+            for p in wanted:
+                if p.ts_host is None and set(p.macs) & set(macs_of(ip, p.port)):
+                    p.ts_host = ip
 
     def _local_record(self, name=None):
         out = {"name": (self.local.name if self.local_named else "") if name is None else name}

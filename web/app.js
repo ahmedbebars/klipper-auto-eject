@@ -1681,7 +1681,7 @@
     const file = farmFile(p);
     const bed = typeof p.bed === "number" ? num(p.bed, 0) + (p.bed_target ? " / " + num(p.bed_target, 0) : "") + " °C" : "";
     const open = p.local ? h("a", { class: "btn sm", href: "#/overview" }, icon("home"), t("farm.open"))
-      : p.page ? h("a", { class: "btn sm", href: p.page, target: "_blank", rel: "noopener" }, icon("external"), t("farm.open")) : null;
+      : M.farmLink(p, location.hostname) ? h("a", { class: "btn sm", href: M.farmLink(p, location.hostname), target: "_blank", rel: "noopener" }, icon("external"), t("farm.open")) : null;
     return h("section", { class: "card fcard", "data-state": p.phase },
       h("div", { class: "fc-top" },
         h("div", { class: "fc-ic" }, icon(FARM_ICON[p.phase] || "info")),
@@ -1739,7 +1739,7 @@
     if (!farmShown()) return String(farm.available);
     return JSON.stringify(farm.data.printers.map((p) => [p.id, p.name, p.phase, p.reason, p.filename, Math.round((p.progress || 0) * 100),
       p.eta === null || p.eta === undefined ? null : Math.round(p.eta / 60), p.layer, Math.round(p.bed || 0), p.bed_target, p.jobs, p.queue,
-      p.parts, p.leftover, p.camera, p.message, p.page, p.auto_eject, p.stats, p.bin, p.bin_cap, p.power, p.auto_off, p.auto_off_device]));
+      p.parts, p.leftover, p.camera, p.message, p.page, p.page_remote, p.auto_eject, p.stats, p.bin, p.bin_cap, p.power, p.auto_off, p.auto_off_device]));
   };
 
   function closeModal(cls) {

@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+- In the farm, **Open** did not work from a phone away from the printers' network: it opened the
+  printer's local address. When the page is opened through Tailscale, it now opens the printer's
+  Tailscale address, found by its network card, if that printer has Tailscale.
+
 ## [0.13.0] - 2026-10-20
 
 ### Added

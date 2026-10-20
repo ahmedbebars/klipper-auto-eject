@@ -466,6 +466,13 @@
     }
     return out;
   }
+  // Where Open goes: through Tailscale when this page is opened through it
+  // (a phone away from the printers' network), if that printer has it.
+  function farmLink(p, hostname) {
+    const ts = /\.ts\.net$/i.test(hostname) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(hostname);
+    return (ts && p.page_remote) || p.page || null;
+  }
+
   // What a farm card can offer: the bed is clear, start the queue, stop.
   function farmActions(p) {
     const out = [];
@@ -531,7 +538,7 @@
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

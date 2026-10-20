@@ -461,3 +461,15 @@ def test_the_end_gcode_to_paste_matches_the_docs():
 ])
 def test_the_parts_box_notifies(line):
     assert js("noticeFor", line)["kind"] == "bin"
+
+
+@needs_node
+@pytest.mark.parametrize("hostname, url", [
+    ("192.168.1.102", "http://192.168.1.12/"),                      # at home: the local address
+    ("voron-450.tail1234.ts.net", "http://100.79.158.35/"),          # away, through Tailscale
+    ("100.87.229.120", "http://100.79.158.35/"),
+])
+def test_open_goes_through_tailscale_when_away(hostname, url):
+    p = {"page": "http://192.168.1.12/", "page_remote": "http://100.79.158.35/"}
+    assert js("farmLink", p, hostname) == url
+    assert js("farmLink", {"page": "http://192.168.1.30/", "page_remote": None}, hostname) == "http://192.168.1.30/"
