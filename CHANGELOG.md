@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-20
+
 ### Added
 - **The parts box** (`bin_capacity`, `bin_full_action`, `AUTO_EJECT_BIN_EMPTY`): auto-eject counts
   the parts it pushes into the box under the drop edge, keeps the count across restarts, and says
@@ -373,7 +375,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.5...v0.11.0
 [0.10.5]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.4...v0.10.5
