@@ -269,6 +269,7 @@
       }).catch(() => {});
       if (app.klippy === "ready") klippyReady();
       else refresh();
+      if (app.files === null && (route() === "check" || route() === "queue")) loadFiles();
     }).catch((e) => {
       if (/unauthori/i.test(e.message)) { app.conn = "unauthorized"; refresh(); }
     });
@@ -356,7 +357,8 @@
   }
 
   function loadFiles() {
-    if (app.filesLoading) return;
+    // a page opened on #/check draws before the connection is open: wait for it
+    if (app.filesLoading || app.conn !== "online") return;
     app.filesLoading = true;
     client.call("server.files.list", { root: "gcodes" }).then((list) => {
       app.files = (list || []).filter((f) => /\.(gcode|g|gco)$/i.test(f.path)).sort((a, b) => b.modified - a.modified);
