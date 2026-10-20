@@ -484,3 +484,35 @@ def test_the_maintenance_chip():
     assert js("farmService", {"service_every": 500, "service_since": 120}) == {"since": 120, "every": 500, "due": False, "near": False}
     assert js("farmService", {"service_every": 500, "service_since": 460})["near"] is True
     assert js("farmService", {"service_every": 500, "service_since": 543})["due"] is True
+
+
+# ------------------------------------------------------ pictures of the prints
+THUMBS = [{"width": 300, "height": 300, "relative_path": ".thumbs/part-300x300.png"},
+          {"width": 32, "height": 32, "relative_path": ".thumbs/part-32x32.png"},
+          {"width": 48, "height": 48}]
+
+
+@needs_node
+def test_the_picture_of_a_file():
+    assert js("thumbPick", THUMBS, 96)["width"] == 300
+    assert js("thumbPick", THUMBS, 20)["width"] == 32
+    assert js("thumbPick", THUMBS, 900)["width"] == 300
+    assert js("thumbPick", [], 96) is None and js("thumbPick", None, 96) is None
+    assert js("thumbPath", "part.gcode", THUMBS[0]) == "/server/files/gcodes/.thumbs/part-300x300.png"
+    assert js("thumbPath", "jobs/my part.gcode", {"relative_path": ".thumbs/my part-32x32.png"}) == \
+        "/server/files/gcodes/jobs/.thumbs/my%20part-32x32.png"
+    assert js("thumbPath", "part.gcode", {"relative_path": "../moonraker.conf"}) == ""
+
+
+@needs_node
+def test_what_a_files_metadata_tells():
+    f = js("fileFacts", {"estimated_time": 4321, "filament_weight_total": 12.5, "filament_total": 4210.0, "object_height": 15.5,
+                         "layer_height": 0.2, "layer_count": 78, "nozzle_diameter": 0.4, "filament_type": "PLA;PLA;PETG",
+                         "slicer": "OrcaSlicer", "slicer_version": "2.3.0"})
+    assert f == {"time": 4321, "grams": 12.5, "metres": 4.2, "height": 15.5, "layer": 0.2, "layers": 78, "nozzle": 0.4,
+                 "material": "PLA / PETG", "slicer": "OrcaSlicer 2.3.0"}
+    # a slicer that tells nothing, or a file Moonraker could not read
+    empty = {"time": None, "grams": None, "metres": None, "height": None, "layer": None, "layers": None, "nozzle": None,
+             "material": "", "slicer": ""}
+    assert js("fileFacts", {}) == empty and js("fileFacts", None) == empty
+    assert js("fileFacts", {"estimated_time": 0, "filament_type": "?"}) == empty

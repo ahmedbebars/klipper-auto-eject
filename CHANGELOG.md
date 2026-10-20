@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Pictures of the prints**: the files in **Check a file**, the print queue, the farm cards and
+  the farm's **Print** dialog show the picture the slicer put in the G-code (OrcaSlicer,
+  PrusaSlicer, SuperSlicer, Cura with **Create Thumbnail**), with the print time, filament, height
+  and material. **Check a file** opens with a large picture and everything the file says about the
+  print; **Overview** shows the picture of the print on the bed. A black part on the dark page, or
+  a white one on the light page, gets a backdrop that shows it. Lists read each file only when it
+  comes into view. Other farm printers' pictures come through the farm printer, which keeps them
+  in memory.
 - **Maintenance reminders** in the farm: every 100 to 1000 hours of printing, per printer, from
   Moonraker's print history. The card counts them (**Maintenance: 450 / 1000 h**), a notification
   comes once when it is due, and **Maintenance done** starts again from zero.

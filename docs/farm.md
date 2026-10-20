@@ -10,7 +10,7 @@ printers need nothing installed**.
 | A card shows | |
 |---|---|
 | **Needs you** | A finished print to take off, a part that stayed on the bed, parts too thin to push, an error, a cancelled print, or a job queue that waits for you. It says which. |
-| **Printing** | The file, how far it is, the time left and the layer |
+| **Printing** | The file with its picture, how far it is, the time left and the layer |
 | **Clearing the bed** | auto-eject is cooling the bed and pushing the parts off |
 | **Paused**, **Stopped** | A paused print; Klipper stopped, with its message |
 | **Free** | Ready for the next print, and how many jobs wait in its queue |
@@ -74,7 +74,7 @@ with its local address: it knows it is the same machine by its network card.
 | Button | What it does | Asks first |
 |---|---|---|
 | **Bed is clear** | You took the print off. With auto-eject: forgets the stored parts (`AUTO_EJECT_CLEAR`). Without: forgets the finished job (`SDCARD_RESET_FILE`) so the printer shows as free. Nothing moves. | No |
-| **Print** | A free printer: pick one of its G-code files, or send it one from your phone or computer (**Send it**, or **Send it and print**). Refused while it prints or while auto-eject knows parts are on its bed | Yes |
+| **Print** | A free printer: pick one of its G-code files (each with its picture, print time and filament), or send it one from your phone or computer (**Send it**, or **Send it and print**). Refused while it prints or while auto-eject knows parts are on its bed | Yes |
 | **Pause**, **Resume**, **Cancel the print** | The print running on that printer | Cancel asks |
 | **Start the queue** | Starts that printer's Moonraker job queue: the next job prints | Yes |
 | **Emergency stop** | Stops that printer at once. It then needs a firmware restart | Yes |

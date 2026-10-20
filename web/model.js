@@ -550,10 +550,46 @@
     return (macro ? macro + "\n" : "") + eject;
   }
 
+  // Pictures of the print: the slicer puts them in the G-code, Moonraker
+  // saves them next to it and lists them in the file's metadata. The one to
+  // show `want` pixels wide: the smallest at least that wide, else the largest.
+  function thumbPick(thumbs, want) {
+    const list = (Array.isArray(thumbs) ? thumbs : []).filter((t) => t && t.relative_path && t.width > 0)
+      .sort((a, b) => a.width - b.width);
+    if (!list.length) return null;
+    return list.find((t) => t.width >= want) || list[list.length - 1];
+  }
+  // Its address on Moonraker: relative to the G-code file's folder.
+  function thumbPath(file, thumb) {
+    if (!thumb || !thumb.relative_path) return "";
+    const f = String(file || "");
+    const dir = f.lastIndexOf("/") >= 0 ? f.slice(0, f.lastIndexOf("/") + 1) : "";
+    const parts = (dir + thumb.relative_path).split("/").filter((s) => s && s !== ".");
+    if (parts.includes("..")) return "";
+    return "/server/files/gcodes/" + parts.map(encodeURIComponent).join("/");
+  }
+  // What a file's metadata says about the print; null where it says nothing.
+  function fileFacts(m) {
+    m = m || {};
+    const n = (v) => (typeof v === "number" && isFinite(v) && v > 0 ? v : null);
+    const kinds = String(m.filament_type || "").split(/[;,]/).map((s) => s.trim()).filter((s) => s && s !== "?");
+    return {
+      time: n(m.estimated_time),
+      grams: n(m.filament_weight_total),
+      metres: n(m.filament_total) ? Math.round(m.filament_total / 100) / 10 : null,
+      height: n(m.object_height),
+      layer: n(m.layer_height),
+      layers: n(m.layer_count),
+      nozzle: n(m.nozzle_diameter),
+      material: Array.from(new Set(kinds)).join(" / "),
+      slicer: m.slicer ? String(m.slicer) + (m.slicer_version ? " " + m.slicer_version : "") : ""
+    };
+  }
+
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

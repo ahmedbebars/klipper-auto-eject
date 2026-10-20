@@ -98,6 +98,9 @@
     return this.call("printer.gcode.script", { script });
   };
 
+  // A file on Moonraker, for an <img>: a print's picture.
+  Moonraker.prototype.fileUrl = function (path) { return this.base + path; };
+
   Moonraker.prototype.fetchText = function (path, range) {
     const headers = {};
     if (range) headers.Range = "bytes=" + range;

@@ -61,26 +61,26 @@
 
   const FILES = {
     "cookie_cutters_x6.gcode": {
-      height: 15.5, layer: 0.2, time: 6900, eject: true,
+      height: 15.5, layer: 0.2, time: 6900, eject: true, material: "PLA", color: "#ff7a1a",
       parts: [
         ["star_1", star(95, 120, 34)], ["heart_1", heart(175, 120, 34)], ["circle_1", circle(255, 120, 32, 28)],
         ["star_2", star(95, 205, 34)], ["heart_2", heart(175, 205, 34)], ["circle_2", circle(255, 205, 32, 28)]
       ]
     },
     "calibration_cubes_x3.gcode": {
-      height: 10.0, layer: 0.2, time: 2700, eject: true,
+      height: 10.0, layer: 0.2, time: 2700, eject: true, material: "PLA", color: "#19a7a0",
       parts: [["cube_1", rect(110, 150, 140, 180)], ["cube_2", rect(160, 150, 190, 180)], ["cube_3", rect(210, 150, 240, 180)]]
     },
     "stencil_logo.gcode": {
-      height: 0.48, layer: 0.24, time: 1500, eject: true,
+      height: 0.48, layer: 0.24, time: 1500, eject: true, material: "PETG", color: "#18191c",
       parts: [["stencil", rect(110, 110, 240, 240)]]
     },
     "wall_bracket.gcode": {
-      height: 32.0, layer: 0.25, time: 8100, eject: true,
+      height: 32.0, layer: 0.25, time: 8100, eject: true, material: "PETG", color: "#2f6fdf",
       parts: [["bracket", rect(140, 290, 210, 335)]]
     },
     "keychains_x12.gcode": {
-      height: 4.0, layer: 0.2, time: 3300, eject: false,
+      height: 4.0, layer: 0.2, time: 3300, eject: false, material: "PLA", color: "#e5484d",
       parts: (function () {
         const p = [];
         for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++)
@@ -88,8 +88,72 @@
         return p;
       })()
     },
-    "vase_no_labels.gcode": { height: 120.0, layer: 0.3, time: 9600, eject: false, parts: [], labels: false }
+    "vase_no_labels.gcode": { height: 120.0, layer: 0.3, time: 9600, eject: false, parts: [], labels: false, material: "PLA", color: "#8e5bd8" }
   };
+
+  /* ---------------------------------------------------- the pictures */
+
+  // What the slicer would have drawn: the parts seen from the front, a
+  // little above. The other farm printers' files get a shape from their name.
+  function demoShape(name) {
+    const f = FILES[name];
+    if (f) return { parts: f.parts.length ? f.parts.map((p) => p[1]) : [circle(175, 175, 40, 36)], height: f.height, color: f.color, material: f.material };
+    const n = String(name).toLowerCase();
+    const material = (/(PLA|PETG|ABS|ASA|TPU)/i.exec(name) || [, "PLA"])[1].toUpperCase();
+    const grid = (cols, rows, w, d, gap, mk) => {
+      const out = [];
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) out.push(mk(100 + c * (w + gap), 120 + r * (d + gap), w, d));
+      return out;
+    };
+    if (/vase/.test(n)) return { parts: [circle(175, 175, 45, 40)], height: 150, color: "#8e5bd8", material };
+    if (/bracket/.test(n)) return { parts: [[[130, 150], [230, 150], [230, 172], [152, 172], [152, 236], [130, 236]]], height: 28, color: "#2f6fdf", material };
+    if (/hook/.test(n)) return { parts: grid(4, 2, 18, 46, 16, (x, y, w, d) => rect(x, y, x + w, y + d)), height: 16, color: "#e5484d", material };
+    if (/clip/.test(n)) return { parts: grid(4, 3, 20, 20, 12, (x, y, w) => circle(x + w / 2, y + w / 2, w / 2, 18)), height: 9, color: "#19a7a0", material };
+    if (/stand/.test(n)) return { parts: [[[120, 150], [230, 150], [215, 215], [135, 215]]], height: 70, color: "#f5a524", material };
+    return { parts: [rect(130, 140, 220, 210)], height: 22, color: "#ff7a1a", material };
+  }
+  function shade(hex, k) {
+    const c = parseInt(hex.slice(1), 16);
+    const m = (v) => Math.round(k >= 0 ? v + (255 - v) * k : v * (1 + k));
+    return "#" + [c >> 16, (c >> 8) & 255, c & 255].map((v) => m(v).toString(16).padStart(2, "0")).join("");
+  }
+  function thumbSvg(shape) {
+    const all = [].concat(...shape.parts);
+    const xs = all.map((p) => p[0]), ys = all.map((p) => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const TILT = 0.55, RISE = 0.8;
+    const w = (x1 - x0) || 1, d = (y1 - y0) * TILT, up = shape.height * RISE;
+    const s = Math.min(232 / w, 232 / (d + up));
+    const ox = 150 - (w * s) / 2, oy = 150 + ((d + up) * s) / 2;
+    const P = (x, y, z) => (ox + (x - x0) * s).toFixed(1) + "," + (oy - (y - y0) * TILT * s - z * RISE * s).toFixed(1);
+    const base = shape.color || "#ff7a1a";
+    const out = [];
+    // the parts at the back first, and in each its sides before its top
+    shape.parts.slice().sort((a, b) => Math.min(...b.map((p) => p[1])) - Math.min(...a.map((p) => p[1]))).forEach((poly) => {
+      let area = 0;
+      poly.forEach((a, i) => { const b = poly[(i + 1) % poly.length]; area += a[0] * b[1] - b[0] * a[1]; });
+      const sides = [];
+      poly.forEach((a, i) => {
+        const b = poly[(i + 1) % poly.length];
+        let nx = b[1] - a[1], ny = -(b[0] - a[0]);
+        if (area < 0) { nx = -nx; ny = -ny; }
+        const len = Math.hypot(nx, ny) || 1;
+        nx /= len; ny /= len;
+        if (ny >= -0.02) return;                    // faces away: hidden
+        const light = Math.max(0, nx * -0.45 + ny * -0.89);
+        sides.push({ y: (a[1] + b[1]) / 2, d: [P(a[0], a[1], 0), P(b[0], b[1], 0), P(b[0], b[1], shape.height), P(a[0], a[1], shape.height)].join(" "),
+          c: shade(base, -0.5 + light * 0.32) });
+      });
+      sides.sort((p, q) => q.y - p.y).forEach((f) => out.push('<polygon points="' + f.d + '" fill="' + f.c + '" stroke="' + f.c + '" stroke-width="0.6"/>'));
+      out.push('<polygon points="' + poly.map((p) => P(p[0], p[1], shape.height)).join(" ") + '" fill="url(#top)" stroke="' + shade(base, -0.2) +
+        '" stroke-width="1.2" stroke-linejoin="round"/>');
+    });
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">' +
+      '<defs><linearGradient id="top" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + shade(base, 0.32) + '"/>' +
+      '<stop offset="1" stop-color="' + base + '"/></linearGradient>' +
+      '<radialGradient id="sh"><stop offset="0" stop-color="#000" stop-opacity="0.22"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>' +
+      '<ellipse cx="150" cy="' + (oy + 2).toFixed(1) + '" rx="' + ((w * s) / 2 + 18).toFixed(1) + '" ry="14" fill="url(#sh)"/>' + out.join("") + "</svg>";
+  }
 
   /* -------------------------------------------------------------- demo */
 
@@ -542,6 +606,29 @@
     return out.join("\n");
   };
 
+  // A demo file's metadata, as Moonraker gives it.
+  Demo.prototype.fileMeta = function (name) {
+    const f = FILES[name], shape = demoShape(name);
+    const hm = /_(\d+)h(\d+)?m?/.exec(name);
+    const time = f ? f.time : hm ? Number(hm[1]) * 3600 + Number(hm[2] || 0) * 60 : 3000;
+    const layer = f ? f.layer : 0.2;
+    const stem = name.replace(/\.[^.]+$/, "");
+    return { filename: name, object_height: shape.height, layer_height: layer, layer_count: Math.round(shape.height / layer),
+      estimated_time: time, filament_weight_total: Math.round((time / 3600) * 13.5 * 10) / 10, filament_total: Math.round((time / 3600) * 4500),
+      filament_type: shape.material, nozzle_diameter: 0.4, slicer: "OrcaSlicer", slicer_version: "2.3.0", size: 2000000,
+      thumbnails: [32, 300].map((w) => ({ width: w, height: w, size: w * 90, relative_path: ".thumbs/" + stem + "-" + w + "x" + w + ".png" })) };
+  };
+  // The slicer's picture of a file, drawn here.
+  Demo.prototype.thumbFor = function (name) {
+    this.thumbs = this.thumbs || {};
+    if (!this.thumbs[name]) this.thumbs[name] = "data:image/svg+xml," + encodeURIComponent(thumbSvg(demoShape(name)));
+    return this.thumbs[name];
+  };
+  Demo.prototype.fileUrl = function (path) {
+    const m = /\/\.thumbs\/([^/]+)-\d+x\d+\.png$/.exec(decodeURIComponent(path));
+    return m ? this.thumbFor(m[1] + ".gcode") : path;
+  };
+
   Demo.prototype.fetchText = function (path) {
     const name = decodeURIComponent(path.replace(/^.*\/server\/files\/gcodes\//, ""));
     if (path.indexOf("/server/files/gcodes/") >= 0) return Promise.resolve(this.gcodeText(name));
@@ -596,9 +683,8 @@
       case "server.files.list":
         return ok(Object.keys(FILES).map((n, i) => ({ path: n, modified: Date.now() / 1000 - i * 86400 - 3600, size: 2000000 + i * 731000, permissions: "rw" })));
       case "server.files.metadata": {
-        const f = FILES[params.filename];
-        if (!f) return Promise.reject(new Error("not found"));
-        return ok({ filename: params.filename, object_height: f.height, layer_height: f.layer, estimated_time: f.time, slicer: "OrcaSlicer", size: 2000000 });
+        if (!FILES[params.filename]) return Promise.reject(new Error("not found"));
+        return ok(this.fileMeta(params.filename));
       }
       case "server.gcode_store": return ok({ gcode_store: this.log.slice(-(params.count || 100)) });
       case "server.webcams.list": return ok({ webcams: [] });
@@ -756,6 +842,12 @@
         else if (f) f.name = String(body.name || "").trim() || f.host;
         return ok({ renamed: true });
       }
+    }
+    // a file's facts for the print dialog, as push/farm.py sends them
+    const mt = /^\/([^/]+)\/meta\?file=(.*)$/.exec(path);
+    if (mt) {
+      const m = this.fileMeta(decodeURIComponent(mt[2]));
+      return ok({ meta: Object.assign({}, m, { thumbnails: undefined, thumbs: m.thumbnails.length }) });
     }
     // printing from the farm: the files, start one, send one
     const fl = /^\/([^/]+)\/(files|print|upload)$/.exec(path);

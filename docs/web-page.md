@@ -22,8 +22,8 @@ bed and starts the next job by itself.
 |---|---|
 | **Overview** | Status (ready, printing, cooling, clearing the bed, needs you) with progress. The bed map shows the stored parts, the lanes the blade will push along, the drop edge and the toolhead moving live. Buttons: **Eject now** (or **Home safely and eject** after a restart), **Dry run**, **I took the parts off** and, when the queue is paused, **Bed is clear, continue the queue**. Every button that moves the printer asks first. A camera is shown if one is set up in Moonraker. The **Box** chip counts the parts in the box under the drop edge; press it once you have emptied the box. |
 | **Printer farm** | Shown when the `klipper-auto-eject` service runs (`install.sh --farm`). Every Klipper printer on the network, the ones that need you first, with buttons to say the bed is clear, start the queue or stop. **Search the network** finds and adds them. See [farm.md](farm.md). |
-| **Print queue** | Shown when Moonraker has a `[job_queue]`. Add files (with a number of copies), remove them, start or pause the queue. Each file says whether it will be pushed off or is too thin and stays on the bed. Says whether the queue moves on by itself (`automatic_transition`). |
-| **Check a file** | Pick a G-code file and the page reads it: are the parts labelled, does the end G-code run `AUTO_EJECT`, is the print tall enough, can the blade get behind every part? It draws the plan on the bed map before you print. When the slicer needs a change, **Show me what to paste in the slicer** opens the lines to paste. |
+| **Print queue** | Shown when Moonraker has a `[job_queue]`. Add files (with a number of copies), remove them, start or pause the queue. Each file shows its picture and says whether it will be pushed off or is too thin and stays on the bed. Says whether the queue moves on by itself (`automatic_transition`). |
+| **Check a file** | Every file shows its picture, print time, filament, height and material. Pick one and the page reads it: are the parts labelled, does the end G-code run `AUTO_EJECT`, is the print tall enough, can the blade get behind every part? It draws the plan on the bed map before you print. When the slicer needs a change, **Show me what to paste in the slicer** opens the lines to paste. |
 | **Blade and setup** | The measured blade (height above the nozzle tip, distance ahead of it, width) in a side view, the probe type, buttons for the guided setup, the blade measurement and a dry run, and downloads for the test parts (calibration block, blade gauge, test cube). The setup dialogs open right in the page. **In your slicer**: for OrcaSlicer, PrusaSlicer/SuperSlicer or Cura, where each setting is and the lines to paste, with a **Copy** button. The end G-code names the end macro this printer really uses, found in its newest file or its config (`PRINT_END`, `END_PRINT`, `DEMON_END`…). |
 | **Settings** | Every setting from `auto_eject_settings.cfg`, grouped like the file, with its explanation, a switch, a list or a number box, and where the value comes from (default, your file, or saved here). Changes are saved with `AUTO_EJECT_SET` and kept after a restart. |
 | **Activity** | The auto-eject messages from the console, newest first. |
@@ -33,6 +33,25 @@ bed and starts the next job by itself.
 
 The page is in English and Arabic (right to left), in light and dark, and works on a phone.
 It picks the browser's language and theme; both can be switched at the top.
+
+### Pictures of the prints
+
+The files in **Check a file**, the print queue, the printer farm and its **Print** dialog show the
+picture your slicer puts in the G-code, with what the file says about the print: the time, the
+filament, the height and the material. **Overview** shows the picture of the print on the bed. A
+black part on the dark page, or a white one on the light page, gets a backdrop that shows it.
+
+Moonraker keeps the pictures next to the files; nothing else needs installing. The slicer has to
+put them in:
+
+| Slicer | Setting |
+|---|---|
+| OrcaSlicer | Printer settings › Basic information › **G-code thumbnails**, for example `300x300/PNG` |
+| PrusaSlicer / SuperSlicer | Printer Settings › General › Firmware › **G-code thumbnails**, for example `32x32/PNG, 300x300/PNG` |
+| Cura | Extensions › Post Processing › Modify G-Code › Add a script › **Create Thumbnail** |
+
+A file without a picture shows a plain box. Files sliced before the setting was on need slicing
+again.
 
 ## Installing
 

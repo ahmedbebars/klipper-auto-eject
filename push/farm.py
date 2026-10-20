@@ -10,6 +10,7 @@ printer like it answers Mainsail on the same network. Those with
 klipper-auto-eject also show their parts, cooling and eject.
 """
 
+import collections
 import concurrent.futures
 import hashlib
 import http.client
@@ -57,6 +58,10 @@ GCODE_FILE = re.compile(r"\.(gcode|g|gco|bgcode)$", re.I)
 BUSY = ("printing", "paused", "ejecting", "stopped", "offline", "off")
 ON_THE_BED = ("leftover", "parts", "bin")
 UPLOADS = os.path.expanduser("~/.cache/klipper-auto-eject")    # on the card, not in RAM (/tmp)
+# what the print dialog shows of a file, from Moonraker's metadata
+FILE_FACTS = ("estimated_time", "filament_weight_total", "filament_total", "object_height", "layer_height",
+              "layer_count", "filament_type", "nozzle_diameter", "slicer", "slicer_version", "modified", "size")
+THUMBS_KEPT = 200      # pictures the farm keeps in memory (a few KB each)
 
 
 def safe_name(name):
@@ -102,6 +107,27 @@ def upload_file(base, name, fileobj, size, start=False, timeout=600):
         raise RuntimeError((data.get("error") or {}).get("message") or "HTTP %d" % resp.status)
     # unlike its other answers, Moonraker sends the upload's without {"result": ...}
     return data.get("result", data)
+
+
+def pick_thumb(thumbs, want):
+    """The slicer's picture to show want pixels wide: the smallest at least
+    that wide, else the largest there is."""
+    shots = sorted((t for t in thumbs or [] if isinstance(t, dict) and t.get("relative_path") and (t.get("width") or 0) > 0),
+                   key=lambda t: t["width"])
+    if not shots:
+        return None
+    return next((t for t in shots if t["width"] >= want), shots[-1])
+
+
+def thumb_path(filename, thumb):
+    """Its path on Moonraker: relative to the G-code file's folder."""
+    if not thumb or not thumb.get("relative_path"):
+        return ""
+    folder = filename.rsplit("/", 1)[0] + "/" if "/" in filename else ""
+    parts = [s for s in (folder + thumb["relative_path"]).split("/") if s and s != "."]
+    if ".." in parts:
+        return ""
+    return "/server/files/gcodes/" + urllib.parse.quote("/".join(parts))
 
 
 def http_json(url, data=None, method=None, timeout=3.0):
@@ -479,6 +505,9 @@ class Farm:
         self.scan_state = {"running": False, "found": [], "finished": None}
         self.ts_checked = 0.0                # when the Tailscale twins were last looked for
         self.settings = {}                   # the whole farm's: {"report": "20:00", "report_sent": "2026-10-20"}
+        self.cache_lock = threading.Lock()
+        self.metas = {}                      # (printer, file) -> (when, Moonraker's metadata)
+        self.thumbs = collections.OrderedDict()   # (printer, picture, modified) -> (type, bytes)
         self.load()
 
     def load(self):
@@ -804,6 +833,67 @@ class Farm:
                  for f in items if GCODE_FILE.search(f.get("path", ""))]
         return sorted(items, key=lambda f: -f["modified"])[:500]
 
+    def file_meta(self, pid, filename, now=None):
+        """Moonraker's metadata of one of a printer's files, kept a minute."""
+        p = self.find(pid)
+        if p is None:
+            return None
+        now = time.time() if now is None else now
+        key = (p.id, filename)
+        with self.cache_lock:
+            hit = self.metas.get(key)
+        if hit and now - hit[0] < 60:
+            return hit[1]
+        try:
+            meta = http_json(p.base + "/server/files/metadata?filename=" + urllib.parse.quote(filename), timeout=5) or {}
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                raise LookupError("%s has no file %s" % (p.name, filename))
+            raise
+        with self.cache_lock:
+            if len(self.metas) > 500:
+                self.metas.clear()
+            self.metas[key] = (now, meta)
+        return meta
+
+    def file_card(self, pid, filename):
+        """What the print dialog shows of a file: its facts, and how many pictures it has."""
+        meta = self.file_meta(pid, filename)
+        if meta is None:
+            return None
+        out = {k: meta[k] for k in FILE_FACTS if meta.get(k) not in (None, "")}
+        out["thumbs"] = sum(1 for t in meta.get("thumbnails") or [] if isinstance(t, dict) and t.get("relative_path"))
+        return out
+
+    def thumbnail(self, pid, filename, want=300):
+        """The slicer's picture of a file: (content type, bytes)."""
+        meta = self.file_meta(pid, filename)
+        if meta is None:
+            return None
+        path = thumb_path(filename, pick_thumb(meta.get("thumbnails"), want))
+        if not path:
+            raise LookupError("%s has no picture" % filename)
+        key = (self.find(pid).id, path, meta.get("modified"))
+        with self.cache_lock:
+            if key in self.thumbs:
+                self.thumbs.move_to_end(key)
+                return self.thumbs[key]
+        try:
+            with urllib.request.urlopen(self.find(pid).base + path, timeout=5) as r:
+                ctype = (r.headers.get("Content-Type") or "").split(";")[0].strip()
+                data = r.read(4 << 20)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                raise LookupError("%s has no picture" % filename)
+            raise
+        if not ctype.startswith("image/"):
+            raise LookupError("%s has no picture" % filename)
+        with self.cache_lock:
+            self.thumbs[key] = (ctype, data)
+            while len(self.thumbs) > THUMBS_KEPT:
+                self.thumbs.popitem(last=False)
+        return ctype, data
+
     def ready_to_print(self, p):
         phase, reason = p.card.get("phase"), p.card.get("reason")
         if phase in BUSY:
@@ -862,11 +952,12 @@ def make_handler(farm):
         def _client(self):
             return self.headers.get("X-Real-IP") or self.client_address[0]
 
-        def _send(self, code, body, ctype="application/json"):
+        def _send(self, code, body, ctype="application/json", cache="no-store"):
             data = body if isinstance(body, bytes) else json.dumps(body).encode()
             self.send_response(code)
             self.send_header("Content-Type", ctype)
-            self.send_header("Cache-Control", "no-store")
+            self.send_header("Cache-Control", cache)
+            self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
@@ -898,6 +989,26 @@ def make_handler(farm):
                     except (ValueError, PermissionError) as e:
                         answer = (409, {"error": str(e)})
             return self._send(*answer)
+
+        def _file_info(self, pid, what, query):
+            """A file's facts (meta) or its slicer picture (thumb)."""
+            name = query.get("file", [""])[0]
+            if not name:
+                return self._send(400, {"error": "which file?"})
+            try:
+                if what == "meta":
+                    card = farm.file_card(pid, name)
+                    return self._send(200 if card is not None else 404, {"meta": card})
+                want = max(16, min(1024, int(query.get("w", ["300"])[0] or 300)))
+                pic = farm.thumbnail(pid, name, want)
+            except ValueError:
+                return self._send(400, {"error": "w: not a number"})
+            except LookupError as e:
+                return self._send(404, {"error": str(e)})
+            if pic is None:
+                return self._send(404, {"error": "not found"})
+            # the page asks again with the file's date when the file changes
+            return self._send(200, pic[1], pic[0], cache="private, max-age=3600")
 
         def _route(self, method):
             url = urllib.parse.urlsplit(self.path)
@@ -944,6 +1055,8 @@ def make_handler(farm):
                 if len(parts) == 3 and parts[0] == "farm" and parts[2] == "files" and method == "GET":
                     files = farm.files(parts[1])
                     return self._send(200 if files is not None else 404, {"files": files})
+                if len(parts) == 3 and parts[0] == "farm" and parts[2] in ("meta", "thumb") and method == "GET":
+                    return self._file_info(parts[1], parts[2], urllib.parse.parse_qs(url.query))
                 if len(parts) == 3 and parts[0] == "farm" and parts[2] == "print" and method == "POST":
                     try:
                         result = farm.print_file(parts[1], body.get("filename", ""))

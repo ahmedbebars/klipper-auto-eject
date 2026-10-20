@@ -632,6 +632,95 @@ def test_api_files_print_pause_upload(monkeypatch, tmp_path):
         server.shutdown()
 
 
+# --------------------------------------------------- pictures of the prints
+THUMBS = [{"width": 300, "height": 300, "size": 9000, "relative_path": ".thumbs/part-300x300.png"},
+          {"width": 32, "height": 32, "size": 900, "relative_path": ".thumbs/part-32x32.png"},
+          {"width": 0, "relative_path": ".thumbs/broken.png"}, {"width": 64}]
+
+
+def test_the_picture_that_fits_and_where_it_is():
+    assert farm.pick_thumb(THUMBS, 96)["width"] == 300
+    assert farm.pick_thumb(THUMBS, 24)["width"] == 32
+    assert farm.pick_thumb(THUMBS, 600)["width"] == 300               # the largest there is
+    assert farm.pick_thumb([], 96) is None and farm.pick_thumb(None, 96) is None
+    assert farm.thumb_path("part.gcode", THUMBS[0]) == "/server/files/gcodes/.thumbs/part-300x300.png"
+    # next to the file, in its folder
+    assert farm.thumb_path("jobs/my part.gcode", {"relative_path": ".thumbs/my part-32x32.png"}) == \
+        "/server/files/gcodes/jobs/.thumbs/my%20part-32x32.png"
+    assert farm.thumb_path("part.gcode", {"relative_path": "../../moonraker.conf"}) == ""
+    assert farm.thumb_path("part.gcode", None) == ""
+
+
+class FakeMoonrakerFiles:
+    """A Moonraker with one sliced file and its pictures, as a real HTTP server."""
+    PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 64
+
+    def __init__(self):
+        import http.server
+        import threading
+        hits = self.hits = []
+        png = self.PNG
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                hits.append(self.path)
+                if self.path == "/server/files/metadata?filename=jobs/part.gcode":
+                    out, ctype = json.dumps({"result": {"filename": "jobs/part.gcode", "modified": 1700000000.5, "size": 123456,
+                                                        "estimated_time": 4321, "filament_weight_total": 12.5, "object_height": 15.5,
+                                                        "slicer": "OrcaSlicer", "gcode_start_byte": 9000, "thumbnails": THUMBS}}).encode(), "application/json"
+                elif self.path == "/server/files/gcodes/jobs/.thumbs/part-300x300.png":
+                    out, ctype = png, "image/png"
+                else:
+                    out, ctype = json.dumps({"error": {"code": 404, "message": "not found"}}).encode(), "application/json"
+                    self.send_response(404)
+                    self.send_header("Content-Type", ctype)
+                    self.send_header("Content-Length", str(len(out)))
+                    self.end_headers()
+                    self.wfile.write(out)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(out)))
+                self.end_headers()
+                self.wfile.write(out)
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.port = self.server.server_address[1]
+
+
+def test_a_files_facts_and_picture_through_the_farm():
+    mr = FakeMoonrakerFiles()
+    f = farm.Farm(FakeMoonraker(), local_port=mr.port)
+    server = farm.serve(f, 0)
+    base = "http://127.0.0.1:%d/farm/local" % server.server_address[1]
+    try:
+        code, body = call(base + "/meta?file=jobs%2Fpart.gcode")
+        assert code == 200
+        assert body["meta"] == {"estimated_time": 4321, "filament_weight_total": 12.5, "object_height": 15.5, "slicer": "OrcaSlicer",
+                                "modified": 1700000000.5, "size": 123456, "thumbs": 3}
+        with urllib.request.urlopen(base + "/thumb?file=jobs%2Fpart.gcode&w=96", timeout=5) as r:
+            assert r.status == 200 and r.headers["Content-Type"] == "image/png" and r.read() == mr.PNG
+            assert "max-age" in r.headers["Cache-Control"] and r.headers["X-Content-Type-Options"] == "nosniff"
+        with urllib.request.urlopen(base + "/thumb?file=jobs%2Fpart.gcode&w=96", timeout=5) as r:
+            r.read()
+        # the metadata asked once in a minute, the picture once
+        assert mr.hits.count("/server/files/metadata?filename=jobs/part.gcode") == 1
+        assert mr.hits.count("/server/files/gcodes/jobs/.thumbs/part-300x300.png") == 1
+        # a small one: the 32 px picture is not on this Moonraker
+        assert call(base + "/thumb?file=jobs%2Fpart.gcode&w=20")[0] == 404
+        assert call(base + "/meta?file=other.gcode")[0] == 404
+        assert call(base + "/thumb?file=jobs%2Fpart.gcode&w=big")[0] == 400
+        assert call(base + "/meta")[0] == 400
+        assert call(base.replace("/local", "/nobody") + "/meta?file=a.gcode")[0] == 404
+    finally:
+        server.shutdown()
+        mr.server.shutdown()
+
+
 # ------------------------------------------- maintenance and the daily report
 def test_a_maintenance_reminder_comes_once_and_restarts_when_done():
     mr = FakeMoonraker()

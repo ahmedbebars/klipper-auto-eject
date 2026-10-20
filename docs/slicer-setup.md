@@ -132,6 +132,8 @@ Restart Moonraker. Uploaded files that contain object tags are then rewritten wi
 - **Skirt:** turn it off, or keep it inside the area of the parts. A skirt is too thin for the blade to catch.
 - **Brim:** fine. It comes away with the part.
 - **Without labels at all:** use `STRATEGY=full_width`, or set `no_objects_action: "full_width"`.
+- **G-code thumbnails:** not needed for the eject, but the web page and the farm show each file
+  with its picture when the slicer puts one in ([where to turn them on](web-page.md#pictures-of-the-prints)).
 
 ## Prints you will remove by hand
 

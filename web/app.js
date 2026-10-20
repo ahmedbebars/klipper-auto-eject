@@ -91,7 +91,10 @@
     edit: "M4 20h4L19 9l-4-4L4 16z M13.5 6.5l4 4",
     copy: "M9 9h11v11H9z M5 15H4V4h11v1",
     tray: "M3 13h5l1 3h6l1-3h5 M5 5h14l2 8v6H3v-6z",
-    power: "M12 3v8 M6.3 6.3a8 8 0 1 0 11.4 0"
+    power: "M12 3v8 M6.3 6.3a8 8 0 1 0 11.4 0",
+    clock: "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z M12 7v5l3 2",
+    spool: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z",
+    height: "M12 3v18 M8 7l4-4 4 4 M8 17l4 4 4-4"
   };
   function icon(name, cls) {
     return s("svg", { class: "ic" + (cls ? " " + cls : ""), viewBox: "0 0 24 24", "aria-hidden": "true" }, s("path", { d: ICONS[name] || "" }));
@@ -715,10 +718,15 @@
 
     // ----- status
     const ht = heroText();
+    const job = (app.status.print_stats || {}).filename || "";
+    const jm = job ? app.meta[job] : null;
+    if (job && !jm) meta(job).then(() => refresh("overview"));
+    const jobPic = jm ? thumbSrc(job, jm, 300) : "";
     const hero = h("section", { class: "card hero", "data-state": ht.ph },
       h("div", { class: "hero-top" },
         h("div", { class: "hero-ic" }, icon(STATE_ICON[ht.ph], "lg")),
-        h("div", { style: { minWidth: 0 } }, h("h1", { text: ht.title }), h("p", { "data-live": "sub", text: ht.sub }))));
+        h("div", { style: { minWidth: 0, flex: "1" } }, h("h1", { text: ht.title }), h("p", { "data-live": "sub", text: ht.sub })),
+        jobPic ? thumbBox(jobPic, "hero") : null));
     const pr = progress();
     if (pr) {
       hero.appendChild(h("div", { class: "progress" }, h("i", { "data-live": "bar", style: { width: (pr.value * 100).toFixed(1) + "%" } })));
@@ -819,7 +827,8 @@
     const m = settings();
     return JSON.stringify([phase(), parts().map((r) => r.slice(0, 5)), st.leftover, st.height, homed(), blocked(), ps.filename,
       m && m.values, app.queue.state, app.queue.jobs.length, app.hasQueue, Object.keys(app.config).length, app.webcams.length,
-      Array.from(app.lanesDone), Object.keys(polygons()).length, farmShown() && farm.data.printers.length, farmNeeds(), st.bin]);
+      Array.from(app.lanesDone), Object.keys(polygons()).length, farmShown() && farm.data.printers.length, farmNeeds(), st.bin,
+      !!(ps.filename && app.meta[ps.filename])]);
   };
 
   function camUrl(cam) {
@@ -982,6 +991,7 @@
       }
       return h("div", { class: "row" + (i === 0 && !paused ? " now" : "") },
         h("span", { class: "num", text: num(i + 1, 0) }),
+        thumbBox(m ? thumbSrc(j.filename, m, 96) : null, "sm"),
         h("div", { class: "grow" }, h("div", { class: "name ltr", text: j.filename }),
           h("div", { class: "sub" }, m && m.estimated_time ? duration(m.estimated_time) : "", m && m.object_height ? " · " + t("c.mm", { v: num(m.object_height) }) : "")),
         badge,
@@ -996,7 +1006,10 @@
     const ps = app.status.print_stats || {};
     if (["printing", "paused"].includes(ps.state) && ps.filename) {
       const p = (app.status.display_status || {}).progress || 0;
+      const pm = app.meta[ps.filename];
+      if (!pm) meta(ps.filename).then(() => refresh("queue"));
       rows.unshift(h("div", { class: "row now" }, h("span", { class: "num" }, icon("play")),
+        thumbBox(pm ? thumbSrc(ps.filename, pm, 96) : null, "sm"),
         h("div", { class: "grow" }, h("div", { class: "name ltr", text: ps.filename }),
           h("div", { class: "sub", text: t("queue.now") + " · " + num(p * 100, 0) + " %" }))));
     }
@@ -1073,12 +1086,17 @@
     const search = h("div", { class: "search" }, icon("search"),
       h("input", { class: "input", type: "search", placeholder: t("check.search"), value: check.filter, "data-keep": "c-search",
         oninput: (e) => { check.filter = e.target.value; refresh("check"); } }));
+    const watch = lazyRows(meta, (el, m) => fillFileRow(el, m, thumbSrc(el.dataset.file, m, 96)));
     const list = app.files === null ? h("div", { class: "empty" }, h("span", { class: "spinner" }))
-      : files.length ? h("div", { class: "list files" }, files.slice(0, 300).map((f) =>
-          h("button", { type: "button", class: "row" + (f.path === check.file ? " active" : ""), onclick: () => runCheck(f.path) },
-            icon("file"), h("div", { class: "grow" }, h("div", { class: "name ltr", text: f.path }),
-              h("div", { class: "sub", text: t("check.size", { size: fmtSize(f.size), date: new Date(f.modified * 1000).toLocaleDateString(lang === "ar" ? "ar-EG-u-nu-latn" : undefined) }) })))))
+      : files.length ? h("div", { class: "list files" }, files.slice(0, 300).map((f) => {
+          const m = app.meta[f.path];
+          const row = fileRow(f, m, m ? thumbSrc(f.path, m, 96) : null, () => runCheck(f.path), f.path === check.file ? "active" : "");
+          if (!m) watch(row);
+          return row;
+        }))
       : h("div", { class: "empty" }, icon("file"), h("p", { text: t("check.no_files") }));
+    const fm = check.file ? app.meta[check.file] : null;
+    const top = fm && (check.loading || check.result || check.error) ? fileHead(check.file, fm) : null;
 
     let result;
     if (check.loading) result = h("div", { class: "empty" }, h("span", { class: "spinner" }), h("p", { text: t("check.reading") }));
@@ -1088,7 +1106,7 @@
       const vIcon = r.verdict === "ok" ? "ok" : r.verdict === "warn" ? "alert" : "bad";
       result = h("div", null,
         h("div", { class: "verdict " + r.verdict }, icon(vIcon),
-          h("div", null, h("b", { text: t("check.verdict_" + r.verdict) }), h("span", { class: "ltr", text: check.file }))),
+          h("div", null, h("b", { text: t("check.verdict_" + r.verdict) }), top ? null : h("span", { class: "ltr", text: check.file }))),
         h("ul", { class: "checks" }, r.checks.map((c) => h("li", { class: c.ok }, icon(c.ok === "ok" ? "ok" : c.ok === "warn" ? "alert" : "bad"),
           h("span", { text: t(c.key, Object.assign({}, c.vars, c.vars && c.vars.n !== undefined ? { n: num(c.vars.n, 0) } : {})) })))),
         r.checks.some((c) => /^check\.(line_bad|line_order|labels_bad)$/.test(c.key)) ? h("div", { class: "toolbar", style: { marginTop: "12px" } },
@@ -1108,17 +1126,115 @@
       el: h("div", null, head("check.title", "check.intro"),
         h("div", { class: "cols side" },
           h("section", { class: "card" }, search, h("div", { style: { marginTop: "10px" } }, list)),
-          h("section", { class: "card" }, result)))
+          h("section", { class: "card" }, top, result)))
     };
   }
   viewCheck.sig = function () {
-    return JSON.stringify([(app.files || []).length, app.files === null, check.file, check.loading, check.error, !!check.result, check.filter, app.hasQueue]);
+    return JSON.stringify([(app.files || []).length, app.files === null, check.file, check.loading, check.error, !!check.result, check.filter, app.hasQueue,
+      !!(check.file && app.meta[check.file])]);
   };
 
   function fmtSize(b) {
     if (!b) return "";
     if (b > 1048576) return num(b / 1048576) + " MB";
     return num(b / 1024, 0) + " KB";
+  }
+  // a number or date kept in one piece inside right-to-left text
+  function iso(text) { return "\u2068" + text + "\u2069"; }
+  function fmtDate(sec, withTime) {
+    const d = new Date(sec * 1000), loc = lang === "ar" ? "ar-EG-u-nu-latn" : undefined;
+    return withTime ? d.toLocaleString(loc) : d.toLocaleDateString(loc);
+  }
+
+  /* ----- pictures of the prints */
+
+  // This printer's picture of a file, "" when the slicer put none in it.
+  function thumbSrc(file, m, want) {
+    const path = M.thumbPath(file, M.thumbPick((m || {}).thumbnails, want));
+    return path ? client.fileUrl(path) : "";
+  }
+  // A square with the picture: grey while it loads (src null), a plain one without.
+  function thumbBox(src, cls, onFail) {
+    const box = h("div", { class: "thumb" + (cls ? " " + cls : "") });
+    if (src === null || src === undefined) { box.classList.add("wait"); return box; }
+    if (!src) { box.classList.add("none"); box.appendChild(icon("box")); return box; }
+    const img = h("img", { alt: "", decoding: "async", src });
+    img.addEventListener("error", () => { box.classList.add("none"); img.replaceWith(icon("box")); if (onFail) onFail(); });
+    if (inkOf.has(src)) { if (inkOf.get(src)) box.classList.add("ink-" + inkOf.get(src)); }
+    else img.addEventListener("load", () => { const k = ink(img); inkOf.set(src, k); if (k) box.classList.add("ink-" + k); });
+    box.appendChild(img);
+    return box;
+  }
+  // A black part on a dark page (or a white one on a light page) would not
+  // show: how dark the part in the picture is, to put it on a backdrop that
+  // stands it out. "" for a picture with its own background, or one from
+  // another site that the page may not read.
+  const inkOf = new Map();
+  function ink(img) {
+    try {
+      const n = 24, c = document.createElement("canvas");
+      c.width = c.height = n;
+      const g = c.getContext("2d", { willReadFrequently: true });
+      g.drawImage(img, 0, 0, n, n);
+      const d = g.getImageData(0, 0, n, n).data;
+      let sum = 0, seen = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] < 128) continue;
+        sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+        seen++;
+      }
+      if (!seen || seen > n * n * 0.95) return "";
+      const l = sum / seen / 255;
+      return l < 0.25 ? "dark" : l > 0.8 ? "light" : "";
+    } catch (e) { return ""; }
+  }
+  function grams(f) {
+    return f.grams ? num(f.grams, f.grams < 10 ? 1 : 0) + " g" : f.metres ? num(f.metres, 1) + " m" : "";
+  }
+  // The line under a file's name: print time, filament, height, material.
+  function factsLine(m) {
+    if (m === undefined) return h("div", { class: "facts-line wait" }, h("i"));
+    const f = M.fileFacts(m);
+    const bits = [["clock", f.time ? duration(f.time) : ""], ["spool", grams(f)], ["height", f.height ? t("c.mm", { v: num(f.height) }) : ""]]
+      .filter((b) => b[1]).map((b) => h("span", null, icon(b[0]), h("span", { text: b[1] })));
+    if (f.material) bits.push(h("span", { class: "mat ltr", text: f.material }));
+    return h("div", { class: "facts-line" }, bits);
+  }
+  // A file's picture and everything its metadata tells, above a check.
+  function fileHead(file, m) {
+    const f = M.fileFacts(m);
+    const rows = [];
+    const add = (key, v) => { if (v) rows.push(h("dt", { text: t(key) }), h("dd", { text: v })); };
+    add("file.time", f.time ? duration(f.time) : "");
+    add("file.filament", [f.grams ? num(f.grams, f.grams < 10 ? 1 : 0) + " g" : "", f.metres ? num(f.metres, 1) + " m" : ""].filter(Boolean).join(" · "));
+    add("file.height", f.height ? t("c.mm", { v: num(f.height) }) : "");
+    add("file.layer", [f.layer ? t("c.mm", { v: num(f.layer, 2) }) : "", f.layers ? t("file.layers", { n: num(f.layers, 0) }) : ""].filter(Boolean).join(" · "));
+    add("file.material", [f.material, f.nozzle ? t("file.nozzle", { v: num(f.nozzle, 2) }) : ""].filter(Boolean).join(" · "));
+    add("file.slicer", f.slicer);
+    return h("div", { class: "file-head" }, thumbBox(thumbSrc(file, m, 300), "lg"),
+      h("div", { class: "grow" }, h("div", { class: "fh-name ltr", text: file }), rows.length ? h("dl", { class: "fh-facts" }, rows) : null));
+  }
+  // Fill rows in as they come into view: a long list reads only what is seen.
+  function lazyRows(load, fill) {
+    const go = (el) => load(el.dataset.file).then((m) => { if (el.isConnected) fill(el, m || {}); }, () => {});
+    if (!("IntersectionObserver" in window)) return go;
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => {
+      if (e.isIntersecting) { io.unobserve(e.target); go(e.target); }
+    }), { rootMargin: "150px" });
+    return (el) => io.observe(el);
+  }
+  function fillFileRow(el, m, src) {
+    const box = el.querySelector(".thumb");
+    if (box) box.replaceWith(thumbBox(src));
+    const line = el.querySelector(".facts-line");
+    if (line) line.replaceWith(factsLine(m));
+  }
+  // One G-code file in a list: its picture, name, facts, size and date.
+  function fileRow(f, m, src, onclick, extra) {
+    return h("button", { type: "button", class: "row file-row" + (extra ? " " + extra : ""), "data-file": f.path, title: f.path, onclick },
+      thumbBox(m ? src : null),
+      h("div", { class: "grow" }, h("div", { class: "name ltr", text: f.path }), factsLine(m),
+        h("div", { class: "sub", text: t("check.size", { size: iso(fmtSize(f.size)), date: iso(fmtDate(f.modified)) }) })));
   }
 
   /* ============================================================== setup */
@@ -1613,7 +1729,7 @@
   function farmNeeds() { return farmShown() ? M.farmCounts(farm.data.printers).needs : 0; }
 
   function farmFile(p) {
-    return ["printing", "paused"].includes(p.phase) || ["done", "cancelled", "error"].includes(p.reason) ? p.filename || "" : "";
+    return ["printing", "paused"].includes(p.phase) || ["done", "cancelled", "error", "parts", "leftover"].includes(p.reason) ? p.filename || "" : "";
   }
 
   function farmLine(p) {
@@ -1690,6 +1806,18 @@
 
   function farmCam(id) { return FARM_API + "/" + encodeURIComponent(id) + "/snapshot?t=" + Date.now(); }
 
+  // Another printer's picture of a file, through the farm (it reaches them all).
+  const farmNoPic = new Set();
+  function farmThumbSrc(p, file, modified, want) {
+    if (DEMO) return client.thumbFor(file);
+    return FARM_API + "/" + encodeURIComponent(p.id) + "/thumb?file=" + encodeURIComponent(file) + "&w=" + (want || 96) +
+      (modified ? "&m=" + Math.round(modified) : "");
+  }
+  function farmThumb(p, file) {
+    const key = p.id + "|" + file;
+    return farmNoPic.has(key) ? thumbBox("", "sm") : thumbBox(farmThumbSrc(p, file), "sm", () => farmNoPic.add(key));
+  }
+
   function farmCard(p) {
     const ACT = { clear: ["hand", "farm.clear", "primary"], continue: ["play", "farm.continue", "primary"], estop: ["stop", "act.estop", "stop"],
       bin_empty: ["tray", "bin.empty", "primary"], print: ["file", "farm.print", "primary"], pause: ["pause", "farm.pause", ""],
@@ -1697,6 +1825,7 @@
     const file = farmFile(p);
     const bed = typeof p.bed === "number" ? num(p.bed, 0) + (p.bed_target ? " / " + num(p.bed_target, 0) : "") + " °C" : "";
     const link = M.farmLink(p, location.hostname);
+    const prog = ["printing", "paused"].includes(p.phase) ? h("div", { class: "progress" }, h("i", { style: { width: num((p.progress || 0) * 100, 1) + "%" } })) : null;
     const open = p.local ? h("a", { class: "btn sm", href: "#/overview" }, icon("home"), t("farm.open"))
       : link ? h("a", { class: "btn sm", href: link, target: "_blank", rel: "noopener" }, icon("external"), t("farm.open"))
       : p.page ? h("span", { class: "btn sm disabled", title: t("farm.open_local"), "aria-disabled": "true" }, icon("external"), t("farm.open_local_short")) : null;
@@ -1709,8 +1838,8 @@
             p.auto_eject ? h("span", { class: "badge", text: t("farm.auto_eject") }) : null)),
         h("button", { type: "button", class: "icon-btn", title: t("farm.edit"), "aria-label": t("farm.edit"), onclick: () => editPrinter(p) }, icon("edit"))),
       h("div", { class: "fc-state" }, h("b", { text: t("farm.phase." + p.phase) }), h("span", { dir: "auto", text: farmLine(p) })),
-      file ? h("div", { class: "fc-file ltr", title: file, text: file }) : null,
-      ["printing", "paused"].includes(p.phase) ? h("div", { class: "progress" }, h("i", { style: { width: num((p.progress || 0) * 100, 1) + "%" } })) : null,
+      file ? h("div", { class: "fc-job" }, farmThumb(p, file),
+        h("div", { class: "grow" }, h("div", { class: "fc-file ltr", title: file, text: file }), prog)) : prog,
       p.camera && p.phase !== "offline" ? h("img", { class: "fc-cam", alt: t("remote.camera"), "data-live": "farmcam", "data-id": p.id, src: farm.cam[p.id] || farmCam(p.id) }) : null,
       p.phase !== "offline" ? h("div", { class: "chips" },
         bed ? h("span", { class: "chip" }, icon("thermo"), h("span", { text: t("c.bed") }), h("b", { class: "ltr", text: bed })) : null,
@@ -1854,8 +1983,16 @@
 
   // ----- print one of a printer's files, or send it one from this device
   function printDialog(p) {
-    const ui = { files: null, error: "", filter: "", busy: false, progress: null };
+    const ui = { files: null, error: "", filter: "", busy: false, progress: null, meta: {} };
     const close = () => closeModal("printd");
+    // each file's facts and whether it has a picture, once its row is seen
+    const metaKey = (path) => { const f = (ui.files || []).find((x) => x.path === path) || {}; return path + "|" + f.modified; };
+    const loadMeta = (path) => {
+      const k = metaKey(path);
+      if (ui.meta[k]) return Promise.resolve(ui.meta[k]);
+      return farmCall("/" + p.id + "/meta?file=" + encodeURIComponent(path)).then((r) => (ui.meta[k] = r.meta || {}), () => (ui.meta[k] = {}));
+    };
+    const picOf = (f, m) => (m.thumbs ? farmThumbSrc(p, f.path, f.modified) : "");
     const start = (file) => confirm(t("farm.print"), t("farm.print_confirm", { name: p.name, file }), t("farm.print")).then((ok) => {
       if (!ok) return;
       farmCall("/" + p.id + "/print", { filename: file })
@@ -1887,6 +2024,7 @@
     function draw() {
       const q = ui.filter.toLowerCase();
       const files = (ui.files || []).filter((f) => !q || f.path.toLowerCase().includes(q)).slice(0, 60);
+      const watch = lazyRows(loadMeta, (el, m) => fillFileRow(el, m, picOf((ui.files || []).find((x) => x.path === el.dataset.file) || { path: el.dataset.file }, m)));
       const search = h("input", { class: "input", type: "search", placeholder: t("check.search"), value: ui.filter, "data-keep": "pd-search" });
       search.addEventListener("input", () => { ui.filter = search.value; draw(); const s = $(".modal-back.printd input[type=search]"); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } });
       const chosen = picker.files && picker.files[0];
@@ -1895,10 +2033,13 @@
         search,
         ui.error ? h("p", { class: "note", style: { marginTop: "10px" } }, icon("alert"), h("span", { text: ui.error }))
           : ui.files === null ? h("div", { class: "empty" }, h("span", { class: "spinner" }))
-          : files.length ? h("div", { class: "list scan-list" }, files.map((f) => h("button", { type: "button", class: "row", onclick: () => start(f.path) },
-              icon("file"), h("div", { class: "grow" }, h("div", { class: "name ltr", text: f.path }),
-                h("div", { class: "sub", text: fmtSize(f.size) + " · " + new Date(f.modified * 1000).toLocaleString(lang === "ar" ? "ar-EG-u-nu-latn" : undefined) })),
-              icon("play"))))
+          : files.length ? h("div", { class: "list scan-list" }, files.map((f) => {
+              const m = ui.meta[metaKey(f.path)];
+              const row = fileRow(f, m, m ? picOf(f, m) : null, () => start(f.path));
+              row.appendChild(icon("play"));
+              if (!m) watch(row);
+              return row;
+            }))
           : h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", { text: t("farm.no_files") })),
         h("h3", { class: "sub-head", text: t("farm.upload_title") }),
         h("div", { class: "toolbar" },
