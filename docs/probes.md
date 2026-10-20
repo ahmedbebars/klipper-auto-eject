@@ -47,8 +47,9 @@ Eddy probes measure the distance to the **metal** bed, and plastic is invisible 
   AUTO_EJECT: WARNING - eddy-current probes cannot see plastic parts, the bed was NOT verified.
   ```
 
-  Without verification, keep `guard_action: "error"` and check the bed yourself (or with a camera)
-  before queued jobs run.
+  Without verification, check the bed yourself (or with a camera) before queued jobs run.
+  `AUTO_EJECT_GUARD` cannot check either, so it stops a print that would start on old parts until
+  you run `AUTO_EJECT_CLEAR`.
 
 > **Testing status:** contact probes are tested on real hardware (Voron Tap). Offset probes and the
 > eddy logic are covered by the automated tests only. If you run an eddy probe, please share

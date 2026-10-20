@@ -148,8 +148,9 @@ def test_guard_passes_on_clear_bed(p):
     assert p.execute("AUTO_EJECT_GUARD") == []
 
 
-def test_guard_stops_print_by_default(p):
+def test_guard_error_mode_stops_the_print(p):
     p.execute("_AUTO_EJECT_CAPTURE")
+    p.status["gcode_macro _AUTO_EJECT_SETTINGS"]["guard_action"] = "error"
     with pytest.raises(MacroError, match="may still be on the bed"):
         p.execute("AUTO_EJECT_GUARD")
 

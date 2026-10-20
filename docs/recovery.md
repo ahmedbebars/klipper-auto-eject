@@ -11,14 +11,17 @@ flowchart LR
     P["Printing"] -- "every 30 s" --> S[("save_variables<br/>part outlines + height")]
     S -- "restart / power loss" --> R["Restored at startup"]
     R --> G{"AUTO_EJECT_GUARD<br/>at next print start"}
-    G -- "guard_action: error" --> E(["Print stopped<br/>bed not confirmed clear"])
-    G -- "guard_action: eject" --> H["Smart home<br/>X/Y, then Z on a free spot"]
-    H --> J["Eject and verify"] --> C(["Record cleared,<br/>print continues"])
+    G -- "guard_action: check" --> H["Smart home<br/>X/Y, then Z on a free spot"]
+    H --> V{"Probe where<br/>the parts were"}
+    V -- "nothing there" --> C(["Record cleared,<br/>print continues"])
+    V -- "a tall part" --> J["Eject and verify"] --> C
+    V -- "a thin part" --> E(["Print stopped,<br/>take it off"])
+    G -- "guard_action: error" --> E2(["Print stopped<br/>until AUTO_EJECT_CLEAR"])
 
     classDef ok fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef stop fill:#c62828,stroke:#8e0000,color:#ffffff
     class C ok
-    class E stop
+    class E,E2 stop
 ```
 
 ## What is saved
@@ -61,14 +64,34 @@ AUTO_EJECT_GUARD
 PRINT_START ...
 ```
 
-If the printer still remembers parts that were never ejected:
+If the printer still remembers parts that were never ejected (a print without `AUTO_EJECT`, a
+cancelled print, a restart):
 
 | `guard_action` | What happens |
 |---|---|
-| `"error"` (default) | The new print stops with a message. Nothing moves |
+| `"check"` (default) | Smart home, then probe where the parts were. Nothing there: the record is cleared and the print continues, nobody has to confirm anything. A tall part still there: it is pushed off and checked first. A thin part such as a stencil: the print stops; take it off and start again |
+| `"error"` | The new print stops with a message until you run `AUTO_EJECT_CLEAR`. Nothing moves |
 | `"eject"` | Smart home around the old parts, eject them, verify, then the print continues |
 
-Start with `"error"` until you trust the setup on your machine.
+`"check"` needs a probe that can touch plastic (Tap, BLTouch, inductive probes do; an eddy probe
+only with its touch mode in `verify_probe_gcode`). Without one, or with no free spot to home Z,
+it stops like `"error"`.
+
+**Thin parts.** A 0.4 mm stencil is easy to miss: the bed itself is rarely flat to 0.4 mm. For
+parts thinner than twice `verify_threshold`, the probe also touches the bare bed on two sides of
+the part and compares with the lower of the two (a purge line next to the part raises a reading,
+it never lowers it), and the limit is half the part's height.
+
+**A cool nozzle.** With a nozzle probe the nozzle touches the part if it is still there, so the
+check waits until the nozzle is at `nozzle_part_max_temp` (50 °C), below where PLA softens, with
+the part fan on to cool it faster. Homing Z on the bare sheet waits for `nozzle_probe_max_temp`
+(150 °C).
+
+## When a print ends without an eject
+
+If a print ends (finished, cancelled or stopped) and its parts were not ejected, a dialog opens in
+Mainsail, Fluidd and the web page: take the parts off, then click **Bed is clear**. You don't have
+to: with `guard_action: "check"`, the next print checks the bed itself.
 
 ## Commands
 
@@ -84,7 +107,7 @@ Start with `"error"` until you trust the setup on your machine.
 | Setting | Default | |
 |---|---|---|
 | `persist_state` | `True` | Save outlines and height while printing |
-| `guard_action` | `"error"` | `"error"` or `"eject"` |
+| `guard_action` | `"check"` | `"check"`, `"error"` or `"eject"` |
 | `home_method` | `"auto"` | `"auto"`, `"probe"` or `"g28"` |
 | `home_clearance` | `20.0` | Minimum distance between the probe spot and any part |
 | `home_edge_margin` | `15.0` | Distance kept from the bed edges when choosing the spot |

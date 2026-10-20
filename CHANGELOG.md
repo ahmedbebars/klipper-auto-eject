@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **`AUTO_EJECT_GUARD` checks the bed itself** (`guard_action: "check"`, the new default). When
+  the printer remembers parts from an earlier print that was not ejected, the next print first
+  homes around them and probes where they were: nothing there, the print simply starts and nobody
+  has to click **Bed is clear**; a tall part, it is pushed off first; a thin part such as a
+  stencil, the print stops until it is taken off. Without a probe that can touch plastic, or with
+  no free spot to home Z, it stops like `"error"`.
+- Thin parts are found reliably: for parts thinner than twice `verify_threshold`, the probe also
+  touches the bare bed on two sides of the part and compares with the lower reading, so a bed a
+  little out of flat or a purge line next to the part does not hide a 0.4 mm stencil.
+- `nozzle_part_max_temp` (50 °C): a nozzle probe waits until the nozzle is this cool before it
+  touches where parts are or were, so it cannot dent or stick to a part, with the part fan on to
+  cool it faster. The wait before homing Z on the bare sheet uses the fan too.
+- A dialog after a print that ended without an eject (no `AUTO_EJECT` in the end G-code,
+  cancelled, or stopped): take the parts off and click **Bed is clear**.
+
 ## [0.11.0] - 2026-10-20
 
 ### Changed

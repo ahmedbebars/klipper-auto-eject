@@ -62,11 +62,13 @@ The outlines of the parts on the bed are saved while printing. After the restart
 
 **Do I have to tell the printer the bed is clear before every print?**
 No. After a normal eject the probe checks the bed, and once it is clear the printer forgets the
-parts by itself. Tell it only when **you** took the parts off instead of the printer: after
-cancelling a print, after an eject that stopped with a part still on the bed, or after a thin
-print it left for you. Click **I took the parts off** on the web page, or run
-`AUTO_EJECT_CLEAR`. If you forget, `AUTO_EJECT_GUARD` stops the next print before it starts
-and tells you, so nothing is printed on top of old parts.
+parts by itself. When **you** take the parts off (after cancelling a print, after a print without
+`AUTO_EJECT`, or after a thin print it left for you), you don't have to tell it either: with
+`AUTO_EJECT_GUARD` in the start G-code, the next print first probes where the parts were and
+starts if the bed is clear ([recovery.md](recovery.md#the-guard-auto_eject_guard)). A dialog also
+offers **Bed is clear** right after such a print, or click **I took the parts off** on the web
+page (`AUTO_EJECT_CLEAR`). Without a probe that can touch plastic, the guard stops the print
+until you do.
 
 **How do I stop it?**
 The **emergency stop** button in Mainsail or Fluidd stops everything at once. Afterwards, clear

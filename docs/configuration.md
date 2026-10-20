@@ -159,6 +159,7 @@ Points the toolhead cannot reach are skipped.
 | `home_z_gcode` | `"PROBE"` | Command `AUTO_EJECT HOME=1` uses to find Z at the chosen spot. With `"PROBE"`, Z is set from the probe result. Any other command must home Z by itself at the current XY |
 | `nozzle_clearance` | `5.0` | Offset probes: while probing, the nozzle stays at least this far from where any part was |
 | `nozzle_probe_max_temp` | `150.0` | Probes that touch the bed with the nozzle (Voron Tap, eddy touch modes): wait until the nozzle is this cool, in °C, before touching the bed, so a hot nozzle does not mark the print sheet. `0` = do not wait |
+| `nozzle_part_max_temp` | `50.0` | The same probes, before touching where parts are or were: wait until the nozzle is this cool, below where PLA softens, so it does not dent or stick to a part. The part fan helps. `0` = do not wait |
 | `verify_unsafe_action` | `"error"` | A part that cannot be probed without the nozzle passing over a part: `"error"` stops, `"skip"` warns |
 
 See [probes.md](probes.md) for how offset and eddy-current probes are handled.
@@ -168,7 +169,7 @@ See [probes.md](probes.md) for how offset and eddy-current probes are handled.
 | Setting | Default | Description |
 |---|---|---|
 | `persist_state` | `True` | Save part outlines and print height in `[save_variables]` while printing |
-| `guard_action` | `"error"` | What `AUTO_EJECT_GUARD` does when old parts may be on the bed: `"error"` or `"eject"` |
+| `guard_action` | `"check"` | What `AUTO_EJECT_GUARD` does when old parts may be on the bed: `"check"` probes where they were and prints if the bed is clear, `"error"` stops the print, `"eject"` ejects them ([recovery.md](recovery.md#the-guard-auto_eject_guard)) |
 | `home_method` | `"auto"` | `AUTO_EJECT HOME=1`: `"auto"`, `"probe"` or `"g28"` |
 | `home_clearance` | `20.0` | Minimum distance in mm between any part and the probe, the nozzle or the blade while Z is homed |
 | `home_edge_margin` | `15.0` | Distance in mm kept from the ends of the X and Y axes when choosing that spot. With a `[bed_mesh]`, the spot is also kept inside the mesh area, so Z is found on the print sheet, not on clips, screws or holes past its edge |

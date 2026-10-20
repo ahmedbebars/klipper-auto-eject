@@ -109,7 +109,8 @@ def test_guard_after_power_loss_stops_instead_of_pushing():
 def test_thin_part_left_after_eject_anyway_is_detected():
     # verify_threshold 1.0 would miss a 0.48 mm stencil: the limit follows the height
     p = make(thin_parts_action="eject")
-    p.under_probe = 0.48
+    (x0, y0), _, (x1, y1), _ = STENCIL[0][1]
+    p.under_probe = lambda x, y: 0.48 if x0 <= x <= x1 and y0 <= y <= y1 else 0.0
     with pytest.raises(MacroError, match="STILL ON THE BED"):
         p.execute("AUTO_EJECT", COOL=0)
 
