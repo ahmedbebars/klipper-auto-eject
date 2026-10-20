@@ -131,8 +131,8 @@ More detail, other toolheads and making your own size: [hardware.md](hardware.md
 
 ## 4. Install the macros
 
-The macros are installed with one command on the printer's computer (the Raspberry Pi or
-similar that runs Klipper). You reach it over **SSH**, a text connection from your computer:
+The macros are installed with one line on the printer's computer (the Raspberry Pi or similar
+that runs Klipper). You reach it over **SSH**, a text connection from your computer:
 
 1. Find the printer's address: it is what you type in the browser to open Mainsail or Fluidd,
    for example `192.168.1.50` or `mainsailos.local`.
@@ -141,39 +141,35 @@ similar that runs Klipper). You reach it over **SSH**, a text connection from yo
    ```bash
    ssh pi@192.168.1.50
    ```
-3. Paste these three lines:
+3. Paste this line and press Enter:
    ```bash
-   cd ~
-   git clone https://github.com/ahmedbebars/klipper-auto-eject.git
-   ./klipper-auto-eject/install.sh
+   cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh
    ```
+4. It asks a few questions. **Press Enter** to keep the suggested answer, the one in capitals:
+
+   | It asks | Say yes if |
+   |---|---|
+   | Will this printer push its prints off with the blade? | Yes, unless you only want the web page or the farm on this printer |
+   | Add the auto-eject page to Mainsail? | You want the bed map, the queue and the settings in the browser (recommended) |
+   | Watch and control the printer from your phone, from anywhere? | You want it outside your home or office. It needs a free Tailscale account ([step 10](#10-optional-from-your-phone-anywhere)) |
+   | Notifications on your phone? | You want a message when the printer needs you |
+   | More than one Klipper printer? | You want all your printers on one page ([step 11](#11-optional-more-than-one-printer)) |
+
+   It may ask for your password, for the web page only.
+5. At the end it offers to restart Klipper: press Enter. It never restarts a printer that is
+   printing.
 
 The script links the macros into your config folder, creates `auto_eject_settings.cfg`, adds
-two `[include]` lines to `printer.cfg`, and adds the project to Moonraker's update manager so
-you get updates from the Mainsail/Fluidd update panel. It backs up every file it changes and
-does not need your password.
-
-Next, open `printer.cfg` in Mainsail (*Machine* page) or Fluidd (*Configuration* page). Make sure
-it has these three sections. Add only the ones that are missing:
-
-```ini
-[exclude_object]      # lets Klipper know where each part is
-
-[respond]             # lets the setup show its dialogs
-
-[save_variables]      # keeps the setup's values after a restart
-filename: ~/printer_data/config/variables.cfg
-```
-
-Click **Save & Restart**, or type `FIRMWARE_RESTART` in the console. Never restart while a
-print is running.
+the `[include]` lines and the sections auto-eject needs (`[exclude_object]`, `[respond]`,
+`[save_variables]`) to `printer.cfg`, and adds the project to Moonraker's update manager so you
+get updates from the Mainsail/Fluidd update panel. It backs up every file it changes.
 
 **It worked if** typing `AUTO_EJECT_SETUP` in the console opens a dialog that says
 *Printer check: all OK*. Keep it open for the next step.
 
-**If not:** `Unknown command "AUTO_EJECT_SETUP"` means the `[include]` lines are missing from
-`printer.cfg`, and a message about `[respond]` means that section is missing. Other ways to
-install: [installation.md](installation.md).
+**If not:** `Unknown command "AUTO_EJECT_SETUP"` means Klipper has not been restarted: type
+`FIRMWARE_RESTART` in the console (never while printing). Other ways to install:
+[installation.md](installation.md).
 
 ---
 
@@ -300,8 +296,9 @@ the settings, in English or Arabic:
 ~/klipper-auto-eject/install.sh --web
 ```
 
-It asks for your password once (for the web server). Then reload Mainsail and click
-**Auto-eject** in the sidebar. See [web-page.md](web-page.md).
+If you said yes to the web page in step 4, it is already there. It asks for your password once
+(for the web server). Then reload Mainsail and click **Auto-eject** in the sidebar. See
+[web-page.md](web-page.md).
 
 ## 10. Optional: from your phone, anywhere
 
@@ -314,6 +311,8 @@ printer to the internet. It uses Tailscale, a free private network between your 
 
 It asks before every step and shows the address to open on your phone at the end. See
 [remote-access.md](remote-access.md).
+
+<p align="center"><img src="images/phone-app.png" alt="The auto-eject app on a phone" width="760"></p>
 
 To get a notification when the printer needs you (a part still on the bed, a print that
 finished), add `--push`, then turn notifications on in the app; see
@@ -330,6 +329,8 @@ this on one printer only; the others need nothing installed:
 
 Then open the page's **Printer farm** tab and press **Search the network**. See
 [farm.md](farm.md).
+
+<p align="center"><img src="images/farm.png" alt="The printer farm" width="760"></p>
 
 ---
 

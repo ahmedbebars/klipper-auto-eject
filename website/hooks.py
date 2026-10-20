@@ -11,7 +11,8 @@ Markdown works in both places:
 - the web page (web/) is copied to live/, laid out like the repository,
   so it runs as a demo with ?demo;
 - links to other repository files point to GitHub;
-- GitHub alerts (> [!WARNING]) become admonitions.
+- GitHub alerts (> [!WARNING]) become admonitions;
+- the Arabic pages (docs/ar/) read right to left.
 """
 
 import os
@@ -30,6 +31,7 @@ PAGES = {
     "demo.md": "website/demo.md",
     "changelog.md": "CHANGELOG.md",
     "documentation.md": "docs/README.md",
+    "ar/index.md": "docs/ar/README.md",
 }
 
 # repository folders copied for the live demo, under live/
@@ -76,26 +78,29 @@ def _origin(page):
     return None if src.startswith("website/") else posixpath.dirname(src)
 
 
-def _site_link(target, origin):
+def _site_link(target, origin, here=""):
+    """target as seen from a page in the repository folder origin, as a link
+    from the site page in the site folder here."""
     if re.match(r"^([a-z]+:|#|/)", target):
         return target
     path, hash_, frag = target.partition("#")
     if not path:
         return target
     repo_path = posixpath.normpath(posixpath.join(origin, path))
-    if repo_path.startswith("docs/"):
+    site = None
+    if repo_path.startswith("docs/") and not (repo_path.endswith("README.md") and repo_path not in ("docs/README.md", "docs/ar/README.md")):
         site = repo_path[len("docs/"):]
-        site = "documentation.md" if site == "README.md" else site
+        site = {"README.md": "documentation.md", "ar/README.md": "ar/index.md"}.get(site, site)
     elif repo_path == "README.md":
-        return "index.md"                # its sections differ from the home page's
+        return posixpath.relpath("index.md", here or ".")    # its sections differ from the home page's
     elif repo_path == "CHANGELOG.md":
         site = "changelog.md"
     elif repo_path.startswith("hardware/images/"):
         site = "assets/hardware/" + posixpath.basename(repo_path)
-    else:
+    if site is None:
         kind = "tree" if os.path.isdir(os.path.join(ROOT, repo_path)) else "blob"
         return "%s/%s/%s/%s%s%s" % (REPO, kind, BRANCH, repo_path, hash_, frag)
-    return site + hash_ + frag
+    return posixpath.relpath(site, here or ".") + hash_ + frag
 
 
 def _alerts(markdown):
@@ -122,11 +127,19 @@ def on_page_markdown(markdown, page, config, files):
     origin = _origin(page)
     if origin is None:
         return markdown
+    here = posixpath.dirname(page.file.src_uri)
     # the site has its own navigation
-    markdown = re.sub(r"\A\[klipper-auto-eject\]\(\.\./README\.md\)[^\n]*\n+", "", markdown)
+    markdown = re.sub(r"\A\[klipper-auto-eject\]\((\.\./)+README\.md\)[^\n]*\n+", "", markdown)
     markdown = _alerts(markdown)
-    markdown = re.sub(r"\]\(([^)\s]+)\)", lambda m: "](%s)" % _site_link(m.group(1), origin), markdown)
+    markdown = re.sub(r"\]\(([^)\s]+)\)", lambda m: "](%s)" % _site_link(m.group(1), origin, here), markdown)
     # raw HTML is not touched by MkDocs: link pages by their .html name
     markdown = re.sub(r'\b(src|href)="([^"]+)"', lambda m: '%s="%s"' % (
-        m.group(1), re.sub(r"\.md(?=$|#)", ".html", _site_link(m.group(2), origin))), markdown)
+        m.group(1), re.sub(r"\.md(?=$|#)", ".html", _site_link(m.group(2), origin, here))), markdown)
     return markdown
+
+
+def on_page_content(html, page, config, files):
+    # the Arabic pages read right to left; code stays left to right (site.css)
+    if page.file.src_uri.startswith("ar/"):
+        return '<div dir="rtl" class="ae-rtl" lang="ar">%s</div>' % html
+    return html

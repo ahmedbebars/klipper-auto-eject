@@ -86,8 +86,8 @@ because the slicer wrote the outlines into the file.
 <div class="ae-stats" markdown>
 
 <div markdown>
-<span class="ae-stat">230+</span>
-automated tests run against the Jinja versions Klipper ships, on every change
+<span class="ae-stat">360+</span>
+automated tests of the macros, the page and the services, against the Jinja versions Klipper ships
 </div>
 
 <div markdown>
@@ -126,6 +126,38 @@ change a setting.
 
 </div>
 
+<div class="ae-split" markdown>
+
+<div markdown>
+![The auto-eject app on a phone: clearing the bed, the printer farm in Arabic, the blade](images/phone-app.png){ .ae-shot }
+</div>
+
+<div markdown>
+**On your phone, as an app.** Open it from anywhere through Tailscale, install it with its own
+icon, and get a notification when the printer needs you, even while the app is closed. In
+English and Arabic, light and dark.
+
+[Remote access](remote-access.md){ .md-button }
+[Notifications](notifications.md){ .md-button }
+</div>
+
+</div>
+
+<div class="ae-split" markdown>
+
+<div markdown>
+![The printer farm: the printers that need you first](images/farm.png){ .ae-shot }
+</div>
+
+<div markdown>
+**A printer farm.** Every Klipper printer of your network on one page, the ones that need you
+first. **Search the network** finds and adds them; the other printers need nothing installed.
+
+[The printer farm](farm.md){ .md-button }
+</div>
+
+</div>
+
 ## The blade { .ae-section }
 
 <div class="ae-photos" markdown>
@@ -159,14 +191,31 @@ and blades come 60, 80 and 100 mm wide. [Print and mount it](hardware.md)
 
 </div>
 
+<p class="ae-logos">
+  <a href="https://www.klipper3d.org/" title="Klipper"><img src="images/logos/klipper.png" alt="Klipper"></a>
+  <a href="https://docs.mainsail.xyz/" title="Mainsail"><img src="images/logos/mainsail.svg" alt="Mainsail"></a>
+  <a href="https://docs.fluidd.xyz/" title="Fluidd"><img src="images/logos/fluidd.svg" alt="Fluidd"></a>
+  <a href="https://github.com/SoftFever/OrcaSlicer" title="OrcaSlicer"><img src="images/logos/orcaslicer.svg" alt="OrcaSlicer"></a>
+  <a href="https://github.com/prusa3d/PrusaSlicer" title="PrusaSlicer"><img src="images/logos/prusaslicer.svg" alt="PrusaSlicer"></a>
+</p>
+
+Klipper and Moonraker, Mainsail or Fluidd, and OrcaSlicer, PrusaSlicer, SuperSlicer or Cura.
+Phone access through Tailscale.
+
 ## Get started { .ae-section }
 
 ![Eight steps: check your bed, print the blade, mount it, install, guided setup, watch a test, slicer, print in a row](images/getting-started.svg){ .ae-figure }
 
 About one afternoon, most of it printing the blade. Every step says how to check that it worked.
+Installing is one line on the printer; it asks a few questions and does the rest:
+
+```bash
+cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh
+```
 
 [Start step by step](getting-started.md){ .md-button .md-button--primary }
 [Questions and answers](faq.md){ .md-button }
+[بالعربية](ar/index.md){ .md-button }
 
 ## Open source { .ae-section }
 

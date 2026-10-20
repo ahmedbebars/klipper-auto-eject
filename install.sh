@@ -32,6 +32,8 @@ usage() {
     cat <<EOF
 Usage: install.sh [options]
 
+Run it with no options from a terminal and it asks what to set up.
+
   -c, --config-dir DIR    Klipper config directory (default: ~/printer_data/config)
   -r, --repo-dir DIR      Where to keep the repository (default: ~/klipper-auto-eject)
   -b, --branch NAME       Git branch to install (default: main)
@@ -97,8 +99,18 @@ fi
 
 backup() {
     local file="$1"
+    [[ -e "${file}.bak-auto-eject-${STAMP}" ]] && return   # already saved as it was before this run
     cp -p "${file}" "${file}.bak-auto-eject-${STAMP}"
     log "Backup: ${file}.bak-auto-eject-${STAMP}"
+}
+
+# Put lines into printer.cfg above its SAVE_CONFIG block, or at the end.
+insert_before_save_config() {
+    awk -v block="$1" '
+        !done && /^#\*# <-+ SAVE_CONFIG -+>/ { print block; print ""; done = 1 }
+        { print }
+        END { if (!done) { print ""; print block } }
+    ' "${PRINTER_CFG}" > "${PRINTER_CFG}.tmp" && mv "${PRINTER_CFG}.tmp" "${PRINTER_CFG}"
 }
 
 # A yes/no question; $2 is the answer when you just press Enter (y or n).
@@ -113,6 +125,66 @@ ask() {
     read -r -p "$(printf '\033[1;36m[auto-eject]\033[0m %s %s ' "$1" "${hint}")" answer
     [[ "${answer:-${2:-n}}" =~ ^[Yy] ]]
 }
+
+# The config sections Klipper has loaded, from Moonraker; when Klipper does
+# not answer, the ones written in the config files.
+config_sections() {
+    if curl -s -m 5 "http://127.0.0.1:$(moonraker_port)/printer/objects/query?configfile=config" 2>/dev/null \
+        | python3 -c 'import json, sys; print("\n".join(json.load(sys.stdin)["result"]["status"]["configfile"]["config"]))' 2>/dev/null; then
+        return
+    fi
+    grep -rhoE '^\[[A-Za-z0-9_ ]+\]' "${CONFIG_DIR}" --include='*.cfg' 2>/dev/null | tr -d '[]' || true
+}
+
+# auto-eject needs these Klipper sections; add the missing ones to printer.cfg.
+REQUIRED_SECTIONS=(exclude_object respond save_variables)
+CHANGED_CFG=0
+add_required_sections() {
+    local have s block missing=()
+    have="$(config_sections | tr '[:upper:]' '[:lower:]')"
+    for s in "${REQUIRED_SECTIONS[@]}"; do
+        grep -qx "${s}" <<< "${have}" || missing+=("${s}")
+    done
+    if [[ ${#missing[@]} -eq 0 ]]; then
+        log "Your config has [exclude_object], [respond] and [save_variables]"
+        return
+    fi
+    log "auto-eject needs these sections, and your config lacks them: $(printf '[%s] ' "${missing[@]}")"
+    if ! ask "Add them to printer.cfg?" y; then
+        warn "Add them by hand before restarting Klipper (docs/installation.md#what-printercfg-needs)"
+        return
+    fi
+    block="# added by klipper-auto-eject install.sh (docs/installation.md)"
+    for s in "${missing[@]}"; do
+        block+=$'\n'"[${s}]"
+        if [[ "${s}" == "save_variables" ]]; then
+            block+=$'\n'"filename: ${CONFIG_DIR}/variables.cfg"
+            touch "${CONFIG_DIR}/variables.cfg"
+        fi
+    done
+    backup "${PRINTER_CFG}"
+    insert_before_save_config "${block}"
+    CHANGED_CFG=1
+    log "Added $(printf '[%s] ' "${missing[@]}")to printer.cfg"
+}
+
+# FIRMWARE_RESTART through Moonraker, so Klipper loads auto-eject; never while printing.
+restart_klipper() {
+    local url state
+    url="http://127.0.0.1:$(moonraker_port)"
+    state="$(curl -s -m 5 "${url}/printer/objects/query?print_stats=state&idle_timeout=state" 2>/dev/null || true)"
+    if [[ -z "${state}" ]]; then
+        warn "Klipper does not answer. Restart it from Mainsail: type FIRMWARE_RESTART in the console."
+    elif [[ "${state}" == *'"printing"'* || "${state}" == *'"paused"'* || "${state}" == *'"Printing"'* ]]; then
+        warn "The printer is busy. After the print, type FIRMWARE_RESTART in the console."
+    elif curl -s -m 10 -X POST "${url}/printer/firmware_restart" >/dev/null; then
+        log "Klipper restarted. If Mainsail shows an error, see docs/troubleshooting.md"
+        RESTARTED=1
+    else
+        warn "Could not restart Klipper: type FIRMWARE_RESTART in the console."
+    fi
+}
+RESTARTED=0
 
 # --------------------------------------------------------- remote access
 moonraker_port() {
@@ -544,6 +616,31 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
     exit 0
 fi
 
+# ------------------------------------------------------------- questions
+# Run with no options from a terminal: ask what to set up, in plain words.
+if [[ -t 0 && $((WEB + REMOTE + NOTIFY + PUSH + FARM)) -eq 0 ]]; then
+    printf '\n  \033[1mklipper-auto-eject\033[0m: a few questions first. Press Enter to keep the answer in capitals.\n\n'
+    if [[ "${ADD_INCLUDE}" -eq 1 ]] && ! ask "Will this printer push its prints off with the blade? (No: only the web page or the farm)" y; then
+        ADD_INCLUDE=0
+    fi
+    ask "Add the auto-eject page to Mainsail (bed map, print queue, settings)?" y && WEB=1
+    ask "Watch and control the printer from your phone, from anywhere? (a free Tailscale account)" n && REMOTE=1
+    if [[ "${REMOTE}" -eq 1 ]]; then
+        ask "Notifications on your phone when the printer needs you?" y && PUSH=1
+    fi
+    if [[ "${WEB}" -eq 1 ]]; then
+        ask "More than one Klipper printer? See them all on one page (printer farm)?" n && { FARM=1; PUSH=1; }
+    fi
+    picked="macros"
+    [[ "${ADD_INCLUDE}" -eq 1 ]] || picked="no macros"
+    [[ "${WEB}" -eq 1 ]] && picked+=", web page"
+    [[ "${REMOTE}" -eq 1 ]] && picked+=", phone access"
+    [[ "${PUSH}" -eq 1 && "${FARM}" -eq 0 ]] && picked+=", notifications"
+    [[ "${FARM}" -eq 1 ]] && picked+=", printer farm and notifications"
+    printf '\n'
+    log "Setting up: ${picked}"
+fi
+
 # ------------------------------------------------------------- get the code
 command -v git >/dev/null || die "git is required"
 if [[ "${FROM_CHECKOUT}" -eq 1 ]]; then
@@ -564,7 +661,7 @@ if [[ -e "${CONFIG_DIR}/auto_eject_settings.cfg" ]]; then
     log "Keeping your existing auto_eject_settings.cfg"
 else
     cp "${REPO_DIR}/config/auto_eject_settings.cfg" "${CONFIG_DIR}/auto_eject_settings.cfg"
-    log "Created ${CONFIG_DIR}/auto_eject_settings.cfg - edit it for your printer"
+    log "Created ${CONFIG_DIR}/auto_eject_settings.cfg, your own settings (the guided setup fills them in)"
 fi
 
 # ---------------------------------------------------------- printer.cfg
@@ -574,25 +671,11 @@ if [[ "${ADD_INCLUDE}" -eq 1 ]]; then
         log "printer.cfg already includes auto_eject.cfg"
     else
         backup "${PRINTER_CFG}"
-        # insert before the SAVE_CONFIG block if there is one
-        awk '
-            !done && /^#\*# <-+ SAVE_CONFIG -+>/ {
-                print "[include auto_eject.cfg]"
-                print "[include auto_eject_settings.cfg]"
-                print ""
-                done = 1
-            }
-            { print }
-            END {
-                if (!done) {
-                    print ""
-                    print "[include auto_eject.cfg]"
-                    print "[include auto_eject_settings.cfg]"
-                }
-            }
-        ' "${PRINTER_CFG}" > "${PRINTER_CFG}.tmp" && mv "${PRINTER_CFG}.tmp" "${PRINTER_CFG}"
+        insert_before_save_config $'[include auto_eject.cfg]\n[include auto_eject_settings.cfg]'
+        CHANGED_CFG=1
         log "Added [include] lines to printer.cfg"
     fi
+    add_required_sections
 fi
 
 # --------------------------------------------------------- moonraker.conf
@@ -635,15 +718,25 @@ if [[ "${PUSH}" -eq 1 ]]; then
     install_push
 fi
 
-cat <<EOF
+if [[ "${CHANGED_CFG}" -eq 1 && -t 0 ]] && ask "Restart Klipper now so it loads auto-eject? (only if it is not printing)" y; then
+    restart_klipper
+fi
 
-  Installed. Next steps:
-    1. Edit auto_eject_settings.cfg (blade size, push direction, currents).
-    2. Restart Klipper:            FIRMWARE_RESTART
-    3. Watch a dry run first:      AUTO_EJECT DRY=1
-    4. Read docs/safety.md before running it unattended.
-
-EOF
+echo
+log "Installed."
+if [[ "${ADD_INCLUDE}" -eq 1 ]]; then
+    n=1
+    echo "  Next:"
+    if [[ "${CHANGED_CFG}" -eq 1 && "${RESTARTED}" -eq 0 ]]; then
+        echo "    ${n}. Restart Klipper: type FIRMWARE_RESTART in the Mainsail console."; n=$((n + 1))
+    fi
+    echo "    ${n}. Mount the blade, then type AUTO_EJECT_SETUP in the console: it guides"
+    echo "       you through every setting with buttons (docs/setup-wizard.md)."; n=$((n + 1))
+    echo "    ${n}. In your slicer, end the end G-code with:  AUTO_EJECT HEIGHT=[max_layer_z] HOME=1"
+    echo "       (docs/slicer-setup.md)"; n=$((n + 1))
+    echo "    ${n}. Read docs/safety.md before leaving it alone."
+    echo
+fi
 if [[ "${WEB}" -eq 1 || -f "${NGINX_SNIPPET}" ]]; then
     echo "  The web page: http://$(hostname -I 2>/dev/null | awk '{print $1}')/auto-eject/"
 else

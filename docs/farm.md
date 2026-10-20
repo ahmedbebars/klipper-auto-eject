@@ -16,6 +16,8 @@ printers need nothing installed**.
 | **Free** | Ready for the next print, and how many jobs wait in its queue |
 | **Offline** | Not answering |
 
+<p align="center"><img src="images/farm.png" alt="The printer farm: printers that need you first, then the ones printing, free and offline" width="900"></p>
+
 Each card also shows the bed temperature and, if the printer has a camera in Moonraker, its
 picture. At the top: how many need you, print, are free or offline. The **Printer farm** tab in
 the menu shows the number that need you too.
@@ -39,6 +41,8 @@ until you press **Bed is clear**.
 3. **Open** `http://<that printer>/auto-eject/`, tab **Printer farm**, and press **Search the
    network**. After about 10 seconds it lists the printers it found. Untick any you do not want and
    press **Add**.
+
+<p align="center"><img src="images/farm-search.png" alt="Search the network: the printers found, ticked, ready to add" width="600"></p>
 
 The list is kept on that printer. Press **Search the network** again whenever you add a printer.
 The printers you left out are remembered: the next search lists them last, unticked, as "left

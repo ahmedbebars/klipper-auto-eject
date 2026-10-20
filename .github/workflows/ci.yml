@@ -60,6 +60,10 @@ jobs:
           test "$(grep -c '^\[update_manager klipper-auto-eject\]' /tmp/cfg/moonraker.conf)" = 1
           # includes must sit above the SAVE_CONFIG block
           awk '/include auto_eject.cfg/{i=NR} /SAVE_CONFIG/{s=NR} END{exit !(i<s)}' /tmp/cfg/printer.cfg
+          # the sections auto-eject needs are added once, above SAVE_CONFIG too
+          for s in exclude_object respond save_variables; do test "$(grep -c "^\[$s\]" /tmp/cfg/printer.cfg)" = 1; done
+          awk '/^\[save_variables\]/{i=NR} /SAVE_CONFIG/{s=NR} END{exit !(i<s)}' /tmp/cfg/printer.cfg
+          test -f /tmp/cfg/variables.cfg
       - name: Uninstall
         run: |
           ./install.sh --config-dir /tmp/cfg --uninstall

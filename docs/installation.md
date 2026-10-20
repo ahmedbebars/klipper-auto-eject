@@ -12,29 +12,51 @@ your Klipper config folder:
 
 ## Option 1: install script (recommended)
 
-Run these on the printer's computer over SSH. New to SSH? [Getting started, step 4](getting-started.md#4-install-the-macros)
-shows how to connect.
+Open a terminal on the printer over SSH (on Windows: PowerShell, `ssh pi@<printer address>`, with
+your printer's user name) and paste this one line:
 
 ```bash
-cd ~
-git clone https://github.com/ahmedbebars/klipper-auto-eject.git
-./klipper-auto-eject/install.sh
+cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh
 ```
 
-The script:
+It asks a few questions first. Press **Enter** to keep the suggested answer (the one in capitals):
 
-1. Links `~/printer_data/config/auto_eject.cfg` to the repository copy.
-2. Copies `auto_eject_settings.cfg` into the config folder. An existing copy is left alone.
-3. Adds the following to `printer.cfg`, above the `SAVE_CONFIG` block:
-   ```ini
-   [include auto_eject.cfg]
-   [include auto_eject_settings.cfg]
-   ```
-4. Adds an `[update_manager klipper-auto-eject]` section to `moonraker.conf`.
+```text
+[auto-eject] Will this printer push its prints off with the blade? (No: only the web page or the farm) [Y/n]
+[auto-eject] Add the auto-eject page to Mainsail (bed map, print queue, settings)? [Y/n]
+[auto-eject] Watch and control the printer from your phone, from anywhere? (a free Tailscale account) [y/N]
+[auto-eject] Notifications on your phone when the printer needs you? [Y/n]
+[auto-eject] More than one Klipper printer? See them all on one page (printer farm)? [y/N]
+```
 
-Every file it changes is backed up first as `<file>.bak-auto-eject-<date>`. It does not need
-`sudo`, except for the optional web page (`--web`), remote access (`--remote`) and the
-notification service (`--push`).
+Then it:
+
+1. links `auto_eject.cfg` into your config folder and creates `auto_eject_settings.cfg`, the file
+   with your own settings, which updates never change;
+2. adds the `[include]` lines to `printer.cfg`, above the `SAVE_CONFIG` block;
+3. adds the Klipper sections auto-eject needs if your config lacks them
+   ([below](#what-printercfg-needs));
+4. adds the `[update_manager klipper-auto-eject]` section to `moonraker.conf`, so updates come
+   from the Mainsail/Fluidd update panel;
+5. sets up what you said yes to: the web page, phone access, notifications, the printer farm;
+6. offers to restart Klipper, and does it only if the printer is not printing;
+7. tells you what to do next: mount the blade and run the guided setup.
+
+Every file it changes is backed up first (`printer.cfg.bak-auto-eject-<date>`). It never runs as
+root; it asks for your password (`sudo`) only for the web page and the notification service. Run
+it again at any time: what is already set up stays as it is.
+
+### What printer.cfg needs
+
+auto-eject uses three Klipper sections. Most configs already have them (Mainsail's and Fluidd's
+`*.cfg` files include `[respond]`); the installer adds the missing ones:
+
+```ini
+[exclude_object]       # where every part is, from the sliced file
+[respond]              # messages and dialogs in the console
+[save_variables]       # remembers the parts across restarts
+filename: ~/printer_data/config/variables.cfg
+```
 
 ### Script options
 

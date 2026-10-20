@@ -222,3 +222,14 @@
 .md-banner a, .md-banner a:hover { color: #ff9a52; text-decoration: underline; }
 .md-banner .md-banner__button { color: #f5ebe2; }
 .ae-actions .md-button:not(.md-button--primary) { border: 0.1rem solid var(--md-default-fg-color--light); }
+
+/* Arabic pages: right to left, code and commands left to right */
+.ae-rtl pre, .ae-rtl code, .ae-rtl .highlight { direction: ltr; text-align: left; unicode-bidi: isolate; }
+.ae-rtl table { direction: rtl; }
+.ae-rtl .admonition { border-left: 0; border-right: .2rem solid var(--md-admonition-fg-color, currentColor); }
+
+/* "works with" logos, on light tiles so they read in both themes */
+.ae-logos { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin: 1.6em 0 .6em; }
+.ae-logos a { display: grid; place-items: center; background: #fff; border-radius: 12px; padding: 10px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.ae-logos img { height: 44px; width: auto; display: block; }

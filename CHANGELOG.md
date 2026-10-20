@@ -6,12 +6,30 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
-### Fixed
-- `http://<printer>/auto-eject/` redirected to the page with an absolute `http://` address, so
-  behind an HTTPS proxy such as `tailscale serve` the page lost HTTPS. The redirect is relative now;
-  run `install.sh --web` again to update the nginx file.
+## [0.12.0] - 2026-10-20
+
+### Changed
+- **The installer asks what you want.** Run with no options from a terminal, `install.sh` asks a
+  few yes/no questions in plain words (the blade, the web page, your phone, notifications, more
+  than one printer) and sets up what you said yes to; the options still work as before. It adds
+  the Klipper sections auto-eject needs (`[exclude_object]`, `[respond]`, `[save_variables]`) when
+  your config lacks them, asking Klipper itself which ones it has, and offers to restart Klipper at
+  the end, only when it is not printing. Install is one line:
+  `cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh`.
+- On phones, the language list at the top of the web page is a globe button, so the title fits.
 
 ### Added
+- **Documentation in Arabic** (`docs/ar/`): the home page, getting started, installation, the web
+  page, remote access, notifications, the printer farm, the FAQ and safety. On the website they
+  read right to left, with commands left to right.
+- New pictures: the page clearing a bed, the app on a phone (clearing the bed, the farm in Arabic,
+  the blade), the printer farm, its network search and **Check a file**; and a "works with" row
+  with the logos of Klipper, Mainsail, Fluidd, OrcaSlicer and PrusaSlicer
+  (`docs/images/logos/README.md` says where each comes from).
+- The farm's network search lists a printer found both on the local network and over Tailscale
+  once (it compares their network cards), asks only Linux devices on Tailscale, and remembers the
+  printers you left out: they come last and unticked the next time.
+
 - **A printer farm** (`install.sh --farm`, `docs/farm.md`): every Klipper printer of the network on
   one page, the **Printer farm** tab, with the ones that need you first: a print to take off, a part
   that stayed on the bed, an error, a paused queue. Installed on one printer only: **Search the
@@ -61,6 +79,13 @@ All notable changes to this project are documented here. The format is based on
   printer over HTTPS with `tailscale serve`. `--uninstall` takes the range out again. New guide:
   `docs/remote-access.md`; the web page's **Blade and setup** tab shows how you are connected and
   what is missing.
+
+### Fixed
+- The farm API read the request only after deciding the answer; on some systems that reset the
+  connection.
+- `http://<printer>/auto-eject/` redirected to the page with an absolute `http://` address, so
+  behind an HTTPS proxy such as `tailscale serve` the page lost HTTPS. The redirect is relative now;
+  run `install.sh --web` again to update the nginx file.
 
 ## [0.11.0] - 2026-10-20
 
@@ -328,7 +353,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.5...v0.11.0
 [0.10.5]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.3...v0.10.4

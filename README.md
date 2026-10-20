@@ -21,8 +21,19 @@
   <a href="docs/faq.md">FAQ</a> ·
   <a href="docs/README.md">Documentation</a> ·
   <a href="docs/troubleshooting.md">Troubleshooting</a> ·
-  <a href="https://github.com/ahmedbebars/klipper-auto-eject/discussions">Discussions</a>
+  <a href="https://github.com/ahmedbebars/klipper-auto-eject/discussions">Discussions</a> ·
+  <a href="docs/ar/README.md"><b>العربية</b></a>
 </p>
+
+<p align="center">
+  <a href="https://www.klipper3d.org/" title="Klipper"><img src="docs/images/logos/klipper.png" alt="Klipper" height="44"></a>&emsp;
+  <a href="https://docs.mainsail.xyz/" title="Mainsail"><img src="docs/images/logos/mainsail.svg" alt="Mainsail" height="44"></a>&emsp;
+  <a href="https://docs.fluidd.xyz/" title="Fluidd"><img src="docs/images/logos/fluidd.svg" alt="Fluidd" height="44"></a>&emsp;
+  <a href="https://github.com/SoftFever/OrcaSlicer" title="OrcaSlicer"><img src="docs/images/logos/orcaslicer.svg" alt="OrcaSlicer" height="44"></a>&emsp;
+  <a href="https://github.com/prusa3d/PrusaSlicer" title="PrusaSlicer"><img src="docs/images/logos/prusaslicer.svg" alt="PrusaSlicer" height="44"></a>
+</p>
+<p align="center"><sub>Works with Klipper and Moonraker, Mainsail or Fluidd, and OrcaSlicer, PrusaSlicer, SuperSlicer or Cura.
+Phone access through Tailscale. (<a href="docs/images/logos/README.md">about these logos</a>)</sub></p>
 
 ---
 
@@ -69,14 +80,13 @@ to check that it worked. In short:
 1. **Check your bed:** a cooled part must slide off with a finger push.
 2. **Print the blade** from [`hardware/stl/`](hardware/stl/): a blade, an arm and a mount.
 3. **Mount it** on the toolhead and set its height with the printed gauge ([hardware.md](docs/hardware.md)).
-4. **Install** over SSH:
+4. **Install** over SSH, with one line:
    ```bash
-   cd ~
-   git clone https://github.com/ahmedbebars/klipper-auto-eject.git
-   ./klipper-auto-eject/install.sh
+   cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh
    ```
-   Then make sure `printer.cfg` has `[exclude_object]`, `[respond]` and `[save_variables]`, and
-   run `FIRMWARE_RESTART`.
+   It asks a few yes/no questions (the web page? your phone? notifications? more than one
+   printer?), adds what `printer.cfg` needs, and restarts Klipper for you if it is not printing
+   ([installation.md](docs/installation.md)).
 5. **Run the guided setup:** type `AUTO_EJECT_SETUP` in the console and press the buttons.
    With Voron Tap the printer measures the blade by itself ([with pictures](docs/setup-wizard.md)).
 6. **Watch a test:** print two or three test cubes, leave them on the bed, and run `AUTO_EJECT`.
@@ -100,15 +110,23 @@ English or Arabic, light or dark, and on a phone.
 It needs your password once, for the web server. Details: [docs/web-page.md](docs/web-page.md).
 You can also [try a demo](docs/web-page.md#trying-it-on-a-computer) without a printer.
 
-**From your phone, anywhere:** `install.sh --remote` sets up Tailscale, a free private network
-between your devices, so the printer opens from your phone wherever you are, without opening it
-to the internet ([docs/remote-access.md](docs/remote-access.md)). `install.sh --push` sends a
-notification to the app on your phone when the printer needs you, even while it is closed
-([docs/notifications.md](docs/notifications.md)).
+### On your phone, as an app
 
-**A printer farm:** `install.sh --farm` on one printer puts every Klipper printer of your network
-on one page, the ones that need you first. It searches the network and adds them by itself; the
-other printers need nothing installed ([docs/farm.md](docs/farm.md)).
+<p align="center"><img src="docs/images/phone-app.png" alt="The auto-eject app on a phone: clearing the bed, the printer farm in Arabic, the blade" width="820"></p>
+
+**From anywhere:** `install.sh --remote` sets up Tailscale, a free private network between your
+devices, so the printer opens from your phone wherever you are, without opening it to the
+internet ([docs/remote-access.md](docs/remote-access.md)). Over HTTPS the page installs as an app
+with its own icon, and `install.sh --push` sends a notification to it when the printer needs you,
+even while it is closed ([docs/notifications.md](docs/notifications.md)).
+
+### A printer farm
+
+<p align="center"><img src="docs/images/farm.png" alt="The printer farm: printers that need you first, then the ones printing, free and offline" width="900"></p>
+
+`install.sh --farm` on one printer puts every Klipper printer of your network on one page, the
+ones that need you first. **Search the network** finds them and adds them; the other printers
+need nothing installed ([docs/farm.md](docs/farm.md)).
 
 ## The blade
 
@@ -147,8 +165,9 @@ and works out how high the blade sits and how far ahead of the nozzle, in 2–3 
 - Guided setup in five dialogs in Mainsail or Fluidd. No config editing, no ruler.
 - The blade measures itself with Voron Tap and other nozzle probes.
 - The web page, in English and Arabic.
-- One-line install, updates from the Mainsail/Fluidd update panel, and your settings in their own
-  file that updates never touch.
+- One-line install that asks what you want in plain words and adds what `printer.cfg` needs;
+  updates from the Mainsail/Fluidd update panel, and your settings in their own file that updates
+  never touch.
 
 **Flexible**
 - Any drop edge: front, back, left or right.
@@ -196,6 +215,7 @@ All commands and options: [docs/commands.md](docs/commands.md).
 | [FAQ](docs/faq.md) | [Installation](docs/installation.md) | [Integration](docs/integration.md) | [Strategies](docs/strategies.md) |
 | [Glossary](docs/glossary.md) | [Guided setup](docs/setup-wizard.md) | [Recovery](docs/recovery.md) | [Probes](docs/probes.md) |
 | [Safety](docs/safety.md) | [Slicer setup](docs/slicer-setup.md) | [Web page](docs/web-page.md) | [Troubleshooting](docs/troubleshooting.md) |
+| [العربية](docs/ar/README.md) | | | |
 | | | [Remote access](docs/remote-access.md) | |
 | | | [Notifications](docs/notifications.md) | |
 | | | [Printer farm](docs/farm.md) | |

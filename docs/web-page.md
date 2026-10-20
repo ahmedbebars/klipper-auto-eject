@@ -29,6 +29,8 @@ bed and starts the next job by itself.
 | **Activity** | The auto-eject messages from the console, newest first. |
 | **How it works** | The illustrated guide. |
 
+<p align="center"><img src="images/check-file.png" alt="Check a file: the parts are labelled, the end G-code runs AUTO_EJECT, and the plan on the bed map" width="900"></p>
+
 The page is in English and Arabic (right to left), in light and dark, and works on a phone.
 It picks the browser's language and theme; both can be switched at the top.
 
@@ -100,6 +102,8 @@ Nothing is loaded from the internet: the page is plain HTML, CSS and JavaScript,
 printer with no internet access.
 
 ## On your phone, as an app
+
+<p align="center"><img src="images/phone-app.png" alt="The auto-eject app on a phone: clearing the bed, the printer farm in Arabic, the blade" width="820"></p>
 
 On a phone the sections move to a tab bar at the bottom, and the page keeps clear of notches,
 rounded corners and the home indicator, on any phone, folding phones and tablets included.

@@ -19,7 +19,7 @@ def test_every_docs_page_is_in_the_site_navigation():
 
 
 def test_navigation_points_to_pages_that_exist():
-    generated = {"index.md", "demo.md", "changelog.md", "documentation.md"}
+    generated = {"index.md", "demo.md", "changelog.md", "documentation.md", "ar/index.md"}
     for page in nav_pages() - generated:
         assert (ROOT / "docs" / page).exists(), page
     for page in ("home.md", "demo.md", "hooks.py", "overrides/home.html", "assets/site.css"):
