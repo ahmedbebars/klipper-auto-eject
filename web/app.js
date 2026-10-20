@@ -598,7 +598,7 @@
     nav.replaceChildren(...VIEWS.filter((v) => v.id !== "queue" || app.hasQueue || DEMO).map((v) => {
       const count = v.id === "queue" && app.queue.jobs.length ? h("span", { class: "count", text: num(app.queue.jobs.length, 0) }) : null;
       return h("a", { href: "#/" + v.id, class: v.id === id ? "active" : "", "aria-current": v.id === id ? "page" : null },
-        icon(v.icon), h("span", { text: t("nav." + v.id) }), count);
+        icon(v.icon), h("span", { class: "lbl", text: t("nav." + v.id) }), h("span", { class: "lbl-s", text: t("navs." + v.id) }), count);
     }), h("div", { class: "foot" }, h("a", { href: DOCS, target: "_blank", rel: "noopener", text: "klipper-auto-eject" })));
 
     // one banner for the most important thing
@@ -1109,13 +1109,32 @@
   }
   viewSetup.sig = function () { return JSON.stringify([sv(), blocked(), Object.keys(app.config).length, parts().length, remoteInfo()]); };
 
+  // Installing the page as an app. Chrome and Edge offer a prompt the page
+  // can open; Safari on iPhone and iPad has Add to Home Screen in its share
+  // menu. Browsers allow it only over HTTPS.
+  let installPrompt = null;
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; refresh(); });
+  window.addEventListener("appinstalled", () => { installPrompt = null; refresh(); });
+  function appMode() {
+    if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) return "installed";
+    if (!window.isSecureContext) return "insecure";
+    if (installPrompt) return "prompt";
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    return ios ? "ios" : "menu";
+  }
+  function installApp() {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    installPrompt.userChoice.finally(() => { installPrompt = null; refresh(); });
+  }
+
   // How this page was opened, for the remote access card.
   function remoteInfo() {
     const host = location.hostname;
     const ts = /\.ts\.net$/i.test(host) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host);
     const tc = app.trustedClients;
     const trusts = tc === null ? true : tc === undefined ? null : tc.some((c) => /^100\./.test(String(c).trim()));
-    return { ts, https: location.protocol === "https:", trusts, cams: app.webcams.length };
+    return { ts, https: location.protocol === "https:", trusts, cams: app.webcams.length, app: appMode() };
   }
 
   function remoteCard() {
@@ -1129,7 +1148,11 @@
         h("dt", { text: t("remote.from") }), h("dd", { text: t(r.ts ? (r.https ? "remote.from_https" : "remote.from_ts") : "remote.from_lan") }),
         h("dt", { text: t("remote.trust") }), h("dd", { text: yes(r.trusts) }),
         h("dt", { text: t("remote.https") }), h("dd", { text: yes(r.https) }),
-        h("dt", { text: t("remote.camera") }), h("dd", { text: r.cams ? t("remote.cams", { n: num(r.cams, 0) }) : t("remote.none") })),
+        h("dt", { text: t("remote.camera") }), h("dd", { text: r.cams ? t("remote.cams", { n: num(r.cams, 0) }) : t("remote.none") }),
+        h("dt", { text: t("remote.app") }), h("dd", { text: t("remote.app_" + r.app) })),
+      r.app === "prompt" ? h("div", { class: "toolbar", style: { marginTop: "12px" } },
+        h("button", { type: "button", class: "btn primary", onclick: installApp }, icon("download"), t("remote.install"))) : null,
+      r.app === "ios" || r.app === "menu" ? h("p", { class: "note", style: { marginTop: "12px" } }, icon("phone"), h("span", { text: t("remote.install_" + r.app) })) : null,
       h("p", { class: "note", style: { marginTop: "12px" } }, icon(next === "remote.next_done" ? "ok" : "info"), h("span", { text: t(next) })),
       next === "remote.next_done" ? null : h("div", { class: "codeblock", style: { marginTop: "10px" }, text: "~/klipper-auto-eject/install.sh --remote" }),
       h("div", { class: "toolbar", style: { marginTop: "12px" } },
@@ -1345,6 +1368,9 @@
       img.src = u + (u.includes("?") ? "&" : "?") + "t=" + Date.now();
     }
   }, 1200);
+  if ("serviceWorker" in navigator && window.isSecureContext && !DEMO) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
   refresh();
   client.connect();
 })();

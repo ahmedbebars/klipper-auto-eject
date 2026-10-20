@@ -258,7 +258,7 @@ def test_arabic_has_every_text():
 
 
 @needs_node
-@pytest.mark.parametrize("name", ["app.js", "demo.js", "model.js", "moonraker.js", "lang/en.js", "lang/ar.js"])
+@pytest.mark.parametrize("name", ["app.js", "demo.js", "model.js", "moonraker.js", "sw.js", "lang/en.js", "lang/ar.js"])
 def test_scripts_parse(name):
     subprocess.run([NODE, "--check", str(WEB / name)], check=True)
 
@@ -285,3 +285,50 @@ def test_page_only_sends_known_commands():
     macros = Printer().macros
     for name in known - {"RESPOND"}:
         assert name in macros, name
+
+
+# ------------------------------------------------------------- the app (PWA)
+def png_size(path):
+    data = path.read_bytes()
+    assert data[:8] == bytes.fromhex("89504e470d0a1a0a"), path
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+
+
+def test_manifest_makes_an_installable_app():
+    m = json.loads((WEB / "manifest.json").read_text(encoding="utf-8"))
+    assert m["name"] and m["short_name"] and m["display"] == "standalone"
+    assert m["start_url"] == "./" and m["scope"] == "./"
+    sizes = set()
+    for icon in m["icons"]:
+        path = WEB / icon["src"]
+        assert path.exists(), icon["src"]
+        if icon["type"] == "image/png":
+            w, h = png_size(path)
+            assert "%dx%d" % (w, h) == icon["sizes"], icon["src"]
+            sizes.add((w, icon["purpose"]))
+    assert (192, "any") in sizes and (512, "any") in sizes and (512, "maskable") in sizes
+    assert png_size(WEB / "icons" / "apple-touch-icon.png") == (180, 180)
+
+
+def test_service_worker_caches_files_that_exist():
+    sw = (WEB / "sw.js").read_text(encoding="utf-8")
+    shell = re.findall(r'"([^"]+)"', sw[sw.index("const SHELL"):sw.index("];")])
+    assert "index.html" in shell and "app.js" in shell
+    for name in shell:
+        if name != "./":
+            assert (WEB / name).exists(), name
+
+
+def test_page_is_an_app_only_where_browsers_allow_it():
+    app = (WEB / "app.js").read_text(encoding="utf-8")
+    assert 'navigator.serviceWorker.register("sw.js")' in app
+    assert "window.isSecureContext && !DEMO" in app        # not in the demo, not over plain HTTP
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    assert 'rel="manifest" href="manifest.json"' in html
+    assert "viewport-fit=cover" in html                   # room for notches
+
+
+def test_every_section_has_a_short_label_for_the_phone_tab_bar():
+    en = (WEB / "lang" / "en.js").read_text(encoding="utf-8")
+    for view in ("overview", "queue", "check", "setup", "settings", "activity", "guide"):
+        assert '"navs.%s"' % view in en, view

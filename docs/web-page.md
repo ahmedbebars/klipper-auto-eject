@@ -98,6 +98,26 @@ Then `sudo nginx -t && sudo systemctl reload nginx`. For the Mainsail sidebar, c
 Nothing is loaded from the internet: the page is plain HTML, CSS and JavaScript, and works on a
 printer with no internet access.
 
+## On your phone, as an app
+
+On a phone the sections move to a tab bar at the bottom, and the page keeps clear of notches,
+rounded corners and the home indicator, on any phone, folding phones and tablets included.
+
+Over HTTPS, the page installs as an app with its own icon and opens without the browser's bars.
+Set up [remote access](remote-access.md) with HTTPS (`install.sh --remote`), open
+`https://<printer>.<your-tailnet>.ts.net/auto-eject/` on the phone, then:
+
+| Phone | How |
+|---|---|
+| Android (Chrome, Edge, Samsung Internet) | **Install the app** on the page's **Blade and setup** tab, or the browser menu: **Install app** |
+| iPhone and iPad (Safari) | **Share**, then **Add to Home Screen** |
+
+The **Phone and remote access** card on the **Blade and setup** tab says which applies to the
+device you hold. The app keeps a copy of its own files, so it opens and says the printer is not
+reachable when there is no connection; everything about the printer always comes live from
+Moonraker. Over plain HTTP (the home address) browsers do not install pages as apps; adding the
+page to the home screen still works as a shortcut.
+
 ## Changing a setting from the console
 
 The page saves settings with a macro you can also use yourself:
@@ -146,7 +166,8 @@ Anything left out is shown in English. Setting names and console messages stay i
 | `web/model.js` | The logic: the push plan, reading the settings file, checking G-code, the setup dialogs. It does what the macros do, and `tests/test_web.py` compares the two |
 | `web/moonraker.js` | A small Moonraker websocket client |
 | `web/demo.js` | The pretend printer for `?demo` |
-| `web/style.css` | Styles, light and dark |
+| `web/style.css` | Styles, light and dark, the phone layout |
+| `web/manifest.json`, `web/sw.js`, `web/icons/` | What makes it an app: the name and icons, and the service worker that keeps a copy of the page's files |
 
 The settings section is built from the comments in `config/auto_eject_settings.cfg`, so a new
 setting shows up in the page with its explanation without changing the page.

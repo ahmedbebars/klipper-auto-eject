@@ -101,8 +101,8 @@ from the printer itself.
 
 ## Phone apps and the camera
 
-- **The auto-eject page** works in any phone browser. Add it to the home screen to open it like
-  an app.
+- **The auto-eject page** works in any phone browser, and over HTTPS it installs as an app with
+  its own icon ([web-page.md](web-page.md#on-your-phone-as-an-app)).
 - **[Mobileraker](https://mobileraker.app)** (Android and iOS) is a full Klipper app. Add the
   printer with its Tailscale address. For notifications when the app is closed, install its
   companion on the printer:

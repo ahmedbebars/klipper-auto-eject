@@ -21,6 +21,11 @@ All notable changes to this project are documented here. The format is based on
   cool it faster. The wait before homing Z on the bare sheet uses the fan too.
 - A dialog after a print that ended without an eject (no `AUTO_EJECT` in the end G-code,
   cancelled, or stopped): take the parts off and click **Bed is clear**.
+- **The web page is an app on phones** (PWA). Over HTTPS it installs with its own icon (Android:
+  **Install the app** on the page, iPhone: **Add to Home Screen**) and opens without the browser's
+  bars; a service worker keeps a copy of its own files, so it opens and shows that the printer is
+  unreachable without a connection. On phones the sections move to a tab bar at the bottom, and the
+  page keeps clear of notches and the home indicator.
 - **Remote access for everyone**: `install.sh --remote` sets up Tailscale so Mainsail and the
   auto-eject page open from a phone anywhere, without opening the printer to the internet. It asks
   before every step: installs Tailscale if needed, connects the printer, adds the Tailscale range to
