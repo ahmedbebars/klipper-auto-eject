@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-20
+
 ### Changed
 - **`AUTO_EJECT` now goes after your end macro**, as `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1`.
   End macros retract the filament (`G1 E-2`), and once `AUTO_EJECT` had let the nozzle cool,
@@ -55,6 +57,8 @@ All notable changes to this project are documented here. The format is based on
   to do. The README now leads with how it works, who it is for and the eight steps.
 - The blade measurement pages described a 20 mm cube; they now describe the 3.5 mm printed
   calibration block, and the troubleshooting page lists every reason the measurement can stop.
+- Where `AUTO_EJECT` goes for every kind of end G-code (DEMON, Klippain, RatOS, stock Voron, plain
+  commands, Cura), and when you need to tell the printer the bed is clear (FAQ).
 
 ## [0.10.5] - 2026-10-19
 
@@ -268,7 +272,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.5...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.5...v0.11.0
 [0.10.5]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.2...v0.10.3
