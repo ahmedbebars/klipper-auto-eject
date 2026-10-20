@@ -6,10 +6,20 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **Print from the farm, from anywhere**: a free printer's card has **Print**: pick one of its
+  G-code files, or send it one from the phone or computer (**Send it**, **Send it and print**,
+  with progress). Printing cards have **Pause**, **Resume** and **Cancel the print**. All of it goes
+  through the farm printer, so it works away from the printers' network without Tailscale on the
+  other printers. The farm refuses to start a print on a busy printer or on one with parts on its
+  bed. Uploads are kept on the card, not in memory, while they go on (`install.sh --farm` or
+  `--push` updates the nginx file for large files).
+
 ### Fixed
 - In the farm, **Open** did not work from a phone away from the printers' network: it opened the
   printer's local address. When the page is opened through Tailscale, it now opens the printer's
-  Tailscale address, found by its network card, if that printer has Tailscale.
+  Tailscale address, found by its network card, if that printer has Tailscale; without it, Open
+  says **Open (on its network)** instead of a link that does not open.
 
 ## [0.13.0] - 2026-10-20
 

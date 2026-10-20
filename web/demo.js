@@ -692,6 +692,12 @@
     if (f.kind === "leftover") return Object.assign(card, { phase: "needs", reason: "leftover", state: "complete", leftover: f.left, parts: 8, queue: "paused", jobs: 4 });
     if (f.kind === "done") return Object.assign(card, { phase: "needs", reason: "done", state: "complete", progress: 1 });
     if (f.kind === "bin") return Object.assign(card, { phase: "needs", reason: "bin", state: "complete", progress: 1, filename: "" });
+    if (f.kind === "paused") {
+      const p = Math.min(0.99, ((f.pausedAt || Date.now() / 1000) - (f.start || this.farmStart)) * 40 / f.time + (f.at || 0));
+      return Object.assign(card, { phase: "paused", reason: "paused", state: "paused", progress: p, layer: Math.max(1, Math.round(p * f.layers)),
+        layers: f.layers, bed: 60, bed_target: 60, nozzle: 205 });
+    }
+    if (f.kind === "cancelled") return Object.assign(card, { phase: "needs", reason: f.auto_eject ? "parts" : "cancelled", state: "cancelled", parts: f.auto_eject ? 1 : 0 });
     return Object.assign(card, { phase: "idle", reason: "", filename: "" });
   };
 
@@ -741,6 +747,30 @@
         return ok({ renamed: true });
       }
     }
+    // printing from the farm: the files, start one, send one
+    const fl = /^\/([^/]+)\/(files|print|upload)$/.exec(path);
+    if (fl) {
+      const now = Date.now() / 1000;
+      if (fl[1] === "local") {
+        if (fl[2] === "files") return ok({ files: Object.keys(FILES).map((n, i) => ({ path: n, size: 2000000 + i * 731000, modified: now - i * 86400 - 3600 })) });
+        if (fl[2] === "print") return this.call("server.job_queue.post_job", { filenames: [body.filename], reset: false }).then(() => ({ result: "ok" }));
+        return ok({ result: { item: { path: body.name } } });
+      }
+      const f = this.farmList.find((x) => x.id === fl[1]);
+      if (!f) return fail("not found");
+      f.files = f.files || ["bracket_PETG_2h5m.gcode", "hooks_x8_PETG.gcode", "phone_stand_PLA_1h20m.gcode", "cable_clips_x20_PLA.gcode"]
+        .map((n, i) => ({ path: n, size: 900000 + i * 410000, modified: now - (i + 1) * 5400 }));
+      if (fl[2] === "files") return ok({ files: f.files.slice().sort((a, b) => b.modified - a.modified) });
+      const free = f.kind === "idle";
+      if (fl[2] === "upload") {
+        if (body.print && !free) return fail(f.name + " cannot start a print now");
+        f.files.push({ path: body.name, size: body.size || 0, modified: now });
+      } else if (!free) return fail(f.name + " cannot start a print now");
+      if (fl[2] === "print" || body.print) {
+        Object.assign(f, { kind: "printing", file: fl[2] === "print" ? body.filename : body.name, time: 4800, at: 0, layers: 160, start: now });
+      }
+      return ok({ result: "ok" });
+    }
     const pw = /^\/([^/]+)\/power$/.exec(path);
     if (pw) {
       const f = this.farmList.find((x) => x.id === pw[1]);
@@ -752,18 +782,22 @@
       else if (f.kind === "off") f.kind = "idle";
       return ok({ result: { [d.device]: d.status } });
     }
-    const m = /^\/([^/]+)\/(continue|clear|estop|bin_empty)$/.exec(path);
+    const m = /^\/([^/]+)\/(continue|clear|estop|bin_empty|pause|resume|cancel)$/.exec(path);
     if (m) {
       if (m[1] === "local") {
         if (m[2] === "estop") return this.call("printer.emergency_stop").then((r) => ({ result: r }));
         if (m[2] === "continue") return this.call("server.job_queue.start").then((r) => ({ result: r }));
         if (m[2] === "bin_empty") return this.gcode("AUTO_EJECT_BIN_EMPTY").then((r) => ({ result: r }));
+        if (["pause", "resume", "cancel"].includes(m[2])) return ok({ result: "ok" });
         return this.gcode("AUTO_EJECT_CLEAR").then((r) => ({ result: r }));
       }
       const f = this.farmList.find((x) => x.id === m[1]);
       if (!f) return fail("not found");
       if (m[2] === "clear") f.kind = "idle";
       if (m[2] === "bin_empty") { f.kind = "idle"; f.bin = 0; }
+      if (m[2] === "pause" && f.kind === "printing") { f.kind = "paused"; f.pausedAt = Date.now() / 1000; }
+      if (m[2] === "resume" && f.kind === "paused") { f.kind = "printing"; f.start = (f.start || this.farmStart) + (Date.now() / 1000 - f.pausedAt); }
+      if (m[2] === "cancel") f.kind = "cancelled";
       if (m[2] === "estop") f.kind = "offline";
       if (m[2] === "continue") { f.kind = "printing"; f.file = f.file || "next_job.gcode"; f.time = 5400; f.at = 0; f.layers = 90; f.start = Date.now() / 1000; }
       return ok({ result: "ok" });

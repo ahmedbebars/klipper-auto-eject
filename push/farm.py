@@ -12,13 +12,17 @@ klipper-auto-eject also show their parts, cooling and eject.
 
 import concurrent.futures
 import hashlib
+import http.client
 import ipaddress
 import json
+import os
 import re
 import socket
 import subprocess
+import tempfile
 import threading
 import time
+import uuid
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -43,8 +47,60 @@ ACTIONS = {
     "clear": ("POST", "/printer/gcode/script", {"script": "AUTO_EJECT_CLEAR"}),
     "clear_plain": ("POST", "/printer/gcode/script", {"script": "SDCARD_RESET_FILE"}),
     "bin_empty": ("POST", "/printer/gcode/script", {"script": "AUTO_EJECT_BIN_EMPTY"}),
+    "pause": ("POST", "/printer/print/pause", None),
+    "resume": ("POST", "/printer/print/resume", None),
+    "cancel": ("POST", "/printer/print/cancel", None),
     "estop": ("POST", "/printer/emergency_stop", None),
 }
+GCODE_FILE = re.compile(r"\.(gcode|g|gco|bgcode)$", re.I)
+# phases in which a printer cannot start a print
+BUSY = ("printing", "paused", "ejecting", "stopped", "offline", "off")
+ON_THE_BED = ("leftover", "parts", "bin")
+UPLOADS = os.path.expanduser("~/.cache/klipper-auto-eject")    # on the card, not in RAM (/tmp)
+
+
+def safe_name(name):
+    """A G-code file name that Moonraker and a form header both take."""
+    name = os.path.basename(str(name or "").replace("\\", "/")).strip()
+    name = re.sub(r'[^\w .+()\-]', "_", name, flags=re.UNICODE).strip(" .")
+    if not name or not GCODE_FILE.search(name):
+        raise ValueError("not a G-code file: %s" % name)
+    return name[:200]
+
+
+def upload_file(base, name, fileobj, size, start=False, timeout=600):
+    """Send a file to a Moonraker (POST /server/files/upload), streamed from
+    fileobj; start=True prints it at once."""
+    b = "----autoeject" + uuid.uuid4().hex
+    head = ""
+    if start:
+        head += '--%s\r\nContent-Disposition: form-data; name="print"\r\n\r\ntrue\r\n' % b
+    head += '--%s\r\nContent-Disposition: form-data; name="root"\r\n\r\ngcodes\r\n' % b
+    head += ('--%s\r\nContent-Disposition: form-data; name="file"; filename="%s"\r\n'
+             "Content-Type: application/octet-stream\r\n\r\n" % (b, name))
+    head, tail = head.encode("utf-8"), ("\r\n--%s--\r\n" % b).encode()
+    u = urllib.parse.urlsplit(base)
+    conn = http.client.HTTPConnection(u.hostname, u.port or 80, timeout=timeout)
+    try:
+        conn.putrequest("POST", "/server/files/upload")
+        conn.putheader("Content-Type", "multipart/form-data; boundary=" + b)
+        conn.putheader("Content-Length", str(len(head) + size + len(tail)))
+        conn.endheaders()
+        conn.send(head)
+        fileobj.seek(0)
+        while True:
+            chunk = fileobj.read(1 << 20)
+            if not chunk:
+                break
+            conn.send(chunk)
+        conn.send(tail)
+        resp = conn.getresponse()
+        data = json.loads(resp.read() or b"{}")
+    finally:
+        conn.close()
+    if resp.status >= 300:
+        raise RuntimeError((data.get("error") or {}).get("message") or "HTTP %d" % resp.status)
+    return data.get("result")
 
 
 def http_json(url, data=None, method=None, timeout=3.0):
@@ -632,9 +688,42 @@ class Farm:
     def find(self, pid):
         return self.local if pid == "local" else self.printers.get(pid)
 
+    def files(self, pid):
+        """A printer's G-code files, newest first."""
+        p = self.find(pid)
+        if p is None:
+            return None
+        items = http_json(p.base + "/server/files/list?root=gcodes", timeout=10) or []
+        items = [{"path": f["path"], "size": f.get("size", 0), "modified": f.get("modified", 0)}
+                 for f in items if GCODE_FILE.search(f.get("path", ""))]
+        return sorted(items, key=lambda f: -f["modified"])[:500]
+
+    def ready_to_print(self, p):
+        phase, reason = p.card.get("phase"), p.card.get("reason")
+        if phase in BUSY:
+            raise PermissionError("%s cannot start a print now (%s)" % (p.name, phase))
+        if reason in ON_THE_BED:
+            raise PermissionError("%s still has parts on the bed" % p.name)
+
+    def print_file(self, pid, filename):
+        p = self.find(pid)
+        if p is None:
+            return None
+        self.ready_to_print(p)
+        return http_json(p.base + "/printer/print/start", data={"filename": str(filename)}, timeout=15)
+
+    def upload(self, pid, name, fileobj, size, start=False):
+        p = self.find(pid)
+        if p is None:
+            return None
+        name = safe_name(name)
+        if start:
+            self.ready_to_print(p)
+        return upload_file(p.base, name, fileobj, size, start)
+
     def act(self, pid, action):
         p = self.find(pid)
-        if p is None or action not in ("continue", "clear", "estop", "bin_empty"):
+        if p is None or action not in ("continue", "clear", "estop", "bin_empty", "pause", "resume", "cancel"):
             return None
         if action == "clear" and not p.card.get("auto_eject"):
             action = "clear_plain"
@@ -680,7 +769,41 @@ def make_handler(farm):
             length = int(self.headers.get("Content-Length") or 0)
             return json.loads(self.rfile.read(length) or b"{}") if length else {}
 
+        def _upload(self, pid, query):
+            """A file sent as the request body (the page streams it), kept on
+            the card while it goes on to the printer."""
+            length = int(self.headers.get("Content-Length") or 0)
+            os.makedirs(UPLOADS, exist_ok=True)
+            # answer only once the copy is gone
+            with tempfile.TemporaryFile(dir=UPLOADS) as tmp:
+                left = length
+                while left > 0:
+                    chunk = self.rfile.read(min(left, 1 << 20))
+                    if not chunk:
+                        break
+                    tmp.write(chunk)
+                    left -= len(chunk)
+                if left:
+                    answer = (400, {"error": "the upload was cut short"})
+                else:
+                    try:
+                        result = farm.upload(pid, query.get("name", [""])[0], tmp, length, query.get("print", ["0"])[0] == "1")
+                        answer = (200 if result is not None else 404, {"result": result})
+                    except (ValueError, PermissionError) as e:
+                        answer = (409, {"error": str(e)})
+            return self._send(*answer)
+
         def _route(self, method):
+            url = urllib.parse.urlsplit(self.path)
+            path = url.path.rstrip("/")
+            parts = [x for x in path.split("/") if x]
+            if method == "POST" and len(parts) == 3 and parts[0] == "farm" and parts[2] == "upload":
+                if not trusted(self._client()):
+                    return self._send(403, {"error": "not allowed from this network"})
+                try:
+                    return self._upload(parts[1], urllib.parse.parse_qs(url.query))
+                except Exception as e:
+                    return self._send(502, {"error": str(e)})
             # read the whole request first: a socket closed with unread data resets the connection
             try:
                 body = self._body() if method == "POST" else {}
@@ -688,8 +811,6 @@ def make_handler(farm):
                 return self._send(400, {"error": "not JSON"})
             if not trusted(self._client()):
                 return self._send(403, {"error": "not allowed from this network"})
-            path = urllib.parse.urlsplit(self.path).path.rstrip("/")
-            parts = [x for x in path.split("/") if x]
             try:
                 if parts == ["farm"] and method == "GET":
                     return self._send(200, farm.view())
@@ -707,6 +828,15 @@ def make_handler(farm):
                         return self._send(200, {"renamed": farm.rename(body["rename"], body.get("name", ""))})
                     if "auto_off" in body:
                         return self._send(200, {"saved": farm.set_auto_off(body.get("id"), body["auto_off"], body.get("device", ""))})
+                if len(parts) == 3 and parts[0] == "farm" and parts[2] == "files" and method == "GET":
+                    files = farm.files(parts[1])
+                    return self._send(200 if files is not None else 404, {"files": files})
+                if len(parts) == 3 and parts[0] == "farm" and parts[2] == "print" and method == "POST":
+                    try:
+                        result = farm.print_file(parts[1], body.get("filename", ""))
+                    except PermissionError as e:
+                        return self._send(409, {"error": str(e)})
+                    return self._send(200 if result is not None else 404, {"result": result})
                 if len(parts) == 3 and parts[0] == "farm" and parts[2] == "power" and method == "POST":
                     p = farm.find(parts[1])
                     if p is None:

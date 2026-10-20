@@ -442,7 +442,7 @@
     return String(msg).replace(/^!!\s*/, "").replace(/^Error evaluating '[^']*':\s*/, "");
   }
 
-  function confirm(title, body, okLabel, okClass) {
+  function confirm(title, body, okLabel, okClass, noLabel) {
     return new Promise((resolve) => {
       const close = (v) => { root.remove(); resolve(v); };
       const root = h("div", { class: "modal-back", onclick: (e) => { if (e.target === root) close(false); } },
@@ -450,7 +450,7 @@
           h("header", null, h("h3", { text: title })),
           h("div", { class: "body" }, h("p", { text: body })),
           h("footer", null,
-            h("button", { type: "button", class: "btn", onclick: () => close(false), text: t("c.cancel") }),
+            h("button", { type: "button", class: "btn", onclick: () => close(false), text: noLabel || t("c.cancel") }),
             h("button", { type: "button", class: "btn " + (okClass || "primary"), onclick: () => close(true), text: okLabel || t("c.ok") }))));
       $("#modal-root").appendChild(root);
       root.querySelector(".btn:last-child").focus();
@@ -1593,8 +1593,9 @@
   function farmCall(path, body) {
     if (DEMO) return client.farm(path, body);
     const opts = body === undefined ? { cache: "no-store" } : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+    // the farm itself must answer with its printers: anything else is not the service
     return fetch(FARM_API + path, opts).then((r) => r.json().catch(() => ({}))
-      .then((j) => (r.ok && (body !== undefined || Array.isArray(j.printers)) ? j : Promise.reject(new Error(j.error || "HTTP " + r.status)))));
+      .then((j) => (r.ok && (path !== "" || Array.isArray(j.printers)) ? j : Promise.reject(new Error(j.error || "HTTP " + r.status)))));
   }
 
   function loadFarm() {
@@ -1639,11 +1640,14 @@
   }
 
   function farmAct(p, action) {
+    if (action === "print") return printDialog(p);
     const go = () => farmCall("/" + p.id + "/" + action, {})
       .then(() => { toast(t("farm.sent", { name: p.name }), "ok"); setTimeout(loadFarm, 700); })
       .catch((e) => toast(cleanError(e.message), "bad"));
     if (action === "continue") return confirm(t("farm.continue"), t("farm.continue_confirm", { name: p.name }), t("farm.continue")).then((ok) => { if (ok) go(); });
     if (action === "estop") return confirm(t("act.estop"), t("farm.estop_confirm", { name: p.name }), t("act.estop"), "danger").then((ok) => { if (ok) go(); });
+    if (action === "cancel") return confirm(t("farm.cancel"), t("farm.cancel_confirm", { name: p.name, file: p.filename || "" }), t("farm.cancel"), "danger", t("farm.keep_printing"))
+      .then((ok) => { if (ok) go(); });
     return go();
   }
 
@@ -1677,11 +1681,14 @@
 
   function farmCard(p) {
     const ACT = { clear: ["hand", "farm.clear", "primary"], continue: ["play", "farm.continue", "primary"], estop: ["stop", "act.estop", "stop"],
-      bin_empty: ["tray", "bin.empty", "primary"] };
+      bin_empty: ["tray", "bin.empty", "primary"], print: ["file", "farm.print", "primary"], pause: ["pause", "farm.pause", ""],
+      resume: ["play", "farm.resume", "primary"], cancel: ["bad", "farm.cancel", "stop"] };
     const file = farmFile(p);
     const bed = typeof p.bed === "number" ? num(p.bed, 0) + (p.bed_target ? " / " + num(p.bed_target, 0) : "") + " °C" : "";
+    const link = M.farmLink(p, location.hostname);
     const open = p.local ? h("a", { class: "btn sm", href: "#/overview" }, icon("home"), t("farm.open"))
-      : M.farmLink(p, location.hostname) ? h("a", { class: "btn sm", href: M.farmLink(p, location.hostname), target: "_blank", rel: "noopener" }, icon("external"), t("farm.open")) : null;
+      : link ? h("a", { class: "btn sm", href: link, target: "_blank", rel: "noopener" }, icon("external"), t("farm.open"))
+      : p.page ? h("span", { class: "btn sm disabled", title: t("farm.open_local"), "aria-disabled": "true" }, icon("external"), t("farm.open_local_short")) : null;
     return h("section", { class: "card fcard", "data-state": p.phase },
       h("div", { class: "fc-top" },
         h("div", { class: "fc-ic" }, icon(FARM_ICON[p.phase] || "info")),
@@ -1701,7 +1708,8 @@
           h("span", { text: t("bin.chip") + ":" }), h("b", { text: num(p.bin || 0, 0) + " / " + num(p.bin_cap, 0) })) : null) : null,
       p.phase !== "offline" ? farmStatsLine(p) : null,
       h("div", { class: "fc-acts" }, M.farmActions(p).map((a) => h("button", { type: "button", class: "btn sm " + ACT[a][2], onclick: () => farmAct(p, a) }, icon(ACT[a][0]), t(ACT[a][1]))),
-        (p.power || []).map((d) => h("button", { type: "button", class: "btn sm" + (d.status === "on" ? " power-on" : p.phase === "off" ? " primary" : ""),
+        // never offered while it prints: the farm would refuse it anyway
+        (["printing", "paused", "ejecting"].includes(p.phase) ? [] : p.power || []).map((d) => h("button", { type: "button", class: "btn sm" + (d.status === "on" ? " power-on" : p.phase === "off" ? " primary" : ""),
           title: d.device, onclick: () => farmPower(p, d) }, icon("power"), t(d.status === "on" ? "farm.turn_off" : "farm.turn_on", { dev: d.device }))),
         open));
   }
@@ -1825,6 +1833,86 @@
       running ? null : h("button", { type: "button", class: "btn", onclick: openScan }, icon("restart"), t("farm.again")),
       chosen.length ? h("button", { type: "button", class: "btn primary", onclick: () => addPrinters(chosen, close, left) }, icon("plus"), t("farm.add_n", { n: num(chosen.length, 0) })) : null
     ], close);
+  }
+
+  // ----- print one of a printer's files, or send it one from this device
+  function printDialog(p) {
+    const ui = { files: null, error: "", filter: "", busy: false, progress: null };
+    const close = () => closeModal("printd");
+    const start = (file) => confirm(t("farm.print"), t("farm.print_confirm", { name: p.name, file }), t("farm.print")).then((ok) => {
+      if (!ok) return;
+      farmCall("/" + p.id + "/print", { filename: file })
+        .then(() => { toast(t("farm.print_started", { name: p.name }), "ok"); close(); setTimeout(loadFarm, 900); })
+        .catch((e) => toast(cleanError(e.message), "bad"));
+    });
+    const picker = h("input", { type: "file", accept: ".gcode,.g,.gco,.bgcode", style: { display: "none" } });
+    const send = (andPrint) => {
+      const f = picker.files && picker.files[0];
+      if (!f) return;
+      const go = () => {
+        ui.busy = true;
+        ui.progress = 0;
+        draw();
+        uploadToFarm(p, f, andPrint, (v) => { ui.progress = v; draw(); }).then(() => {
+          toast(t(andPrint ? "farm.print_started" : "farm.uploaded", { name: p.name, file: f.name }), "ok");
+          if (andPrint) { close(); setTimeout(loadFarm, 900); return; }
+          ui.busy = false; ui.progress = null; ui.files = null; picker.value = ""; load();
+        }).catch((e) => { ui.busy = false; ui.progress = null; draw(); toast(cleanError(e.message), "bad"); });
+      };
+      if (andPrint) confirm(t("farm.print"), t("farm.print_confirm", { name: p.name, file: f.name }), t("farm.print")).then((ok) => { if (ok) go(); });
+      else go();
+    };
+    picker.addEventListener("change", draw);
+    function load() {
+      farmCall("/" + p.id + "/files").then((r) => { ui.files = r.files || []; draw(); })
+        .catch((e) => { ui.error = cleanError(e.message); draw(); });
+    }
+    function draw() {
+      const q = ui.filter.toLowerCase();
+      const files = (ui.files || []).filter((f) => !q || f.path.toLowerCase().includes(q)).slice(0, 60);
+      const search = h("input", { class: "input", type: "search", placeholder: t("check.search"), value: ui.filter, "data-keep": "pd-search" });
+      search.addEventListener("input", () => { ui.filter = search.value; draw(); const s = $(".modal-back.printd input[type=search]"); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } });
+      const chosen = picker.files && picker.files[0];
+      const body = h("div", null,
+        h("p", { class: "muted", text: t("farm.print_intro", { name: p.name }) }),
+        search,
+        ui.error ? h("p", { class: "note", style: { marginTop: "10px" } }, icon("alert"), h("span", { text: ui.error }))
+          : ui.files === null ? h("div", { class: "empty" }, h("span", { class: "spinner" }))
+          : files.length ? h("div", { class: "list scan-list" }, files.map((f) => h("button", { type: "button", class: "row", onclick: () => start(f.path) },
+              icon("file"), h("div", { class: "grow" }, h("div", { class: "name ltr", text: f.path }),
+                h("div", { class: "sub", text: fmtSize(f.size) + " · " + new Date(f.modified * 1000).toLocaleString(lang === "ar" ? "ar-EG-u-nu-latn" : undefined) })),
+              icon("play"))))
+          : h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", { text: t("farm.no_files") })),
+        h("h3", { class: "sub-head", text: t("farm.upload_title") }),
+        h("div", { class: "toolbar" },
+          h("button", { type: "button", class: "btn", disabled: ui.busy, onclick: () => picker.click() }, icon("file"), t("farm.choose_file")),
+          chosen ? h("span", { class: "ltr muted", text: chosen.name + " · " + fmtSize(chosen.size) }) : null),
+        ui.progress !== null ? h("div", { class: "progress", style: { marginTop: "10px" } }, h("i", { style: { width: num(ui.progress * 100, 1) + "%" } })) : null,
+        chosen && !ui.busy ? h("div", { class: "toolbar", style: { marginTop: "10px" } },
+          h("button", { type: "button", class: "btn", onclick: () => send(false) }, icon("download"), t("farm.upload")),
+          h("button", { type: "button", class: "btn primary", onclick: () => send(true) }, icon("play"), t("farm.upload_print"))) : null,
+        picker);
+      modal("printd", t("farm.print_on", { name: p.name }), body, [h("button", { type: "button", class: "btn", onclick: close, text: t("c.close") })], close);
+    }
+    draw();
+    load();
+  }
+
+  // The file goes through the farm printer (it reaches the others), with progress.
+  function uploadToFarm(p, file, andPrint, onProgress) {
+    if (DEMO) return client.farm("/" + p.id + "/upload", { name: file.name, print: andPrint, size: file.size }).then((r) => { onProgress(1); return r; });
+    return new Promise((resolve, reject) => {
+      const x = new XMLHttpRequest();
+      x.open("POST", FARM_API + "/" + encodeURIComponent(p.id) + "/upload?name=" + encodeURIComponent(file.name) + "&print=" + (andPrint ? 1 : 0));
+      x.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+      x.onload = () => {
+        let j = {};
+        try { j = JSON.parse(x.responseText || "{}"); } catch (e) { /* not JSON */ }
+        if (x.status >= 200 && x.status < 300) resolve(j); else reject(new Error(j.error || "HTTP " + x.status));
+      };
+      x.onerror = () => reject(new Error(t("farm.upload_failed")));
+      x.send(file);
+    });
   }
 
   // ----- rename or remove one printer

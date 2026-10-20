@@ -593,3 +593,5 @@ button.chip:hover { border-color: var(--accent); }
 .chip.warn b { color: var(--warn); }
 .fcard[data-state="off"] { --state: var(--muted); --state-soft: var(--surface-2); }
 .fc-acts .btn.power-on .ic { color: var(--ok); }
+.btn.disabled { opacity: .55; cursor: not-allowed; }
+.modal-back.printd .scan-list .row .ic:last-child { color: var(--accent); }

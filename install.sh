@@ -382,7 +382,7 @@ install_push() {
         return
     fi
     # the page reaches the service through nginx: an older web page lacks the way
-    if [[ -f "${NGINX_SNIPPET}" ]] && ! grep -q "/auto-eject/api/" "${NGINX_SNIPPET}"; then
+    if [[ -f "${NGINX_SNIPPET}" ]] && ! grep -q "proxy_request_buffering" "${NGINX_SNIPPET}"; then
         install_web
     fi
     if python3 -c "import cryptography" 2>/dev/null; then
@@ -526,7 +526,10 @@ location /auto-eject/ {
 location ^~ /auto-eject/api/ {
     proxy_pass http://127.0.0.1:7128/;
     proxy_set_header X-Real-IP \$remote_addr;
-    proxy_read_timeout 30s;
+    proxy_read_timeout 600s;
+    # G-code files sent to the farm's printers
+    client_max_body_size 0;
+    proxy_request_buffering off;
 }
 EOF
     local site

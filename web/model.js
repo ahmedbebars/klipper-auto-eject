@@ -468,9 +468,13 @@
   }
   // Where Open goes: through Tailscale when this page is opened through it
   // (a phone away from the printers' network), if that printer has it.
+  // Away (through Tailscale) and that printer has no Tailscale: no link, its
+  // local address would not open.
+  function farmAway(hostname) {
+    return /\.ts\.net$/i.test(hostname) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(hostname);
+  }
   function farmLink(p, hostname) {
-    const ts = /\.ts\.net$/i.test(hostname) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(hostname);
-    return (ts && p.page_remote) || p.page || null;
+    return farmAway(hostname) ? p.page_remote || null : p.page || null;
   }
 
   // What a farm card can offer: the bed is clear, start the queue, stop.
@@ -479,6 +483,10 @@
     if (p.phase === "needs" && ["leftover", "parts", "done", "cancelled", "error"].includes(p.reason)) out.push("clear");
     if (p.phase === "needs" && p.reason === "bin") out.push("bin_empty");
     if (p.queue === "paused" && p.jobs > 0 && ["idle", "needs"].includes(p.phase) && !["leftover", "parts", "done", "cancelled", "error", "bin"].includes(p.reason)) out.push("continue");
+    // print one of its files: only a free printer (the farm checks it again)
+    if (p.phase === "idle" || (p.phase === "needs" && p.reason === "queue")) out.push("print");
+    if (p.phase === "printing") out.push("pause", "cancel");
+    if (p.phase === "paused") out.push("resume", "cancel");
     if (["printing", "paused", "ejecting"].includes(p.phase)) out.push("estop");
     return out;
   }
@@ -538,7 +546,7 @@
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

@@ -74,9 +74,11 @@ with its local address: it knows it is the same machine by its network card.
 | Button | What it does | Asks first |
 |---|---|---|
 | **Bed is clear** | You took the print off. With auto-eject: forgets the stored parts (`AUTO_EJECT_CLEAR`). Without: forgets the finished job (`SDCARD_RESET_FILE`) so the printer shows as free. Nothing moves. | No |
+| **Print** | A free printer: pick one of its G-code files, or send it one from your phone or computer (**Send it**, or **Send it and print**). Refused while it prints or while auto-eject knows parts are on its bed | Yes |
+| **Pause**, **Resume**, **Cancel the print** | The print running on that printer | Cancel asks |
 | **Start the queue** | Starts that printer's Moonraker job queue: the next job prints | Yes |
 | **Emergency stop** | Stops that printer at once. It then needs a firmware restart | Yes |
-| **Open** | That printer's own page: its auto-eject page if it has one, otherwise Mainsail or Fluidd | |
+| **Open** | That printer's own page: its auto-eject page if it has one, otherwise Mainsail or Fluidd. Away from its network it opens through Tailscale if that printer has Tailscale; otherwise it shows **Open (on its network)** and does nothing | |
 | **I emptied the box** | The printer's parts box is full: you emptied it, it counts from zero again (`AUTO_EJECT_BIN_EMPTY`) | No |
 | **Turn on** / **Turn off** | For printers with a power switch in Moonraker (`[power]` in `moonraker.conf`, a smart plug, a relay). Off never happens while it prints or while the nozzle is above 50 °C, because the hotend fan stops with it | Off asks |
 | ✎ | Rename the printer here, or remove it from the farm. Nothing changes on the printer itself. With a power switch: **Turn off by itself when it has nothing to do** | |
@@ -101,7 +103,9 @@ Set up [remote access](remote-access.md) on the farm printer only:
 ```
 
 The farm printer reads the others for you, so from your phone you see every printer, its camera
-included, through that one printer. The other printers need no Tailscale. Only **Open** goes
+included, through that one printer. **Print**, **Pause**, **Cancel the print** and the other
+buttons go through it too, and so do the files you send, so they work from anywhere. The other
+printers need no Tailscale. Only **Open** goes
 straight to the other printer: on the same network it opens its local address; away from it,
 through Tailscale, it opens the printer's Tailscale address when that printer has Tailscale too
 (the farm finds it by its network card).
@@ -141,6 +145,10 @@ nginx publishes that at `/auto-eject/api/`:
 | `POST /auto-eject/api/farm/printers` | `{"add": [{"host": …, "port": …}]}`, `{"remove": id}`, `{"rename": id, "name": …}` |
 | `POST /auto-eject/api/farm/<id>/clear`, `…/continue`, `…/estop`, `…/bin_empty` | The buttons |
 | `POST /auto-eject/api/farm/<id>/power` | `{"device": …, "action": "on"}` or `"off"` |
+| `POST /auto-eject/api/farm/<id>/pause`, `…/resume`, `…/cancel` | The print on that printer |
+| `GET /auto-eject/api/farm/<id>/files` | Its G-code files, newest first |
+| `POST /auto-eject/api/farm/<id>/print` | `{"filename": …}`: starts it, only on a free printer |
+| `POST /auto-eject/api/farm/<id>/upload?name=…&print=1` | The file as the request body; the farm printer passes it on to that printer's Moonraker |
 | `POST /auto-eject/api/farm/printers` | also `{"id": …, "auto_off": minutes, "device": …}` |
 | `GET /auto-eject/api/farm/<id>/snapshot` | That printer's camera picture |
 

@@ -384,10 +384,11 @@ def test_farm_shows_who_needs_you_first():
 @pytest.mark.parametrize("p, actions", [
     (card("a", "needs", "done"), ["clear"]),
     (card("a", "needs", "leftover", queue="paused", jobs=3), ["clear"]),     # the bed first, then the queue
-    (card("a", "needs", "queue", queue="paused", jobs=3), ["continue"]),
-    (card("a", "idle", queue="paused", jobs=2), ["continue"]),
-    (card("a", "idle", queue="paused", jobs=0), []),
-    (card("a", "printing"), ["estop"]),
+    (card("a", "needs", "queue", queue="paused", jobs=3), ["continue", "print"]),
+    (card("a", "idle", queue="paused", jobs=2), ["continue", "print"]),
+    (card("a", "idle", queue="paused", jobs=0), ["print"]),
+    (card("a", "printing"), ["pause", "cancel", "estop"]),
+    (card("a", "paused", "paused"), ["resume", "cancel", "estop"]),
     (card("a", "ejecting"), ["estop"]),
     (card("a", "stopped", "shutdown"), []),
     (card("a", "offline"), []),
@@ -472,4 +473,6 @@ def test_the_parts_box_notifies(line):
 def test_open_goes_through_tailscale_when_away(hostname, url):
     p = {"page": "http://192.168.1.12/", "page_remote": "http://100.79.158.35/"}
     assert js("farmLink", p, hostname) == url
-    assert js("farmLink", {"page": "http://192.168.1.30/", "page_remote": None}, hostname) == "http://192.168.1.30/"
+    # without Tailscale on that printer: no link away, its local address would not open
+    away = js("farmAway", hostname)
+    assert js("farmLink", {"page": "http://192.168.1.30/", "page_remote": None}, hostname) == (None if away else "http://192.168.1.30/")

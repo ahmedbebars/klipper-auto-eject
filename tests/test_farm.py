@@ -522,3 +522,110 @@ def test_open_through_tailscale_when_away():
     assert big.public()["page_remote"] == "http://100.79.158.35/"
     assert other.public()["page_remote"] is None
     assert f.local.public()["page_remote"] is None
+
+
+# --------------------------------------------------- printing from the farm
+class FakeMoonrakerHTTP:
+    """A Moonraker that takes uploads, as a real HTTP server."""
+
+    def __init__(self):
+        import http.server
+        import threading
+        got = self.got = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers["Content-Length"]))
+                got.append((self.path, self.headers["Content-Type"], body))
+                out = json.dumps({"result": {"item": {"path": "x.gcode", "root": "gcodes"},
+                                             "print_started": b'name="print"' in body}}).encode()
+                self.send_response(201)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(out)))
+                self.end_headers()
+                self.wfile.write(out)
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.port = self.server.server_address[1]
+
+
+def test_a_file_reaches_the_printer_as_moonraker_expects():
+    import io
+    mr = FakeMoonrakerHTTP()
+    try:
+        data = b"G28\nG1 X10\n" * 50000                            # about 550 kB
+        result = farm.upload_file("http://127.0.0.1:%d" % mr.port, "part (2).gcode", io.BytesIO(data), len(data), start=True)
+        path, ctype, body = mr.got[0]
+        boundary = ctype.split("boundary=")[1].encode()
+        assert path == "/server/files/upload" and result["print_started"]
+        assert body.count(b"--" + boundary) == 4                     # print, root, file, and the end
+        assert b'name="root"\r\n\r\ngcodes\r\n' in body
+        assert b'name="file"; filename="part (2).gcode"' in body
+        start = body.index(b"\r\n\r\n", body.index(b'filename="part (2).gcode"')) + 4
+        end = body.index(b"\r\n--" + boundary + b"--")
+        assert body[start:end] == data
+    finally:
+        mr.server.shutdown()
+
+
+def test_printing_only_on_a_free_printer(monkeypatch):
+    sent = []
+    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0: sent.append((url, data)) or "ok")
+    f = farm.Farm(FakeMoonraker())
+    pid = f.add([{"host": "10.1.1.2", "port": 7125, "name": "ender"}])[0]
+    p = f.printers[pid]
+    for phase, reason in (("printing", ""), ("paused", "paused"), ("ejecting", ""), ("offline", ""), ("off", ""),
+                          ("needs", "leftover"), ("needs", "bin")):
+        p.card = {"phase": phase, "reason": reason}
+        with pytest.raises(PermissionError):
+            f.print_file(pid, "a.gcode")
+    assert sent == []
+    p.card = {"phase": "idle", "reason": ""}
+    f.print_file(pid, "a.gcode")
+    assert sent == [("http://10.1.1.2:7125/printer/print/start", {"filename": "a.gcode"})]
+    assert f.print_file("nope", "a.gcode") is None
+
+
+def test_api_files_print_pause_upload(monkeypatch, tmp_path):
+    import io
+    calls = []
+
+    def fake(url, data=None, method=None, timeout=0):
+        calls.append(url)
+        if url.endswith("/server/files/list?root=gcodes"):
+            return [{"path": "old.gcode", "size": 10, "modified": 1}, {"path": "new.gcode", "size": 20, "modified": 9},
+                    {"path": "notes.txt", "size": 1, "modified": 5}]
+        return "ok"
+    monkeypatch.setattr(farm, "http_json", fake)
+    uploaded = []
+    monkeypatch.setattr(farm, "upload_file", lambda base, name, fobj, size, start=False: uploaded.append((base, name, (fobj.seek(0), fobj.read())[1], size, start)) or {"ok": 1})
+    monkeypatch.setattr(farm, "UPLOADS", str(tmp_path))
+    f = farm.Farm(FakeMoonraker())
+    pid = f.add([{"host": "10.1.1.2", "port": 7125, "name": "ender"}])[0]
+    f.printers[pid].card = {"phase": "idle", "reason": ""}
+    server = farm.serve(f, 0)
+    base = "http://127.0.0.1:%d" % server.server_address[1]
+    try:
+        code, body = call(base + "/farm/%s/files" % pid)
+        assert code == 200 and [x["path"] for x in body["files"]] == ["new.gcode", "old.gcode"]
+        assert call(base + "/farm/%s/print" % pid, {"filename": "new.gcode"})[0] == 200
+        f.printers[pid].card = {"phase": "printing", "reason": ""}
+        assert call(base + "/farm/%s/print" % pid, {"filename": "new.gcode"})[0] == 409
+        assert call(base + "/farm/%s/pause" % pid, {}) == (200, {"result": "ok"})
+        assert calls[-1] == "http://10.1.1.2:7125/printer/print/pause"
+        # a file streamed as the request body
+        req = urllib.request.Request(base + "/farm/%s/upload?name=part.gcode&print=0" % pid, data=b"G28\n" * 1000, method="POST")
+        with urllib.request.urlopen(req, timeout=5) as r:
+            assert r.status == 200
+        assert uploaded == [("http://10.1.1.2:7125", "part.gcode", b"G28\n" * 1000, 4000, False)]
+        bad = urllib.request.Request(base + "/farm/%s/upload?name=x.sh" % pid, data=b"rm", method="POST")
+        with pytest.raises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(bad, timeout=5)
+        assert e.value.code == 409
+        assert list(tmp_path.iterdir()) == []                        # nothing left on the card
+    finally:
+        server.shutdown()
