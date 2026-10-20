@@ -32,7 +32,7 @@ All notable changes to this project are documented here. The format is based on
   unreachable without a connection. On phones the sections move to a tab bar at the bottom, and the
   page keeps clear of notches and the home indicator.
 - **Notifications in the app, even while it is closed** (Web Push): `install.sh --push` installs
-  the `auto-eject-push` service (`push/auto_eject_push.py`), which watches the printer through
+  the `klipper-auto-eject` service (`push/auto_eject_push.py`), which watches the printer through
   Moonraker and sends each notification, encrypted for that device (RFC 8291, VAPID), to the push
   service of every phone or computer that turned them on in the app. Devices subscribe through
   Moonraker's database, so the service needs no port; Moonraker restarts it after updates. Each

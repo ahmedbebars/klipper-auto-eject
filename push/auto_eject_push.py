@@ -39,7 +39,7 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 NAMESPACE = "auto_eject_push"
 CONTACT = "https://github.com/ahmedbebars/klipper-auto-eject"
-log = logging.getLogger("auto-eject-push")
+log = logging.getLogger("klipper-auto-eject")
 
 
 def b64u(data):

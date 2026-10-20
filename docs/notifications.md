@@ -38,7 +38,7 @@ phone's Tailscale is off: only opening the app needs Tailscale.
    ```bash
    ~/klipper-auto-eject/install.sh --push
    ```
-   It installs the `auto-eject-push` service (Python's `cryptography` package goes into
+   It installs the `klipper-auto-eject` service (Python's `cryptography` package goes into
    `~/klipper-auto-eject-env` if it is missing) and lets Moonraker restart it after updates. It
    asks for your password once.
 3. **On the phone**, open the auto-eject app over HTTPS, **Blade and setup** tab,
@@ -56,7 +56,7 @@ How it works: the device subscribes with its browser and stores the subscription
 database (namespace `auto_eject_push`), so the service needs no port of its own. Each message is
 encrypted for that one device ([RFC 8291](https://www.rfc-editor.org/rfc/rfc8291)); the push
 services carry it without being able to read it. The service's own key stays in
-`~/.config/klipper-auto-eject/vapid.pem`. Its log: `journalctl -u auto-eject-push`.
+`~/.config/klipper-auto-eject/vapid.pem`. Its log: `journalctl -u klipper-auto-eject`.
 
 ## With ntfy
 
@@ -148,7 +148,7 @@ It works next to ntfy.
 | What you see | What to do |
 |---|---|
 | No **Turn on** button in the app | The page is not on HTTPS ([remote-access.md](remote-access.md#https)), or notifications are blocked for it in the browser's site settings |
-| The app says notifications are on only while it runs | The service is not installed or not running: `install.sh --push`, then `systemctl status auto-eject-push` |
+| The app says notifications are on only while it runs | The service is not installed or not running: `install.sh --push`, then `systemctl status klipper-auto-eject` |
 | Nothing arrives on an iPhone | Add the app to the Home Screen and turn notifications on from there (iOS 16.4 or newer) |
 | The test notification does not arrive | In the ntfy app, check the topic and the server (`ntfy.sh`). On the printer, `curl -d test https://ntfy.sh/<topic>` should reach the phone |
 | Test works, but nothing from the printer | Moonraker was not restarted after the change, or `notify` is not set: `AUTO_EJECT_SET KEY=notify VALUE=auto_eject` |

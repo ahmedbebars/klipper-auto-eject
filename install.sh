@@ -18,7 +18,11 @@ WEB=0
 REMOTE=0
 NOTIFY=0
 PUSH=0
-PUSH_UNIT="/etc/systemd/system/auto-eject-push.service"
+# Moonraker's update manager restarts a service after an update only when it
+# has the update_manager section's name, so the service is klipper-auto-eject
+PUSH_NAME="klipper-auto-eject"
+PUSH_UNIT="/etc/systemd/system/${PUSH_NAME}.service"
+OLD_PUSH_UNIT="/etc/systemd/system/auto-eject-push.service"
 TAILNET="100.64.0.0/10"
 BRANCH="main"
 NGINX_SNIPPET="/etc/nginx/auto-eject.conf"
@@ -262,16 +266,17 @@ install_notify() {
 push_moonraker_links() {
     local action="$1" asvc="${CONFIG_DIR%/config}/moonraker.asvc"
     if [[ "${action}" == "add" ]]; then
-        if [[ -f "${asvc}" ]] && ! grep -qx "auto-eject-push" "${asvc}"; then
-            echo "auto-eject-push" >> "${asvc}"
+        [[ -f "${asvc}" ]] && sed -i '/^auto-eject-push$/d' "${asvc}"
+        if [[ -f "${asvc}" ]] && ! grep -qx "${PUSH_NAME}" "${asvc}"; then
+            echo "${PUSH_NAME}" >> "${asvc}"
         fi
     elif [[ -f "${asvc}" ]]; then
-        sed -i '/^auto-eject-push$/d' "${asvc}"
+        sed -i "/^${PUSH_NAME}\$/d;/^auto-eject-push\$/d" "${asvc}"
     fi
     [[ -f "${MOONRAKER_CONF}" ]] || return 0
-    python3 - "${MOONRAKER_CONF}" "${action}" <<'PY'
+    python3 - "${MOONRAKER_CONF}" "${action}" "${PUSH_NAME}" <<'PY'
 import re, sys
-path, action = sys.argv[1], sys.argv[2]
+path, action, service = sys.argv[1], sys.argv[2], sys.argv[3]
 lines = open(path, encoding="utf-8").read().split("\n")
 out, inside = [], False
 for line in lines:
@@ -281,7 +286,7 @@ for line in lines:
         continue
     out.append(line)
     if inside and line.strip() == "[update_manager klipper-auto-eject]":
-        out.append("managed_services: auto-eject-push" if action == "add" else "is_system_service: False")
+        out.append("managed_services: " + service if action == "add" else "is_system_service: False")
 open(path, "w", encoding="utf-8").write("\n".join(out))
 PY
 }
@@ -311,6 +316,10 @@ install_push() {
         py="${env}/bin/python"
     fi
     url="http://127.0.0.1:$(moonraker_port)"
+    if [[ -f "${OLD_PUSH_UNIT}" ]]; then          # the first version's name
+        sudo systemctl disable --now auto-eject-push || true
+        sudo rm -f "${OLD_PUSH_UNIT}"
+    fi
     sudo tee "${PUSH_UNIT}" >/dev/null <<EOF
 # klipper-auto-eject, added by install.sh --push (docs/notifications.md)
 [Unit]
@@ -329,7 +338,8 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
     sudo systemctl daemon-reload
-    sudo systemctl enable --now auto-eject-push
+    sudo systemctl enable "${PUSH_NAME}"
+    sudo systemctl restart "${PUSH_NAME}"
     push_moonraker_links add
     restart_moonraker
     for i in $(seq 1 20); do
@@ -340,17 +350,20 @@ EOF
         fi
         sleep 1
     done
-    warn "The service did not start. See: journalctl -u auto-eject-push -n 30"
+    warn "The service did not start. See: journalctl -u ${PUSH_NAME} -n 30"
     : "${i}"
 }
 
 uninstall_push() {
-    if [[ -f "${PUSH_UNIT}" ]]; then
-        sudo systemctl disable --now auto-eject-push || true
-        sudo rm -f "${PUSH_UNIT}"
-        sudo systemctl daemon-reload
-        log "Removed the notification service"
-    fi
+    local unit
+    for unit in "${PUSH_UNIT}" "${OLD_PUSH_UNIT}"; do
+        if [[ -f "${unit}" ]]; then
+            sudo systemctl disable --now "$(basename "${unit}" .service)" || true
+            sudo rm -f "${unit}"
+            sudo systemctl daemon-reload
+            log "Removed the notification service"
+        fi
+    done
     push_moonraker_links remove
 }
 
@@ -491,7 +504,7 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
     if [[ -f "${NGINX_SNIPPET}" ]]; then
         uninstall_web
     fi
-    if [[ -f "${PUSH_UNIT}" ]]; then
+    if [[ -f "${PUSH_UNIT}" || -f "${OLD_PUSH_UNIT}" ]]; then
         uninstall_push
     fi
     navi_entry remove
