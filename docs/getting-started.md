@@ -319,6 +319,18 @@ To get a notification when the printer needs you (a part still on the bed, a pri
 finished), add `--push`, then turn notifications on in the app; see
 [notifications.md](notifications.md).
 
+## 11. Optional: more than one printer
+
+Put every Klipper printer of your network on one page, with the ones that need you first. Run
+this on one printer only; the others need nothing installed:
+
+```bash
+~/klipper-auto-eject/install.sh --farm
+```
+
+Then open the page's **Printer farm** tab and press **Search the network**. See
+[farm.md](farm.md).
+
 ---
 
 ## What next?
@@ -328,6 +340,7 @@ finished), add `--push`, then turn notifications on in the app; see
 | Understand every setting | [configuration.md](configuration.md) |
 | Know what happens after a power cut | [recovery.md](recovery.md) |
 | Watch the printer from my phone, anywhere | [remote-access.md](remote-access.md) |
+| See all my printers on one page | [farm.md](farm.md) |
 | Use a BLTouch, an inductive or an eddy-current probe | [probes.md](probes.md) |
 | Fix an error message | [troubleshooting.md](troubleshooting.md) |
 | See every command | [commands.md](commands.md) |
