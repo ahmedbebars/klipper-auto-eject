@@ -25,7 +25,7 @@ jobs:
             jinja: "3.1.*"
             extra: ""
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -38,7 +38,7 @@ jobs:
     name: ShellCheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Run shellcheck
         run: shellcheck install.sh
 
@@ -46,7 +46,7 @@ jobs:
     name: Installer smoke test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install into a fake config directory
         run: |
           mkdir -p /tmp/cfg
