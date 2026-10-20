@@ -37,6 +37,7 @@ window.AE_LANG("en", "English", "ltr", {
   "status.working": "Clearing the bed",
   "status.waiting": "Needs you",
   "status.offline": "Not connected",
+  "status.loading": "Connecting",
   "status.shutdown": "Stopped",
   "status.sub.clear": "The bed is clear",
   "status.sub.parts": "{n} parts on the bed, {h} mm tall",
@@ -49,6 +50,7 @@ window.AE_LANG("en", "English", "ltr", {
   "status.sub.leftover": "Still on the bed: {names}",
   "status.sub.queue_paused": "The print queue is paused",
   "status.sub.offline": "Waiting for the printer",
+  "status.sub.loading": "Reading the printer status",
   "status.eta": "{p} % · {left} left",
 
   "facts.title": "At a glance",

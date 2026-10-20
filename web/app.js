@@ -136,6 +136,7 @@
     conn: "connecting",          // connecting | online | offline
     klippy: "",                  // ready | startup | shutdown | error | disconnected
     klippyMsg: "",
+    loaded: false,               // the first printer status has arrived
     status: {},
     config: {},                  // configfile.config section names -> options
     hasMacros: null,
@@ -220,7 +221,8 @@
   function phase() {
     if (app.conn !== "online") return "offline";
     if (app.klippy === "shutdown" || app.klippy === "error") return "shutdown";
-    if (app.klippy && app.klippy !== "ready") return "offline";
+    // until the first status arrives, nothing is known about the bed
+    if (app.klippy !== "ready" || !app.loaded) return "offline";
     const st = aeState();
     const ps = app.status.print_stats || {};
     if (st.busy) {
@@ -283,11 +285,12 @@
     refresh();
   });
 
-  client.on("close", () => { app.conn = "offline"; app.klippy = ""; refresh(); });
+  client.on("close", () => { app.conn = "offline"; app.klippy = ""; app.loaded = false; refresh(); });
   client.on("unauthorized", () => { app.conn = "unauthorized"; refresh(); });
 
   function klippyReady() {
     app.klippy = "ready";
+    app.loaded = false;
     client.call("printer.objects.list").then((r) => {
       const objs = r.objects || [];
       app.hasMacros = objs.includes("gcode_macro AUTO_EJECT");
@@ -296,6 +299,8 @@
       return client.call("printer.objects.subscribe", { objects: want });
     }).then((r) => {
       app.status = r.status || {};
+      app.loaded = true;
+      refresh();
       return client.call("printer.objects.query", { objects: { configfile: ["config"] } });
     }).then((r) => {
       app.config = ((r.status || {}).configfile || {}).config || {};
@@ -619,6 +624,8 @@
     const n = parts().length;
     const hgt = st.height || 0;
     let sub;
+    const loading = ph === "offline" && app.conn === "online" && (!app.klippy || app.klippy === "ready");
+    if (loading) return { ph, title: t("status.loading"), sub: t("status.sub.loading") };
     if (ph === "offline") sub = t("status.sub.offline");
     else if (ph === "shutdown") sub = app.klippyMsg || "";
     else if (ph === "cooling") sub = t("status.sub.cooling", { now: num((app.status.heater_bed || {}).temperature || 0), target: num(set.cool_temp, 0) });
@@ -864,17 +871,19 @@
     const recs = opts.records || parts();
     const polys = opts.polygons || polygons();
     const lo = new Set(opts.records ? [] : leftover());
-    for (const r of recs) {
+    const short = M.shortNames(recs.map((r) => r[0]));
+    recs.forEach((r, k) => {
       const cls = "bm-part" + (lo.has(r[0]) ? " left" : "");
       const poly = polys[r[0]] || r[8];
       if (poly && poly.length > 2) svg.appendChild(s("polygon", { class: cls, points: poly.map((p) => X(p[0]) + "," + Y(p[1])).join(" ") }));
       else svg.appendChild(s("rect", { class: cls, x: X(r[1]), y: Y(r[4]), width: Math.max(1, r[2] - r[1]), height: Math.max(1, r[4] - r[3]), rx: 2 }));
       if (r[2] - r[1] > 34 && recs.length <= 16) {
-        const name = String(r[0]).length > 14 ? String(r[0]).slice(0, 13) + "…" : r[0];
+        const name = short[k].length > 14 ? short[k].slice(0, 13) + "…" : short[k];
         svg.appendChild(s("text", { class: "bm-name", x: X((r[1] + r[2]) / 2), y: Y(r[3]) + pad * 0.32, "text-anchor": "middle", "font-size": pad * 0.26 }, name));
       }
-    }
-    if (!recs.length) svg.appendChild(s("text", { class: "bm-label", x: X(x0) + W / 2, y: Y(y0) - H / 2, "text-anchor": "middle", "font-size": pad * 0.42 }, t("bed.empty")));
+    });
+    if (!recs.length) svg.appendChild(s("text", { class: "bm-label", x: X(x0) + W / 2, y: Y(y0) - H / 2, "text-anchor": "middle", "font-size": pad * 0.42 },
+      t(opts.live && !app.loaded ? "status.sub.loading" : "bed.empty")));
 
     // toolhead and blade
     if (opts.live) {

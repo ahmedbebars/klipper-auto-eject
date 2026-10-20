@@ -31,6 +31,7 @@ window.AE_LANG("ar", "العربية", "rtl", {
   "status.working": "تفريغ السرير",
   "status.waiting": "تحتاج تدخلك",
   "status.offline": "غير متصلة",
+  "status.loading": "جارٍ الاتصال",
   "status.shutdown": "متوقفة",
   "status.sub.clear": "السرير فارغ",
   "status.sub.parts": "{n} قطع على السرير، ارتفاعها {h} مم",
@@ -43,6 +44,7 @@ window.AE_LANG("ar", "العربية", "rtl", {
   "status.sub.leftover": "ما زالت على السرير: {names}",
   "status.sub.queue_paused": "قائمة الطباعة متوقفة",
   "status.sub.offline": "بانتظار الطابعة",
+  "status.sub.loading": "قراءة حالة الطابعة",
   "status.eta": "{p}٪ · متبقٍ {left}",
 
   "facts.title": "ملخص",

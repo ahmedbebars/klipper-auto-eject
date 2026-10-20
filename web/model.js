@@ -391,8 +391,24 @@
     return t !== "" && !/['"#;\s]/.test(t);
   }
 
+  // Short labels for the bed map. Slicers give every part of a plate the
+  // same long name (MODEL.STL_3_ID_0_COPY_0), so drop the words all the
+  // names share at the start and at the end and keep what tells them apart.
+  function shortNames(names) {
+    const words = names.map((n) => String(n).split(/(?<=[._\- ])/));
+    const join = (w) => w.join("").replace(/^[._\- ]+|[._\- ]+$/g, "");
+    if (names.length < 2 || new Set(names).size !== names.length) return names.map(String);
+    const same = (pick) => words.every((w) => pick(w) === pick(words[0]));
+    let head = 0, tail = 0;
+    const min = Math.min(...words.map((w) => w.length));
+    while (head < min - 1 && same((w) => w[head])) head++;
+    while (tail < min - 1 - head && same((w) => w[w.length - 1 - tail].replace(/[._\- ]+$/, ""))) tail++;
+    const out = words.map((w) => join(w.slice(head, w.length - tail)));
+    return new Set(out).size === out.length && out.every(Boolean) ? out : names.map(String);
+  }
+
   const api = {
-    DIRECTIONS, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
+    DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, findHeight, checkFile,
     PromptParser, formatDuration, settingArg, validSettingText
   };
