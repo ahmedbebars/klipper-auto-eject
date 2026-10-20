@@ -139,9 +139,10 @@ code { background: var(--surface-2); border: 1px solid var(--border); border-rad
 .logo { width: 34px; height: 34px; border-radius: 9px; background: var(--accent); display: grid; place-items: center; }
 .logo svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-.brand-text strong { font-size: 15.5px; letter-spacing: -0.01em; white-space: nowrap; }
+.brand-text strong { font-size: 15.5px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brand-text small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.top-tools { display: flex; align-items: center; gap: 6px; }
+.top-tools { display: flex; align-items: center; gap: 6px; flex: none; }
+.lang-ic { display: none; }
 .select-wrap select { height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); padding: 0 8px; }
 
 .nav {
@@ -203,6 +204,10 @@ code { background: var(--surface-2); border: 1px solid var(--border); border-rad
   .top-tools { gap: 4px; }
   .top #estop span { display: none; }
   .brand-text strong { font-size: 15px; }
+  /* the language list is a globe button on phones; the list itself opens on tap */
+  .select-wrap { position: relative; width: 36px; height: 36px; display: grid; place-items: center; color: var(--muted); }
+  .lang-ic { display: block; width: 21px; height: 21px; stroke-width: 1.8; }
+  .select-wrap select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
   .nav {
     position: fixed; inset-inline: 0; bottom: 0; top: auto; z-index: 40; height: auto;
     flex-direction: row; gap: 0; overflow-x: auto;
