@@ -280,7 +280,7 @@ def test_page_only_sends_known_commands():
     sent = set(re.findall(r'gcode\(\s*(?:homed\(\) \? )?"([A-Z_]+)', app))
     sent |= set(re.findall(r'"(AUTO_EJECT[A-Z_]*)', app))
     known = {"AUTO_EJECT", "AUTO_EJECT_SET", "AUTO_EJECT_SETUP", "AUTO_EJECT_CALIBRATE",
-             "AUTO_EJECT_CLEAR", "AUTO_EJECT_CONTINUE", "RESPOND"}
+             "AUTO_EJECT_CLEAR", "AUTO_EJECT_CONTINUE", "AUTO_EJECT_NOTIFY_TEST", "RESPOND"}
     assert sent <= known, sent - known
     macros = Printer().macros
     for name in known - {"RESPOND"}:

@@ -116,6 +116,12 @@ restart_moonraker() {
         return
     fi
     if curl -s -m 10 -X POST "${url}/machine/services/restart?service=moonraker" >/dev/null; then
+        # wait until the new Moonraker answers and is connected to Klipper again
+        sleep 3
+        for _ in $(seq 1 40); do
+            curl -s -m 3 "${url}/server/info" 2>/dev/null | grep -q '"klippy_state": *"ready"' && break
+            sleep 1
+        done
         log "Moonraker restarted"
     else
         warn "Could not restart Moonraker: restart it from Mainsail (Machine > Moonraker > Restart)."
@@ -184,8 +190,14 @@ moonraker_gcode() {
         sleep 1
     done
     [[ "${ready}" -eq 1 ]] || return 1
-    curl -s -m 15 -X POST -H "Content-Type: application/json" \
-        -d "{\"script\": \"$1\"}" "${url}/printer/gcode/script" | grep -q '"result": *"ok"'
+    for _ in 1 2 3; do
+        if curl -s -m 15 -X POST -H "Content-Type: application/json" \
+            -d "{\"script\": \"$1\"}" "${url}/printer/gcode/script" | grep -q '"result": *"ok"'; then
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
 }
 
 install_notify() {
@@ -218,15 +230,22 @@ install_notify() {
     python3 "${tool}" add "${MOONRAKER_CONF}" "${topic}" "${click}" "${events}" >/dev/null
     log "Added [notifier auto_eject] to moonraker.conf (ntfy topic ${topic})"
     restart_moonraker
+    local set=0
     if moonraker_gcode "AUTO_EJECT_SET KEY=notify VALUE=auto_eject"; then
         log "Auto-eject now sends its messages to the auto_eject notifier"
+        set=1
     else
         warn "Run this in the console once Klipper is up to date (FIRMWARE_RESTART first): AUTO_EJECT_SET KEY=notify VALUE=auto_eject"
     fi
     NOTIFY_TOPIC="${topic}"
     if ask "Send a test notification now?" y; then
-        curl -s -m 10 -H "Title: Auto-eject" -H "Tags: white_check_mark" -d "Notifications from your printer work." \
-            "https://ntfy.sh/${topic}" >/dev/null && log "Test notification sent"
+        # the whole way: Klipper, Moonraker's notifier, ntfy; ntfy alone if Klipper is not ready
+        if [[ "${set}" -eq 1 ]] && moonraker_gcode "AUTO_EJECT_NOTIFY_TEST"; then
+            log "Test notification sent through Klipper and Moonraker"
+        elif curl -s -m 10 -H "Title: Auto-eject" -H "Tags: white_check_mark" -d "Notifications from your printer work." \
+            "https://ntfy.sh/${topic}" >/dev/null; then
+            log "Test notification sent straight to ntfy"
+        fi
     fi
 }
 
@@ -477,7 +496,7 @@ cat <<EOF
     4. Read docs/safety.md before running it unattended.
 
 EOF
-if [[ "${WEB}" -eq 1 ]]; then
+if [[ "${WEB}" -eq 1 || -f "${NGINX_SNIPPET}" ]]; then
     echo "  The web page: http://$(hostname -I 2>/dev/null | awk '{print $1}')/auto-eject/"
 else
     echo "  Optional: a web page with the bed map, the queue and the settings:"
@@ -486,9 +505,14 @@ fi
 if [[ -n "${REMOTE_URL}" ]]; then
     echo "  From your phone (with the Tailscale app on): ${REMOTE_URL}/"
     echo "  The auto-eject page:                          ${REMOTE_URL}/auto-eject/"
+elif grep -qs "klipper-auto-eject: remote access" "${MOONRAKER_CONF}"; then
+    echo "  Remote access is set up (docs/remote-access.md)."
 else
     echo "  Optional: watch and control it from your phone, from anywhere:"
     echo "    ${REPO_DIR}/install.sh --remote   (docs/remote-access.md)"
+fi
+if [[ -z "${NOTIFY_TOPIC}" ]] && [[ -f "${MOONRAKER_CONF}" ]] && command -v python3 >/dev/null; then
+    NOTIFY_TOPIC="$(python3 "${REPO_DIR}/tools/moonraker_notifier.py" topic "${MOONRAKER_CONF}" 2>/dev/null || true)"
 fi
 if [[ -n "${NOTIFY_TOPIC}" ]]; then
     echo "  Notifications: install the ntfy app (Google Play, F-Droid or the App Store),"

@@ -212,6 +212,7 @@ window.AE_LANG("ar", "العربية", "rtl", {
   "remote.ntfy": "والتطبيق مغلق (ntfy)",
   "remote.ntfy_on": "مفعّلة",
   "remote.ntfy_open": "اشترك في ntfy",
+  "remote.ntfy_test": "أرسل تجربة",
   "remote.ntfy_setup": "لإشعارات والتطبيق مغلق، شغّل هذا الأمر على الطابعة:",
   "remote.notify_docs": "الإشعارات",
   "note.stuck": "قطعة ما زالت على السرير",

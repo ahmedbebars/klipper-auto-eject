@@ -35,7 +35,9 @@ The notifications go through [ntfy](https://ntfy.sh), a free, open-source notifi
    subscribe to that topic on the default server, `ntfy.sh`.
 3. Run the installer again any time: it keeps the same topic.
 
-**It worked if** the test notification arrives on the phone.
+**It worked if** the test notification arrives on the phone. Send another one any time with
+`AUTO_EJECT_NOTIFY_TEST` in the console, or **Send a test** on the page: it goes the whole way,
+from Klipper through Moonraker to the phone.
 
 The auto-eject page shows the topic on its **Blade and setup** tab, with a button that opens it
 in ntfy.

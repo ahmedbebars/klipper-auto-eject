@@ -1208,7 +1208,8 @@
       r.notify === "on" || r.notify === "off" || r.ntfy ? h("div", { class: "toolbar", style: { marginTop: "10px" } },
         r.notify === "on" || r.notify === "off" ? h("button", { type: "button", class: "btn" + (r.notify === "off" ? " primary" : ""), onclick: notifyToggle },
           icon(r.notify === "on" ? "bad" : "ok"), t(r.notify === "on" ? "remote.notify_stop" : "remote.notify_start")) : null,
-        r.ntfy ? h("a", { class: "btn", href: "https://ntfy.sh/" + encodeURIComponent(r.ntfy), target: "_blank", rel: "noopener" }, icon("external"), t("remote.ntfy_open")) : null) : null,
+        r.ntfy ? h("a", { class: "btn", href: "https://ntfy.sh/" + encodeURIComponent(r.ntfy), target: "_blank", rel: "noopener" }, icon("external"), t("remote.ntfy_open")) : null,
+        r.ntfy ? h("button", { type: "button", class: "btn", onclick: () => gcode("AUTO_EJECT_NOTIFY_TEST") }, icon("play"), t("remote.ntfy_test")) : null) : null,
       r.ntfy ? null : h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", { text: t("remote.ntfy_setup") })),
       r.ntfy ? null : h("div", { class: "codeblock", style: { marginTop: "8px" }, text: "~/klipper-auto-eject/install.sh --notify" }),
       h("div", { class: "toolbar", style: { marginTop: "14px" } }, docs("remote-access.md", "remote.docs"), docs("notifications.md", "remote.notify_docs")));

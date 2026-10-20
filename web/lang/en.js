@@ -219,6 +219,7 @@ window.AE_LANG("en", "English", "ltr", {
   "remote.ntfy": "When the app is closed (ntfy)",
   "remote.ntfy_on": "On",
   "remote.ntfy_open": "Subscribe in ntfy",
+  "remote.ntfy_test": "Send a test",
   "remote.ntfy_setup": "For notifications when the app is closed, run this on the printer:",
   "remote.notify_docs": "Notifications",
   "note.stuck": "A part is still on the bed",

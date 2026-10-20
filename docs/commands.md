@@ -14,6 +14,7 @@ that move the printer only when it is not printing, except `AUTO_EJECT` in the e
 | `AUTO_EJECT HOME=1` | Home safely around the parts first if the printer is not homed (after the end macro turned the motors off, a restart or a power cut), then eject |
 | `AUTO_EJECT DRY=1` | Trace the path 2 cm above the bed without pushing, cooling or probing |
 | `AUTO_EJECT_CLEAR` | You took the parts off by hand: forget them, the bed is clear |
+| `AUTO_EJECT_NOTIFY_TEST` | Send a test notification to your phone ([notifications.md](notifications.md)) |
 | `AUTO_EJECT_CONTINUE` | You took flat prints off by hand: close the dialog and start the job queue again |
 
 ## Setup
