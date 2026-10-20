@@ -303,6 +303,18 @@ the settings, in English or Arabic:
 It asks for your password once (for the web server). Then reload Mainsail and click
 **Auto-eject** in the sidebar. See [web-page.md](web-page.md).
 
+## 10. Optional: from your phone, anywhere
+
+Watch the printer and control it from your phone when you are not home, without opening the
+printer to the internet. It uses Tailscale, a free private network between your devices:
+
+```bash
+~/klipper-auto-eject/install.sh --remote
+```
+
+It asks before every step and shows the address to open on your phone at the end. See
+[remote-access.md](remote-access.md).
+
 ---
 
 ## What next?
@@ -311,6 +323,7 @@ It asks for your password once (for the web server). Then reload Mainsail and cl
 |---|---|
 | Understand every setting | [configuration.md](configuration.md) |
 | Know what happens after a power cut | [recovery.md](recovery.md) |
+| Watch the printer from my phone, anywhere | [remote-access.md](remote-access.md) |
 | Use a BLTouch, an inductive or an eddy-current probe | [probes.md](probes.md) |
 | Fix an error message | [troubleshooting.md](troubleshooting.md) |
 | See every command | [commands.md](commands.md) |

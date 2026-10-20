@@ -70,6 +70,11 @@ offers **Bed is clear** right after such a print, or click **I took the parts of
 page (`AUTO_EJECT_CLEAR`). Without a probe that can touch plastic, the guard stops the print
 until you do.
 
+**Can I watch it from my phone when I'm not home?**
+Yes. `install.sh --remote` sets up Tailscale, a free private network between your devices, so
+Mainsail and the auto-eject page open from your phone anywhere, without opening the printer to
+the internet ([remote-access.md](remote-access.md)).
+
 **How do I stop it?**
 The **emergency stop** button in Mainsail or Fluidd stops everything at once. Afterwards, clear
 the bed by hand and run `AUTO_EJECT_CLEAR`.

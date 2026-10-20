@@ -15,6 +15,8 @@ ADD_INCLUDE=1
 ADD_UPDATE_MANAGER=1
 UNINSTALL=0
 WEB=0
+REMOTE=0
+TAILNET="100.64.0.0/10"
 BRANCH="main"
 NGINX_SNIPPET="/etc/nginx/auto-eject.conf"
 
@@ -29,6 +31,9 @@ Usage: install.sh [options]
       --no-update-manager Do not add the Moonraker update_manager section
   -w, --web               Also set up the web page at http://<printer>/auto-eject/
                           (adds a small nginx file, asks for your sudo password)
+  -R, --remote            Also set up remote access with Tailscale: watch and
+                          control the printer from your phone, from anywhere.
+                          Asks before every step (docs/remote-access.md)
   -u, --uninstall         Remove links, includes, the update_manager section
                           and the web page
   -h, --help              Show this help
@@ -47,6 +52,7 @@ while [[ $# -gt 0 ]]; do
         --no-include)         ADD_INCLUDE=0; shift ;;
         --no-update-manager)  ADD_UPDATE_MANAGER=0; shift ;;
         -w|--web)             WEB=1; shift ;;
+        -R|--remote)          REMOTE=1; shift ;;
         -u|--uninstall)       UNINSTALL=1; shift ;;
         -h|--help)            usage; exit 0 ;;
         *) usage; die "Unknown option: $1" ;;
@@ -71,6 +77,92 @@ backup() {
     local file="$1"
     cp -p "${file}" "${file}.bak-auto-eject-${STAMP}"
     log "Backup: ${file}.bak-auto-eject-${STAMP}"
+}
+
+# A yes/no question; $2 is the answer when you just press Enter (y or n).
+# Without a terminal (piped install) the default is taken.
+ask() {
+    local answer hint="[y/N]"
+    [[ "${2:-n}" == "y" ]] && hint="[Y/n]"
+    if [[ ! -t 0 ]]; then
+        [[ "${2:-n}" == "y" ]]
+        return
+    fi
+    read -r -p "$(printf '\033[1;36m[auto-eject]\033[0m %s %s ' "$1" "${hint}")" answer
+    [[ "${answer:-${2:-n}}" =~ ^[Yy] ]]
+}
+
+# --------------------------------------------------------- remote access
+moonraker_port() {
+    local port
+    port="$(awk -F'[:=]' '/^\[server\]/ { s = 1; next } /^\[/ { s = 0 }
+        s && $1 ~ /^port[[:space:]]*$/ { gsub(/[[:space:]]/, "", $2); print $2; exit }' "${MOONRAKER_CONF}" 2>/dev/null)"
+    echo "${port:-7125}"
+}
+
+# Moonraker reads moonraker.conf only when it starts. Restart it through its
+# own API, and never while printing.
+restart_moonraker() {
+    local url state
+    url="http://127.0.0.1:$(moonraker_port)"
+    state="$(curl -s -m 5 "${url}/printer/objects/query?print_stats=state" 2>/dev/null || true)"
+    if [[ -z "${state}" || "${state}" == *'"printing"'* || "${state}" == *'"paused"'* ]]; then
+        warn "Restart Moonraker when the printer is idle to apply it (Mainsail: Machine > Moonraker > Restart)."
+        return
+    fi
+    if curl -s -m 10 -X POST "${url}/machine/services/restart?service=moonraker" >/dev/null; then
+        log "Moonraker restarted"
+    else
+        warn "Could not restart Moonraker: restart it from Mainsail (Machine > Moonraker > Restart)."
+    fi
+}
+
+install_remote() {
+    local ip name
+    log "Remote access with Tailscale, see docs/remote-access.md"
+    if ! command -v tailscale >/dev/null; then
+        if ask "Tailscale is not installed. Install it now with the official installer from tailscale.com? (asks for your sudo password)" n; then
+            curl -fsSL https://tailscale.com/install.sh | sh
+        else
+            warn "Skipped. Install Tailscale (tailscale.com/download), then run install.sh --remote again."
+            return
+        fi
+    fi
+    if ! tailscale status >/dev/null 2>&1; then
+        if ask "Connect this printer to your Tailscale account now? A login link is shown, open it on any device." y; then
+            sudo tailscale up
+        else
+            warn "Skipped. Connect it later with: sudo tailscale up"
+            return
+        fi
+    fi
+    ip="$(tailscale ip -4 2>/dev/null | head -n 1 || true)"
+    name="$(tailscale status --json 2>/dev/null | python3 -c 'import json, sys; print(json.load(sys.stdin)["Self"].get("DNSName", "").rstrip("."))' 2>/dev/null || true)"
+    log "This printer on your Tailscale network: ${ip:-?}${name:+ (${name})}"
+
+    if [[ ! -f "${MOONRAKER_CONF}" ]]; then
+        warn "moonraker.conf not found: add ${TAILNET} to [authorization] trusted_clients by hand (docs/remote-access.md)"
+    elif ask "Let the devices on your Tailscale network use Mainsail and the auto-eject page? (adds ${TAILNET} to Moonraker's trusted_clients)" y; then
+        backup "${MOONRAKER_CONF}"
+        case "$(python3 "${REPO_DIR}/tools/moonraker_trust.py" add "${MOONRAKER_CONF}" "${TAILNET}")" in
+            added) log "Added ${TAILNET} to trusted_clients"; restart_moonraker ;;
+            present) log "trusted_clients already has ${TAILNET}" ;;
+            no-authorization) log "Moonraker has no [authorization] section, so it accepts every device already" ;;
+            *) warn "Could not change moonraker.conf: add ${TAILNET} to trusted_clients by hand" ;;
+        esac
+    fi
+
+    if [[ -n "${name}" ]] && ask "Also serve the printer over HTTPS at https://${name}/ ? Phones need it to install the page as an app and for its notifications." y; then
+        if sudo tailscale serve --bg 80; then
+            log "HTTPS is on"
+        else
+            warn "tailscale serve did not start. Turn on MagicDNS and HTTPS Certificates in the Tailscale admin console (DNS page), then run: sudo tailscale serve --bg 80"
+        fi
+    fi
+    REMOTE_URL="http://${ip:-<tailscale-ip>}"
+    if [[ -n "${name}" ]] && tailscale serve status 2>/dev/null | grep -q "${name}"; then
+        REMOTE_URL="https://${name}"
+    fi
 }
 
 # ------------------------------------------------------------- web page
@@ -210,6 +302,11 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
         uninstall_web
     fi
     navi_entry remove
+    if [[ -f "${MOONRAKER_CONF}" ]] && command -v python3 >/dev/null && [[ -f "${REPO_DIR}/tools/moonraker_trust.py" ]] \
+        && [[ "$(python3 "${REPO_DIR}/tools/moonraker_trust.py" remove "${MOONRAKER_CONF}" "${TAILNET}")" == "removed" ]]; then
+        log "Removed ${TAILNET} from Moonraker's trusted_clients (restart Moonraker to apply it)"
+        log "Tailscale itself was left installed. To stop serving HTTPS: sudo tailscale serve --https=443 off"
+    fi
     log "Kept ${CONFIG_DIR}/auto_eject_settings.cfg and ${REPO_DIR} (delete them by hand if you want)."
     log "Restart Klipper to finish: FIRMWARE_RESTART"
     exit 0
@@ -292,6 +389,11 @@ if [[ "${WEB}" -eq 1 ]]; then
     install_web
 fi
 
+REMOTE_URL=""
+if [[ "${REMOTE}" -eq 1 ]]; then
+    install_remote
+fi
+
 cat <<EOF
 
   Installed. Next steps:
@@ -306,5 +408,12 @@ if [[ "${WEB}" -eq 1 ]]; then
 else
     echo "  Optional: a web page with the bed map, the queue and the settings:"
     echo "    ${REPO_DIR}/install.sh --web      (docs/web-page.md)"
+fi
+if [[ -n "${REMOTE_URL}" ]]; then
+    echo "  From your phone (with the Tailscale app on): ${REMOTE_URL}/"
+    echo "  The auto-eject page:                          ${REMOTE_URL}/auto-eject/"
+else
+    echo "  Optional: watch and control it from your phone, from anywhere:"
+    echo "    ${REPO_DIR}/install.sh --remote   (docs/remote-access.md)"
 fi
 echo

@@ -117,6 +117,7 @@ nav:
       - Commands: commands.md
       - Integration: integration.md
       - Recovery: recovery.md
+      - Remote access: remote-access.md
   - Reference:
       - Configuration: configuration.md
       - Strategies: strategies.md

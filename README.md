@@ -100,6 +100,10 @@ English or Arabic, light or dark, and on a phone.
 It needs your password once, for the web server. Details: [docs/web-page.md](docs/web-page.md).
 You can also [try a demo](docs/web-page.md#trying-it-on-a-computer) without a printer.
 
+**From your phone, anywhere:** `install.sh --remote` sets up Tailscale, a free private network
+between your devices, so the printer opens from your phone wherever you are, without opening it
+to the internet ([docs/remote-access.md](docs/remote-access.md)).
+
 ## The blade
 
 <p align="center">
@@ -186,6 +190,7 @@ All commands and options: [docs/commands.md](docs/commands.md).
 | [FAQ](docs/faq.md) | [Installation](docs/installation.md) | [Integration](docs/integration.md) | [Strategies](docs/strategies.md) |
 | [Glossary](docs/glossary.md) | [Guided setup](docs/setup-wizard.md) | [Recovery](docs/recovery.md) | [Probes](docs/probes.md) |
 | [Safety](docs/safety.md) | [Slicer setup](docs/slicer-setup.md) | [Web page](docs/web-page.md) | [Troubleshooting](docs/troubleshooting.md) |
+| | | [Remote access](docs/remote-access.md) | |
 
 ## Contributing
 

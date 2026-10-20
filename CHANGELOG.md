@@ -21,6 +21,13 @@ All notable changes to this project are documented here. The format is based on
   cool it faster. The wait before homing Z on the bare sheet uses the fan too.
 - A dialog after a print that ended without an eject (no `AUTO_EJECT` in the end G-code,
   cancelled, or stopped): take the parts off and click **Bed is clear**.
+- **Remote access for everyone**: `install.sh --remote` sets up Tailscale so Mainsail and the
+  auto-eject page open from a phone anywhere, without opening the printer to the internet. It asks
+  before every step: installs Tailscale if needed, connects the printer, adds the Tailscale range to
+  Moonraker's `trusted_clients` (with a backup, restarting Moonraker only when idle) and serves the
+  printer over HTTPS with `tailscale serve`. `--uninstall` takes the range out again. New guide:
+  `docs/remote-access.md`; the web page's **Blade and setup** tab shows how you are connected and
+  what is missing.
 
 ## [0.11.0] - 2026-10-20
 

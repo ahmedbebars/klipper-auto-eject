@@ -80,6 +80,7 @@
     search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M21 21l-5-5",
     file: "M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z M14 3v6h6",
     camera: "M3 7h4l2-3h6l2 3h4v13H3z M12 10a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+    phone: "M7 2h10a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z M11 18h2",
     download: "M12 3v12 M7 10l5 5 5-5 M4 21h16",
     external: "M14 3h7v7 M10 14L21 3 M21 14v7H3V3h7",
     reset: "M3 12a9 9 0 1 0 3-6.7L3 8 M3 3v5h5",
@@ -146,6 +147,7 @@
     files: null,
     meta: {},
     webcams: [],
+    trustedClients: undefined,   // Moonraker's trusted_clients, null without [authorization]
     log: [],
     template: null,              // parsed auto_eject_settings.cfg, or false
     prompt: null,
@@ -265,6 +267,8 @@
       client.call("server.config").then((r) => {
         const jq = (r.config || {}).job_queue;
         app.autoTransition = jq ? !!jq.automatic_transition : null;
+        const auth = (r.config || {}).authorization;
+        app.trustedClients = auth ? [].concat(auth.trusted_clients || []) : null;
         refresh();
       }).catch(() => {});
       if (app.klippy === "ready") klippyReady();
@@ -1099,10 +1103,38 @@
             h("div", { class: "dl-list" },
               stlRow("setup.block", "setup.block_desc", "calibration_block.stl"),
               stlRow("setup.gauge", "setup.gauge_desc", "blade_gauge.stl"),
-              stlRow("setup.cube", "setup.cube_desc", "test_hollow_cube.stl"))))));
+              stlRow("setup.cube", "setup.cube_desc", "test_hollow_cube.stl"))),
+          remoteCard())));
     return { el };
   }
-  viewSetup.sig = function () { return JSON.stringify([sv(), blocked(), Object.keys(app.config).length, parts().length]); };
+  viewSetup.sig = function () { return JSON.stringify([sv(), blocked(), Object.keys(app.config).length, parts().length, remoteInfo()]); };
+
+  // How this page was opened, for the remote access card.
+  function remoteInfo() {
+    const host = location.hostname;
+    const ts = /\.ts\.net$/i.test(host) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host);
+    const tc = app.trustedClients;
+    const trusts = tc === null ? true : tc === undefined ? null : tc.some((c) => /^100\./.test(String(c).trim()));
+    return { ts, https: location.protocol === "https:", trusts, cams: app.webcams.length };
+  }
+
+  function remoteCard() {
+    const r = remoteInfo();
+    const yes = (v) => (v === null ? "—" : t(v ? "remote.yes" : "remote.no"));
+    const next = r.trusts === false ? "remote.next_trust" : !r.ts ? "remote.next_setup" : !r.https ? "remote.next_https" : "remote.next_done";
+    return h("section", { class: "card" },
+      h("h2", null, icon("phone"), t("remote.title")),
+      h("p", { class: "muted", text: t("remote.intro") }),
+      h("dl", { class: "kv" },
+        h("dt", { text: t("remote.from") }), h("dd", { text: t(r.ts ? (r.https ? "remote.from_https" : "remote.from_ts") : "remote.from_lan") }),
+        h("dt", { text: t("remote.trust") }), h("dd", { text: yes(r.trusts) }),
+        h("dt", { text: t("remote.https") }), h("dd", { text: yes(r.https) }),
+        h("dt", { text: t("remote.camera") }), h("dd", { text: r.cams ? t("remote.cams", { n: num(r.cams, 0) }) : t("remote.none") })),
+      h("p", { class: "note", style: { marginTop: "12px" } }, icon(next === "remote.next_done" ? "ok" : "info"), h("span", { text: t(next) })),
+      next === "remote.next_done" ? null : h("div", { class: "codeblock", style: { marginTop: "10px" }, text: "~/klipper-auto-eject/install.sh --remote" }),
+      h("div", { class: "toolbar", style: { marginTop: "12px" } },
+        h("a", { class: "btn", href: DOCS + "/blob/main/docs/remote-access.md", target: "_blank", rel: "noopener" }, icon("external"), t("remote.docs"))));
+  }
 
   function stlRow(title, desc, file) {
     return h("div", { class: "act-row" }, icon("box", "lead"),
