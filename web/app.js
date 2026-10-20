@@ -1622,8 +1622,8 @@
       .then(() => { farm.scanWait = false; renderScan(); });
   }
 
-  function addPrinters(entries, done) {
-    return farmCall("/printers", { add: entries }).then((r) => {
+  function addPrinters(entries, done, skip) {
+    return farmCall("/printers", skip && skip.length ? { add: entries, skip } : { add: entries }).then((r) => {
       toast(t("farm.added", { n: num((r.added || []).length, 0) }), "ok");
       if (done) done();
       loadFarm();
@@ -1638,8 +1638,9 @@
     if (sig === farm.scanSig) return;
     farm.scanSig = sig;
     const close = () => { farm.scanOpen = false; closeModal("scan"); };
-    const found = running ? [] : sc.found || [];
-    if (!running && farm.pick === null) farm.pick = new Set(found.map((f) => f.host + ":" + f.port));
+    // the ones left out last time come last, unticked
+    const found = running ? [] : (sc.found || []).slice().sort((a, b) => (a.skipped ? 1 : 0) - (b.skipped ? 1 : 0));
+    if (!running && farm.pick === null) farm.pick = new Set(found.filter((f) => !f.skipped).map((f) => f.host + ":" + f.port));
     const pick = farm.pick || new Set();
     const addr = h("input", { class: "input ltr", type: "text", placeholder: "192.168.1.50", autocomplete: "off", spellcheck: "false", style: { flex: "1 1 160px", minWidth: 0 } });
     const addOne = () => { const v = addr.value.trim(); if (v) addPrinters([{ host: v }], close); };
@@ -1651,7 +1652,9 @@
             const key = f.host + ":" + f.port;
             return h("label", { class: "row switch-row" },
               h("input", { type: "checkbox", checked: pick.has(key), onchange: (e) => { if (e.target.checked) pick.add(key); else pick.delete(key); farm.scanSig = ""; renderScan(); } }),
-              h("div", { class: "grow" }, h("div", { class: "name", dir: "auto", text: f.name }), h("div", { class: "sub ltr", text: f.host + (f.port !== 7125 ? ":" + f.port : "") })),
+              h("div", { class: "grow" }, h("div", { class: "name", dir: "auto", text: f.name }),
+                h("div", { class: "sub" }, h("span", { class: "ltr", text: f.host + (f.port !== 7125 ? ":" + f.port : "") }),
+                  f.skipped ? h("span", { text: " · " + t("farm.skipped") }) : null)),
               f.klippy && f.klippy !== "ready" ? h("span", { class: "badge warn", text: f.klippy }) : null);
           })))
         : h("p", { class: "note" }, icon("info"), h("span", { text: t("farm.found_none") })),
@@ -1660,10 +1663,11 @@
         h("button", { type: "button", class: "btn", onclick: addOne }, icon("plus"), t("farm.add"))),
       h("p", { class: "muted", style: { fontSize: "12.5px", marginTop: "6px" }, text: t("farm.address_note") }));
     const chosen = found.filter((f) => pick.has(f.host + ":" + f.port));
+    const left = found.filter((f) => !pick.has(f.host + ":" + f.port));
     modal("scan", t("farm.search"), body, [
       h("button", { type: "button", class: "btn", onclick: close, text: t("c.close") }),
       running ? null : h("button", { type: "button", class: "btn", onclick: openScan }, icon("restart"), t("farm.again")),
-      chosen.length ? h("button", { type: "button", class: "btn primary", onclick: () => addPrinters(chosen, close) }, icon("plus"), t("farm.add_n", { n: num(chosen.length, 0) })) : null
+      chosen.length ? h("button", { type: "button", class: "btn primary", onclick: () => addPrinters(chosen, close, left) }, icon("plus"), t("farm.add_n", { n: num(chosen.length, 0) })) : null
     ], close);
   }
 

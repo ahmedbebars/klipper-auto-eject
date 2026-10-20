@@ -216,6 +216,30 @@ def test_scan_results_are_added_once_and_this_printer_never():
     assert f.add([{"host": "127.0.0.1", "port": 7125, "name": "me"}]) == []
 
 
+def test_the_printers_left_out_are_suggested_unticked_next_time(monkeypatch):
+    mr = FakeMoonraker()
+    f = farm.Farm(mr)
+    mac = ["48:8f:4c:16:d6:27"]
+    results = [{"host": "192.168.1.10", "port": 7125, "name": "office", "macs": ["aa:aa:aa:aa:aa:aa"]},
+               {"host": "192.168.1.12", "port": 7125, "name": "big", "macs": mac},
+               {"host": "192.168.1.30", "port": 7125, "name": "neighbour", "macs": []}]
+    f.add([results[1]], skip=[results[0], results[2]])
+    assert [s["host"] for s in mr.db[(farm.NAMESPACE, "skipped")]] == ["192.168.1.10", "192.168.1.30"]
+
+    # the next search: the same machine, even at its Tailscale address, is marked
+    monkeypatch.setattr(farm, "scan", lambda skip, known: [
+        {"host": "100.70.1.10", "port": 7125, "name": "office", "macs": ["aa:aa:aa:aa:aa:aa"]},
+        {"host": "192.168.1.30", "port": 7125, "name": "neighbour", "macs": []},
+        {"host": "192.168.1.40", "port": 7125, "name": "new", "macs": []}])
+    monkeypatch.setattr(farm, "machine_macs", lambda host, port, timeout=2.0: [])
+    f._scan(set())
+    assert [(r["name"], r["skipped"]) for r in f.scan_state["found"]] == [("office", True), ("neighbour", True), ("new", False)]
+
+    # added after all: no longer left out, and a new Farm remembers the rest
+    f.add([{"host": "192.168.1.30", "port": 7125, "name": "neighbour"}])
+    assert [s["host"] for s in farm.Farm(mr).skipped] == ["192.168.1.10"]
+
+
 def test_nothing_is_saved_before_moonraker_answers():
     mr = FakeMoonraker({(farm.NAMESPACE, "printers"): {"abc": {"host": "10.1.1.1", "port": 7125, "name": "old"}}}, down=True)
     f = farm.Farm(mr)

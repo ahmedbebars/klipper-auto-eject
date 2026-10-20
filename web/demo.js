@@ -681,7 +681,9 @@
       this.farmScan = { running: true, found: [], finished: null };
       setTimeout(() => {
         const have = new Set(this.farmList.map((f) => f.host));
-        this.farmScan = { running: false, found: FARM_FOUND.filter((f) => !have.has(f.host)), finished: Date.now() / 1000 };
+        const skipped = this.farmSkipped || [];
+        this.farmScan = { running: false, finished: Date.now() / 1000,
+          found: FARM_FOUND.filter((f) => !have.has(f.host)).map((f) => Object.assign({}, f, { skipped: skipped.includes(f.host) })) };
       }, 3500);
       return ok({ started: true });
     }
@@ -698,6 +700,8 @@
           added.push(id);
         }
         this.farmScan.found = this.farmScan.found.filter((f) => !this.farmList.some((x) => x.host === f.host));
+        this.farmSkipped = (this.farmSkipped || []).filter((h) => !this.farmList.some((x) => x.host === h))
+          .concat((body.skip || []).map((e) => e.host));
         return ok({ added });
       }
       if (body.remove) { this.farmList = this.farmList.filter((f) => f.id !== body.remove); return ok({ removed: true }); }

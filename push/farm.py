@@ -70,6 +70,13 @@ def same_machine(a_port, a_macs, b_port, b_macs):
     return a_port == b_port and bool(set(a_macs) & set(b_macs))
 
 
+def same_printer(a, b):
+    """Two search results or records for one printer: same address, or same machine."""
+    a_port, b_port = int(a.get("port") or 7125), int(b.get("port") or 7125)
+    return (a.get("host") == b.get("host") and a_port == b_port) or \
+        same_machine(a_port, a.get("macs") or [], b_port, b.get("macs") or [])
+
+
 # --------------------------------------------------------------- one printer
 def summarize(status, queue=None, now=None):
     """A printer's card from its Moonraker status: phase and what needs you."""
@@ -298,6 +305,7 @@ class Farm:
         self.local = Printer("127.0.0.1", local_port, local=True)
         self.local_named = False             # True: renamed in the page; None: the hostname
         self.printers = {}
+        self.skipped = []                    # found but left out: suggested unticked next time
         self.loaded = False
         self.scan_state = {"running": False, "found": [], "finished": None}
         self.load()
@@ -310,6 +318,7 @@ class Farm:
         try:
             records = self.moonraker.get("printers", namespace=NAMESPACE) or {}
             local = self.moonraker.get("local", namespace=NAMESPACE) or {}
+            skipped = self.moonraker.get("skipped", namespace=NAMESPACE) or []
         except Exception:
             return False
         with self.lock:
@@ -317,6 +326,7 @@ class Farm:
                 self.printers.setdefault(pid, Printer(r["host"], r.get("port", 7125), r.get("name", ""), pid=pid, macs=r.get("macs")))
             if local.get("name"):
                 self.local.name, self.local_named = local["name"], True
+            self.skipped = list(skipped)
             self.loaded = True
         return True
 
@@ -376,14 +386,17 @@ class Farm:
             self.local.macs = self.local.macs or machine_macs(self.local.host, self.local.port)
             known = [(p.port, p.macs) for p in self.all() if p.macs]
             found = scan(skip=skip, known=known)
+            for r in found:
+                r["skipped"] = any(same_printer(r, s) for s in self.skipped)
         except Exception:
             found = []
         with self.lock:
             self.scan_state = {"running": False, "found": found, "finished": time.time()}
 
-    def add(self, entries, prober=None):
+    def add(self, entries, prober=None, skip=()):
         """Add printers: scan results, or an address typed in the page (then
-        it is asked first whether a Moonraker answers there)."""
+        it is asked first whether a Moonraker answers there). skip: the
+        search results left out, which the next search suggests unticked."""
         prober = prober or (lambda host, ports: probe(host, ports, timeout=3.0))
         if not self.load():
             raise RuntimeError("Moonraker is not answering yet")
@@ -409,6 +422,15 @@ class Farm:
                     added.append(p.id)
         with self.lock:
             self._save()
+            keep = [s for s in self.skipped if not any(same_printer(s, p.record()) for p in self.printers.values())]
+            for e in skip:
+                r = {"host": str(e.get("host", "")), "port": int(e.get("port") or 7125), "name": str(e.get("name", ""))[:40],
+                     "macs": [str(m) for m in (e.get("macs") or [])][:8]}
+                if HOST.match(r["host"]) and not any(same_printer(r, s) for s in keep):
+                    keep.append(r)
+            if keep != self.skipped:
+                self.skipped = keep[-200:]
+                self.moonraker.put("skipped", self.skipped, namespace=NAMESPACE)
         return added
 
     def remove(self, pid):
@@ -503,7 +525,7 @@ def make_handler(farm):
                 if parts == ["farm", "printers"] and method == "POST":
                     if "add" in body:
                         try:
-                            return self._send(200, {"added": farm.add(body["add"])})
+                            return self._send(200, {"added": farm.add(body["add"], skip=body.get("skip") or [])})
                         except (ValueError, LookupError) as e:
                             return self._send(400, {"error": str(e)})
                     if "remove" in body:

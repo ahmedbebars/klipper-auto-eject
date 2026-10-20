@@ -45,6 +45,7 @@ window.AE_LANG("en", "English", "ltr", {
   "farm.searching": "Looking for printers on your network",
   "farm.search_note": "About 10 seconds. The other printers need nothing installed: their Moonraker answers here as it answers Mainsail.",
   "farm.found": "Found {n}. Tick the ones to add:",
+  "farm.skipped": "left out last time",
   "farm.found_none": "No other printers found. If one is on another network, type its address below.",
   "farm.again": "Search again",
   "farm.add_n": "Add {n}",

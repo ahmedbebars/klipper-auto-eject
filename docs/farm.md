@@ -41,6 +41,8 @@ until you press **Bed is clear**.
    press **Add**.
 
 The list is kept on that printer. Press **Search the network** again whenever you add a printer.
+The printers you left out are remembered: the next search lists them last, unticked, as "left
+out last time", so you can still add one later.
 
 ### A printer that is not found
 
