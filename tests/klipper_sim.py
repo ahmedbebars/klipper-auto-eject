@@ -62,6 +62,7 @@ class Printer:
             self.status["gcode_macro _AUTO_EJECT_SETTINGS"].update(extra_settings)
         self.messages = []
         self.remote_calls = []
+        self.remote_args = []
         self.frame_shift = 0.0   # machine Z frame minus real nozzle height
         self.under_probe = 0.0   # height under the probe, or f(x, y) -> height
         self.g28_drops_z = False  # homing override that un-homes Z on G28 X Y
@@ -282,6 +283,7 @@ class Printer:
 
     def _remote(self, method, **kwargs):
         self.remote_calls.append(method)
+        self.remote_args.append((method, kwargs))
         return ""
 
     def _respond(self, msg):

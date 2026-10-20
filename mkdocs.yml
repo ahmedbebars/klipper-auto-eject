@@ -118,6 +118,7 @@ nav:
       - Integration: integration.md
       - Recovery: recovery.md
       - Remote access: remote-access.md
+      - Notifications: notifications.md
   - Reference:
       - Configuration: configuration.md
       - Strategies: strategies.md

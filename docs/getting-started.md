@@ -315,6 +315,9 @@ printer to the internet. It uses Tailscale, a free private network between your 
 It asks before every step and shows the address to open on your phone at the end. See
 [remote-access.md](remote-access.md).
 
+To get a notification when the printer needs you (a part still on the bed, a print that
+finished), add `--notify`; see [notifications.md](notifications.md).
+
 ---
 
 ## What next?

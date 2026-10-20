@@ -46,6 +46,7 @@ Every file it changes is backed up first as `<file>.bak-auto-eject-<date>`. It d
 | `--no-update-manager` | | You don't use Moonraker, or you manage `moonraker.conf` yourself |
 | `-w`, `--web` | | Also setting up the web page at `http://<printer>/auto-eject/` and its Mainsail sidebar link. Needs `sudo` once, for nginx ([web-page.md](web-page.md)) |
 | `-R`, `--remote` | | Also setting up remote access with Tailscale, so the printer opens from your phone anywhere. Asks before every step ([remote-access.md](remote-access.md)) |
+| `-N`, `--notify` | | Also sending notifications to your phone with ntfy: a part still on the bed, a print that finished. Asks before every step ([notifications.md](notifications.md)) |
 | `-u`, `--uninstall` | | Removing the link, the includes, the update manager section, the web page and the Tailscale range it added to `trusted_clients` |
 
 Example for a second printer instance:

@@ -24,6 +24,7 @@ it worked.
 | [Guided setup](setup-wizard.md) | Every screen of `AUTO_EJECT_SETUP`, with pictures |
 | [Slicer setup](slicer-setup.md) | Object labels and start/end G-code for OrcaSlicer, PrusaSlicer, SuperSlicer and Cura |
 | [Web page](web-page.md) | The Auto-eject page in Mainsail: installing it and what it shows |
+| [Notifications](notifications.md) | A message on your phone when the printer needs you, or when a print is done |
 | [Remote access](remote-access.md) | Watch and control the printer from your phone, from anywhere, without opening it to the internet |
 
 ## 3. Use it every day

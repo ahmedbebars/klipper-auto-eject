@@ -301,6 +301,27 @@
     return null;
   }
 
+  // A console message that deserves a notification on the phone, or null.
+  // { kind, text }: kind names the notification (note.<kind>).
+  const NOTICES = [
+    [/STILL ON THE BED/, "stuck"],
+    [/^AUTO_EJECT_GUARD: .*(still on the bed|may still be on the bed)/, "guard"],
+    [/too thin to push/, "thin"],
+    [/the print ended and \d+ part\(s\) are still on the bed/, "left"]
+  ];
+  function noticeFor(line) {
+    const text = String(line).replace(/^(\/\/|!!)\s*/, "").trim();
+    for (const [re, kind] of NOTICES) if (re.test(text)) return { kind, text };
+    return null;
+  }
+
+  // The ntfy topic of the auto_eject notifier in Moonraker's config, or "".
+  function ntfyTopic(config) {
+    const url = String(((config || {})["notifier auto_eject"] || {}).url || "");
+    const m = /^ntfys?:\/\/(?:[^/@?]*@)?(?:[^/?]*\/)?([A-Za-z0-9_-]+)/.exec(url);
+    return m ? m[1] : "";
+  }
+
   // Slicers write the print height in the header or the config block.
   function findHeight(text) {
     const pats = [/^;\s*max_z_height:\s*([\d.]+)/im, /^;\s*Max Z:\s*([\d.]+)/im, /^;MAXZ:\s*([\d.]+)/im];
@@ -427,6 +448,7 @@
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
+    noticeFor, ntfyTopic,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

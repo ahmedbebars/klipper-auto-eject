@@ -75,6 +75,11 @@ Yes. `install.sh --remote` sets up Tailscale, a free private network between you
 Mainsail and the auto-eject page open from your phone anywhere, without opening the printer to
 the internet ([remote-access.md](remote-access.md)).
 
+**Can it tell me when something goes wrong?**
+Yes. `install.sh --notify` sends a notification to your phone, through the free ntfy app, when a
+part is still on the bed, a print was too thin to push, or the next print did not start; and, if
+you like, when every print is done ([notifications.md](notifications.md)).
+
 **How do I stop it?**
 The **emergency stop** button in Mainsail or Fluidd stops everything at once. Afterwards, clear
 the bed by hand and run `AUTO_EJECT_CLEAR`.

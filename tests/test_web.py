@@ -332,3 +332,29 @@ def test_every_section_has_a_short_label_for_the_phone_tab_bar():
     en = (WEB / "lang" / "en.js").read_text(encoding="utf-8")
     for view in ("overview", "queue", "check", "setup", "settings", "activity", "guide"):
         assert '"navs.%s"' % view in en, view
+
+
+# -------------------------------------------------------------- notifications
+@needs_node
+@pytest.mark.parametrize("line, kind", [
+    ("!! AUTO_EJECT: 'cube' is STILL ON THE BED after 2 retries. Stopping so the next job does not start.", "stuck"),
+    ("!! AUTO_EJECT_GUARD: stencil still on the bed, 0.4 mm tall, too thin for the blade.", "guard"),
+    ("!! AUTO_EJECT_GUARD: 1 part(s) from an earlier print may still be on the bed, and this probe cannot check", "guard"),
+    ("// AUTO_EJECT: the parts are only 0.5 mm tall (min_part_height 2.0), too thin to push.", "thin"),
+    ("// AUTO_EJECT: the print ended and 3 part(s) are still on the bed. Take them off.", "left"),
+    ("// AUTO_EJECT: bed verified clear (15 probe points)", None),
+    ("// AUTO_EJECT: re-homing X and Y", None),
+])
+def test_which_messages_notify_the_phone(line, kind):
+    out = js("noticeFor", line)
+    assert (out or {}).get("kind") == kind
+    if out:
+        assert not out["text"].startswith(("!!", "//"))
+
+
+@needs_node
+def test_the_ntfy_topic_comes_from_moonrakers_config():
+    conf = {"notifier auto_eject": {"url": "ntfys://auto-eject-1a2b?click=https://x/auto-eject/&priority=high"}}
+    assert js("ntfyTopic", conf) == "auto-eject-1a2b"
+    assert js("ntfyTopic", {"notifier auto_eject": {"url": "ntfys://tk_x@ntfy.example.com/alerts"}}) == "alerts"
+    assert js("ntfyTopic", {"notifier telegram": {"url": "tgram://a/b"}}) == ""

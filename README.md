@@ -102,7 +102,8 @@ You can also [try a demo](docs/web-page.md#trying-it-on-a-computer) without a pr
 
 **From your phone, anywhere:** `install.sh --remote` sets up Tailscale, a free private network
 between your devices, so the printer opens from your phone wherever you are, without opening it
-to the internet ([docs/remote-access.md](docs/remote-access.md)).
+to the internet ([docs/remote-access.md](docs/remote-access.md)). `install.sh --notify` sends a
+notification to your phone when the printer needs you ([docs/notifications.md](docs/notifications.md)).
 
 ## The blade
 
@@ -191,6 +192,7 @@ All commands and options: [docs/commands.md](docs/commands.md).
 | [Glossary](docs/glossary.md) | [Guided setup](docs/setup-wizard.md) | [Recovery](docs/recovery.md) | [Probes](docs/probes.md) |
 | [Safety](docs/safety.md) | [Slicer setup](docs/slicer-setup.md) | [Web page](docs/web-page.md) | [Troubleshooting](docs/troubleshooting.md) |
 | | | [Remote access](docs/remote-access.md) | |
+| | | [Notifications](docs/notifications.md) | |
 
 ## Contributing
 

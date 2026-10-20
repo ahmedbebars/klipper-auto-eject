@@ -148,6 +148,7 @@
     meta: {},
     webcams: [],
     trustedClients: undefined,   // Moonraker's trusted_clients, null without [authorization]
+    ntfy: "",                    // the ntfy topic of [notifier auto_eject], if any
     log: [],
     template: null,              // parsed auto_eject_settings.cfg, or false
     prompt: null,
@@ -269,6 +270,7 @@
         app.autoTransition = jq ? !!jq.automatic_transition : null;
         const auth = (r.config || {}).authorization;
         app.trustedClients = auth ? [].concat(auth.trusted_clients || []) : null;
+        app.ntfy = M.ntfyTopic(r.config);
         refresh();
       }).catch(() => {});
       if (app.klippy === "ready") klippyReady();
@@ -328,8 +330,16 @@
       app.status[k] = Object.assign({}, app.status[k] || {}, diff[k]);
     }
     if (diff.webhooks && diff.webhooks.state) {
+      if (diff.webhooks.state === "shutdown" && app.klippy !== "shutdown") notifyUser(t("note.shutdown"), diff.webhooks.state_message || "");
       app.klippy = diff.webhooks.state;
       app.klippyMsg = diff.webhooks.state_message || "";
+    }
+    const ps = app.status.print_stats || {};
+    if (ps.state && ps.state !== app.lastJobState) {
+      if ((app.lastJobState === "printing" || app.lastJobState === "paused") && ["complete", "error", "cancelled"].includes(ps.state)) {
+        notifyUser(t("note." + ps.state), [ps.filename, ps.message].filter(Boolean).join(": "));
+      }
+      app.lastJobState = ps.state;
     }
     trackLanes();
     refresh();
@@ -341,6 +351,8 @@
     if (app.log.length > 1000) app.log.splice(0, app.log.length - 1000);
     const ev = prompts.feed(line);
     if (ev) { app.prompt = prompts.shown; renderPrompt(); }
+    const note = M.noticeFor(line);
+    if (note) notifyUser(t("note." + note.kind), note.text);
     refresh("activity");
   });
 
@@ -1109,6 +1121,35 @@
   }
   viewSetup.sig = function () { return JSON.stringify([sv(), blocked(), Object.keys(app.config).length, parts().length, remoteInfo()]); };
 
+  // Notifications on this device, while the app is open or in the
+  // background. When it is closed, ntfy delivers them (install.sh --notify).
+  function notifyState() {
+    if (!("Notification" in window) || !window.isSecureContext) return "unsupported";
+    if (Notification.permission === "denied") return "denied";
+    return Notification.permission === "granted" && store("ae.notify") === "1" ? "on" : "off";
+  }
+  function showNote(title, body) {
+    const opts = { body: String(body || ""), icon: "icons/icon-192.png", badge: "icons/icon-192.png",
+      tag: "auto-eject", renotify: true, data: { url: location.href } };
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((reg) => reg.showNotification(title, opts)).catch(() => {});
+    } else {
+      try { new Notification(title, opts); } catch (e) { /* phones need the service worker */ }
+    }
+  }
+  function notifyUser(title, body) {
+    // in front of the user the page itself shows it
+    if (DEMO || notifyState() !== "on" || (document.visibilityState === "visible" && document.hasFocus())) return;
+    showNote(title, body);
+  }
+  function notifyToggle() {
+    if (notifyState() === "on") { store("ae.notify", "0"); refresh(); return; }
+    Notification.requestPermission().then((p) => {
+      if (p === "granted") { store("ae.notify", "1"); showNote(t("note.test"), t("note.test_body")); }
+      refresh();
+    });
+  }
+
   // Installing the page as an app. Chrome and Edge offer a prompt the page
   // can open; Safari on iPhone and iPad has Add to Home Screen in its share
   // menu. Browsers allow it only over HTTPS.
@@ -1134,29 +1175,43 @@
     const ts = /\.ts\.net$/i.test(host) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host);
     const tc = app.trustedClients;
     const trusts = tc === null ? true : tc === undefined ? null : tc.some((c) => /^100\./.test(String(c).trim()));
-    return { ts, https: location.protocol === "https:", trusts, cams: app.webcams.length, app: appMode() };
+    return { ts, https: location.protocol === "https:", trusts, cams: app.webcams.length, app: appMode(), notify: notifyState(), ntfy: app.ntfy };
   }
 
   function remoteCard() {
     const r = remoteInfo();
     const yes = (v) => (v === null ? "—" : t(v ? "remote.yes" : "remote.no"));
     const next = r.trusts === false ? "remote.next_trust" : !r.ts ? "remote.next_setup" : !r.https ? "remote.next_https" : "remote.next_done";
+    const docs = (file, label) => h("a", { class: "btn", href: DOCS + "/blob/main/docs/" + file, target: "_blank", rel: "noopener" }, icon("external"), t(label));
     return h("section", { class: "card" },
       h("h2", null, icon("phone"), t("remote.title")),
       h("p", { class: "muted", text: t("remote.intro") }),
+      // how this page is reached, and what to do next
       h("dl", { class: "kv" },
         h("dt", { text: t("remote.from") }), h("dd", { text: t(r.ts ? (r.https ? "remote.from_https" : "remote.from_ts") : "remote.from_lan") }),
         h("dt", { text: t("remote.trust") }), h("dd", { text: yes(r.trusts) }),
         h("dt", { text: t("remote.https") }), h("dd", { text: yes(r.https) }),
-        h("dt", { text: t("remote.camera") }), h("dd", { text: r.cams ? t("remote.cams", { n: num(r.cams, 0) }) : t("remote.none") }),
-        h("dt", { text: t("remote.app") }), h("dd", { text: t("remote.app_" + r.app) })),
-      r.app === "prompt" ? h("div", { class: "toolbar", style: { marginTop: "12px" } },
-        h("button", { type: "button", class: "btn primary", onclick: installApp }, icon("download"), t("remote.install"))) : null,
-      r.app === "ios" || r.app === "menu" ? h("p", { class: "note", style: { marginTop: "12px" } }, icon("phone"), h("span", { text: t("remote.install_" + r.app) })) : null,
+        h("dt", { text: t("remote.camera") }), h("dd", { text: r.cams ? t("remote.cams", { n: num(r.cams, 0) }) : t("remote.none") })),
       h("p", { class: "note", style: { marginTop: "12px" } }, icon(next === "remote.next_done" ? "ok" : "info"), h("span", { text: t(next) })),
       next === "remote.next_done" ? null : h("div", { class: "codeblock", style: { marginTop: "10px" }, text: "~/klipper-auto-eject/install.sh --remote" }),
-      h("div", { class: "toolbar", style: { marginTop: "12px" } },
-        h("a", { class: "btn", href: DOCS + "/blob/main/docs/remote-access.md", target: "_blank", rel: "noopener" }, icon("external"), t("remote.docs"))));
+      // the app on this device
+      h("h3", { class: "sub-head", text: t("remote.app") }),
+      h("dl", { class: "kv" }, h("dt", { text: t("remote.app_state") }), h("dd", { text: t("remote.app_" + r.app) })),
+      r.app === "prompt" ? h("div", { class: "toolbar", style: { marginTop: "10px" } },
+        h("button", { type: "button", class: "btn primary", onclick: installApp }, icon("download"), t("remote.install"))) : null,
+      r.app === "ios" || r.app === "menu" ? h("p", { class: "note", style: { marginTop: "10px" } }, icon("phone"), h("span", { text: t("remote.install_" + r.app) })) : null,
+      // notifications
+      h("h3", { class: "sub-head", text: t("remote.notify_title") }),
+      h("dl", { class: "kv" },
+        h("dt", { text: t("remote.notify_here") }), h("dd", { text: t("remote.notify_" + r.notify) }),
+        h("dt", { text: t("remote.ntfy") }), h("dd", { text: r.ntfy ? t("remote.ntfy_on") : t("remote.no") })),
+      r.notify === "on" || r.notify === "off" || r.ntfy ? h("div", { class: "toolbar", style: { marginTop: "10px" } },
+        r.notify === "on" || r.notify === "off" ? h("button", { type: "button", class: "btn" + (r.notify === "off" ? " primary" : ""), onclick: notifyToggle },
+          icon(r.notify === "on" ? "bad" : "ok"), t(r.notify === "on" ? "remote.notify_stop" : "remote.notify_start")) : null,
+        r.ntfy ? h("a", { class: "btn", href: "https://ntfy.sh/" + encodeURIComponent(r.ntfy), target: "_blank", rel: "noopener" }, icon("external"), t("remote.ntfy_open")) : null) : null,
+      r.ntfy ? null : h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", { text: t("remote.ntfy_setup") })),
+      r.ntfy ? null : h("div", { class: "codeblock", style: { marginTop: "8px" }, text: "~/klipper-auto-eject/install.sh --notify" }),
+      h("div", { class: "toolbar", style: { marginTop: "14px" } }, docs("remote-access.md", "remote.docs"), docs("notifications.md", "remote.notify_docs")));
   }
 
   function stlRow(title, desc, file) {

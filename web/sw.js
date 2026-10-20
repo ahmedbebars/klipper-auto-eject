@@ -26,6 +26,18 @@ self.addEventListener("activate", (event) => {
     .then(() => self.clients.claim()));
 });
 
+// Tapping a notification brings the app to the front, or opens it.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || self.registration.scope;
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    for (const client of list) {
+      if (client.url.startsWith(self.registration.scope) && "focus" in client) return client.focus();
+    }
+    return self.clients.openWindow(url);
+  }));
+});
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);

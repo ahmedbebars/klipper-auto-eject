@@ -26,6 +26,12 @@ All notable changes to this project are documented here. The format is based on
   bars; a service worker keeps a copy of its own files, so it opens and shows that the printer is
   unreachable without a connection. On phones the sections move to a tab bar at the bottom, and the
   page keeps clear of notches and the home indicator.
+- **Notifications on your phone**: `install.sh --notify` sets up ntfy through Moonraker's
+  `[notifier]` (a random topic, kept when run again, and an optional notification for every finished
+  print); the new `notify` setting sends auto-eject's own messages: a part still on the bed, parts
+  too thin to push, a print that ended without an eject, a print the guard did not start. Tapping a
+  notification opens the auto-eject page. The installed app also notifies by itself while it is open
+  or in the background. New guide: `docs/notifications.md`.
 - **Remote access for everyone**: `install.sh --remote` sets up Tailscale so Mainsail and the
   auto-eject page open from a phone anywhere, without opening the printer to the internet. It asks
   before every step: installs Tailscale if needed, connects the printer, adds the Tailscale range to

@@ -113,6 +113,11 @@ from the printer itself.
   ([crowsnest](https://github.com/mainsail-crew/crowsnest)). Add it in Mainsail's settings under
   **Webcams**, and the auto-eject page shows it on its overview.
 
+## Notifications
+
+`install.sh --notify` sends a notification to your phone when the printer needs you, through the
+free ntfy app; tapping it opens the auto-eject page ([notifications.md](notifications.md)).
+
 ## Without Tailscale
 
 [Obico](https://www.obico.io) and [OctoEverywhere](https://octoeverywhere.com) give remote access

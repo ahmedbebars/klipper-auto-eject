@@ -161,6 +161,7 @@ Points the toolhead cannot reach are skipped.
 | `nozzle_probe_max_temp` | `150.0` | Probes that touch the bed with the nozzle (Voron Tap, eddy touch modes): wait until the nozzle is this cool, in °C, before touching the bed, so a hot nozzle does not mark the print sheet. `0` = do not wait |
 | `nozzle_part_max_temp` | `50.0` | The same probes, before touching where parts are or were: wait until the nozzle is this cool, below where PLA softens, so it does not dent or stick to a part. The part fan helps. `0` = do not wait |
 | `verify_unsafe_action` | `"error"` | A part that cannot be probed without the nozzle passing over a part: `"error"` stops, `"skip"` warns |
+| `notify` | `""` | Name of a Moonraker `[notifier]` that gets auto-eject's messages: a part still on the bed, parts too thin to push, a print that ended without an eject, a print that did not start. `""` = none. `install.sh --notify` sets it up ([notifications.md](notifications.md)) |
 
 See [probes.md](probes.md) for how offset and eddy-current probes are handled.
 
