@@ -47,7 +47,8 @@ notification service (`--push`).
 | `--no-update-manager` | | You don't use Moonraker, or you manage `moonraker.conf` yourself |
 | `-w`, `--web` | | Also setting up the web page at `http://<printer>/auto-eject/` and its Mainsail sidebar link. Needs `sudo` once, for nginx ([web-page.md](web-page.md)) |
 | `-R`, `--remote` | | Also setting up remote access with Tailscale, so the printer opens from your phone anywhere. Asks before every step ([remote-access.md](remote-access.md)) |
-| `-P`, `--push` | | Also installing the notification service: the auto-eject app gets notifications even while it is closed. Needs HTTPS (`--remote`) and `sudo` once ([notifications.md](notifications.md)) |
+| `-P`, `--push` | | Also installing the `klipper-auto-eject` service: the auto-eject app gets notifications even while it is closed, and the printer farm works. Notifications need HTTPS (`--remote`); `sudo` once ([notifications.md](notifications.md)) |
+| `-F`, `--farm` | | All your printers on one page: the web page and the `klipper-auto-eject` service, which finds the other printers on the network. They need nothing installed ([farm.md](farm.md)) |
 | `-N`, `--notify` | | Also sending notifications to your phone with ntfy: a part still on the bed, a print that finished. Asks before every step ([notifications.md](notifications.md)) |
 | `-u`, `--uninstall` | | Removing the link, the includes, the update manager section, the web page and the Tailscale range it added to `trusted_clients` |
 

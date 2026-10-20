@@ -445,10 +445,38 @@
     return new Set(out).size === out.length && out.every(Boolean) ? out : names.map(String);
   }
 
+  // The farm: printers that need someone first, then the ones that will
+  // soon (printing, the nearest end first), then the free and the offline.
+  const FARM_RANK = { needs: 0, stopped: 1, paused: 2, ejecting: 3, printing: 4, idle: 5, offline: 6 };
+  function farmOrder(printers) {
+    const rank = (p) => (FARM_RANK[p.phase] === undefined ? 6 : FARM_RANK[p.phase]);
+    return printers.slice().sort((a, b) => rank(a) - rank(b) ||
+      (a.phase === "printing" ? (a.eta === null || a.eta === undefined ? 1e9 : a.eta) - (b.eta === null || b.eta === undefined ? 1e9 : b.eta) : 0) ||
+      String(a.name).localeCompare(String(b.name), "en", { numeric: true }));
+  }
+  function farmCounts(printers) {
+    const out = { needs: 0, printing: 0, idle: 0, offline: 0 };
+    for (const p of printers) {
+      if (p.phase === "needs" || p.phase === "stopped" || p.phase === "paused") out.needs++;
+      else if (p.phase === "printing" || p.phase === "ejecting") out.printing++;
+      else if (p.phase === "idle") out.idle++;
+      else out.offline++;
+    }
+    return out;
+  }
+  // What a farm card can offer: the bed is clear, start the queue, stop.
+  function farmActions(p) {
+    const out = [];
+    if (p.phase === "needs" && ["leftover", "parts", "done", "cancelled", "error"].includes(p.reason)) out.push("clear");
+    if (p.queue === "paused" && p.jobs > 0 && ["idle", "needs"].includes(p.phase) && !["leftover", "parts", "done", "cancelled", "error"].includes(p.reason)) out.push("continue");
+    if (["printing", "paused", "ejecting"].includes(p.phase)) out.push("estop");
+    return out;
+  }
+
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic,
+    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

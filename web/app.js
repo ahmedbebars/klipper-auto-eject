@@ -86,7 +86,9 @@
     reset: "M3 12a9 9 0 1 0 3-6.7L3 8 M3 3v5h5",
     restart: "M21 12a9 9 0 1 1-3-6.7L21 8 M21 3v5h-5",
     wand: "M15 4V2 M15 16v-2 M8 9h2 M20 9h2 M17.8 11.8L19 13 M17.8 6.2L19 5 M12.2 6.2L11 5 M12.2 11.8L3 21",
-    box: "M21 8l-9-5-9 5v8l9 5 9-5z M3 8l9 5 9-5 M12 13v8"
+    box: "M21 8l-9-5-9 5v8l9 5 9-5z M3 8l9 5 9-5 M12 13v8",
+    farm: "M2 4h9v16H2z M13 4h9v16h-9z M2 9h9 M13 9h9 M5 9v3h3V9 M16 9v3h3V9",
+    edit: "M4 20h4L19 9l-4-4L4 16z M13.5 6.5l4 4"
   };
   function icon(name, cls) {
     return s("svg", { class: "ic" + (cls ? " " + cls : ""), viewBox: "0 0 24 24", "aria-hidden": "true" }, s("path", { d: ICONS[name] || "" }));
@@ -492,6 +494,7 @@
 
   const VIEWS = [
     { id: "overview", icon: "overview", render: viewOverview },
+    { id: "farm", icon: "farm", render: viewFarm },
     { id: "queue", icon: "queue", render: viewQueue },
     { id: "check", icon: "check", render: viewCheck },
     { id: "setup", icon: "setup", render: viewSetup },
@@ -559,7 +562,8 @@
   function renderChrome() {
     const ph = phase();
     const id = route();
-    const sig = [lang, id, app.conn, app.klippy, ph, app.host, app.hasQueue, app.queue.jobs.length, leftover().length, app.hasMacros].join("|");
+    const sig = [lang, id, app.conn, app.klippy, ph, app.host, app.hasQueue, app.queue.jobs.length, leftover().length, app.hasMacros,
+      farmShown(), farmNeeds()].join("|");
     if (sig === chromeSig) return;
     chromeSig = sig;
     const dir = (AE_LANGS[lang] || {}).dir || "ltr";
@@ -609,8 +613,9 @@
     back.setAttribute("aria-label", t("app.back"));
 
     const nav = $("#nav");
-    nav.replaceChildren(...VIEWS.filter((v) => v.id !== "queue" || app.hasQueue || DEMO).map((v) => {
-      const count = v.id === "queue" && app.queue.jobs.length ? h("span", { class: "count", text: num(app.queue.jobs.length, 0) }) : null;
+    nav.replaceChildren(...VIEWS.filter((v) => (v.id !== "queue" || app.hasQueue || DEMO) && (v.id !== "farm" || farmShown() || id === "farm")).map((v) => {
+      let count = v.id === "queue" && app.queue.jobs.length ? h("span", { class: "count", text: num(app.queue.jobs.length, 0) }) : null;
+      if (v.id === "farm" && farmNeeds()) count = h("span", { class: "count bad", text: num(farmNeeds(), 0) });
       return h("a", { href: "#/" + v.id, class: v.id === id ? "active" : "", "aria-current": v.id === id ? "page" : null },
         icon(v.icon), h("span", { class: "lbl", text: t("nav." + v.id) }), h("span", { class: "lbl-s", text: t("navs." + v.id) }), count);
     }), h("div", { class: "foot" }, h("a", { href: DOCS, target: "_blank", rel: "noopener", text: "klipper-auto-eject" })));
@@ -623,7 +628,7 @@
       banner = ["bad", "alert", t("conn.shutdown", { msg: app.klippyMsg || app.klippy }),
         h("button", { type: "button", class: "btn sm", onclick: () => confirm(t("conn.restart"), t("conn.restart_confirm"), t("conn.restart"))
           .then((ok) => { if (ok) client.call("printer.firmware_restart").catch((e) => toast(e.message, "bad")); }) }, icon("restart"), t("conn.restart"))];
-    } else if (app.conn === "online" && app.klippy === "ready" && app.hasMacros === false) banner = ["bad", "alert", t("conn.missing")];
+    } else if (app.conn === "online" && app.klippy === "ready" && app.hasMacros === false && id !== "farm") banner = ["bad", "alert", t("conn.missing")];   // a farm printer needs no blade
     else if (DEMO) banner = ["demo", "info", t("app.demo_note")];
     if (banner) {
       b.className = "banner " + banner[0];
@@ -710,7 +715,10 @@
         h("b", { class: "ltr", "data-live": "bed", text: num(bed.temperature) + " °C" })) : null,
       h("span", { class: "chip" }, icon("box"), h("b", { text: num(n, 0) }), h("span", { text: t("facts.parts") })),
       app.hasQueue ? h("a", { class: "chip", href: "#/queue" }, icon("queue"), h("span", { text: t("facts.queue") + ":" }),
-        h("b", { text: t("facts.queue_value", { n: num(app.queue.jobs.length, 0) }) })) : null));
+        h("b", { text: t("facts.queue_value", { n: num(app.queue.jobs.length, 0) }) })) : null,
+      farmShown() && farm.data.printers.length > 1 ? h("a", { class: "chip" + (farmNeeds() ? " bad" : ""), href: "#/farm" }, icon("farm"),
+        h("span", { text: t("nav.farm") + ":" }),
+        h("b", { text: farmNeeds() ? t("farm.count.needs", { n: num(farmNeeds(), 0) }) : t("farm.count.all", { n: num(farm.data.printers.length, 0) }) })) : null));
 
     // ----- leftover warning
     const left = lo.length ? h("div", { class: "banner bad" }, icon("alert"),
@@ -790,7 +798,7 @@
     const m = settings();
     return JSON.stringify([phase(), parts().map((r) => r.slice(0, 5)), st.leftover, st.height, homed(), blocked(), ps.filename,
       m && m.values, app.queue.state, app.queue.jobs.length, app.hasQueue, Object.keys(app.config).length, app.webcams.length,
-      Array.from(app.lanesDone), Object.keys(polygons()).length]);
+      Array.from(app.lanesDone), Object.keys(polygons()).length, farmShown() && farm.data.printers.length, farmNeeds()]);
   };
 
   function camUrl(cam) {
@@ -1294,7 +1302,8 @@
         r.ntfy ? h("a", { class: "btn", href: "https://ntfy.sh/" + encodeURIComponent(r.ntfy), target: "_blank", rel: "noopener" }, icon("external"), t("remote.ntfy_open")) : null),
       r.push || r.notify === "unsupported" ? null : h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", { text: t("remote.push_setup") })),
       r.push || r.notify === "unsupported" ? null : h("div", { class: "codeblock", style: { marginTop: "8px" }, text: "~/klipper-auto-eject/install.sh --push" }),
-      h("div", { class: "toolbar", style: { marginTop: "14px" } }, docs("remote-access.md", "remote.docs"), docs("notifications.md", "remote.notify_docs")));
+      h("div", { class: "toolbar", style: { marginTop: "14px" } }, docs("remote-access.md", "remote.docs"), docs("notifications.md", "remote.notify_docs"),
+        docs("farm.md", "farm.docs")));
   }
 
   function stlRow(title, desc, file) {
@@ -1452,6 +1461,232 @@
     }).catch((e) => toast(cleanError(e.message), "bad"));
   }
 
+  /* =============================================================== farm */
+
+  // Every printer on the network, from the klipper-auto-eject service on
+  // this printer (push/farm.py), which nginx serves at ../api/.
+  const FARM_API = "../api/farm";
+  const farm = { available: null, data: null, scanOpen: false, scanWait: false, scanSig: "", pick: null, cam: {}, tick: 0 };
+  const FARM_ICON = { needs: "alert", stopped: "stop", paused: "pause", ejecting: "push", printing: "layers", idle: "ok", offline: "info" };
+  const FARM_BADGE = { needs: "bad", printing: "blue", idle: "ok", offline: "" };
+
+  function farmCall(path, body) {
+    if (DEMO) return client.farm(path, body);
+    const opts = body === undefined ? { cache: "no-store" } : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+    return fetch(FARM_API + path, opts).then((r) => r.json().catch(() => ({}))
+      .then((j) => (r.ok && (body !== undefined || Array.isArray(j.printers)) ? j : Promise.reject(new Error(j.error || "HTTP " + r.status)))));
+  }
+
+  function loadFarm() {
+    return farmCall("").then((d) => {
+      farm.data = d;
+      farm.available = true;
+      if (farm.scanOpen) renderScan();
+      refresh();
+    }).catch(() => {
+      if (!farm.data) { farm.available = false; refresh(); }
+    });
+  }
+
+  function farmShown() { return !!(farm.available && farm.data); }
+  function farmNeeds() { return farmShown() ? M.farmCounts(farm.data.printers).needs : 0; }
+
+  function farmFile(p) {
+    return ["printing", "paused"].includes(p.phase) || ["done", "cancelled", "error"].includes(p.reason) ? p.filename || "" : "";
+  }
+
+  function farmLine(p) {
+    if (p.phase === "printing") {
+      const bits = [num((p.progress || 0) * 100, 0) + " %"];
+      if (p.eta !== null && p.eta !== undefined) bits.push(t("farm.left", { t: duration(p.eta) }));
+      if (p.layers) bits.push(t("farm.layer", { l: num(p.layer || 0, 0), t: num(p.layers, 0) }));
+      return bits.join(" · ");
+    }
+    if (p.phase === "needs") {
+      if (p.reason === "leftover") return t("farm.why.leftover", { names: (p.leftover || []).join(lang === "ar" ? "، " : ", ") });
+      if (p.reason === "parts") return t("farm.why.parts", { n: num(p.parts || 0, 0) });
+      if (p.reason === "queue") return t("farm.why.queue", { n: num(p.jobs || 0, 0) });
+      if (p.reason === "error") return t("farm.why.error") + (p.message ? ": " + p.message : "");
+      return t("farm.why." + p.reason);
+    }
+    if (p.phase === "stopped") return p.message || t("farm.why.stopped");
+    if (p.phase === "paused") return p.message || t("farm.why.paused");
+    if (p.phase === "ejecting") return t("farm.why.ejecting");
+    if (p.phase === "idle") return p.jobs ? t("farm.why.idle_jobs", { n: num(p.jobs, 0) }) : t("farm.why.idle");
+    return t("farm.why.offline");
+  }
+
+  function farmAct(p, action) {
+    const go = () => farmCall("/" + p.id + "/" + action, {})
+      .then(() => { toast(t("farm.sent", { name: p.name }), "ok"); setTimeout(loadFarm, 700); })
+      .catch((e) => toast(cleanError(e.message), "bad"));
+    if (action === "continue") return confirm(t("farm.continue"), t("farm.continue_confirm", { name: p.name }), t("farm.continue")).then((ok) => { if (ok) go(); });
+    if (action === "estop") return confirm(t("act.estop"), t("farm.estop_confirm", { name: p.name }), t("act.estop"), "danger").then((ok) => { if (ok) go(); });
+    return go();
+  }
+
+  function farmCam(id) { return FARM_API + "/" + encodeURIComponent(id) + "/snapshot?t=" + Date.now(); }
+
+  function farmCard(p) {
+    const ACT = { clear: ["hand", "farm.clear", "primary"], continue: ["play", "farm.continue", "primary"], estop: ["stop", "act.estop", "stop"] };
+    const file = farmFile(p);
+    const bed = typeof p.bed === "number" ? num(p.bed, 0) + (p.bed_target ? " / " + num(p.bed_target, 0) : "") + " °C" : "";
+    const open = p.local ? h("a", { class: "btn sm", href: "#/overview" }, icon("home"), t("farm.open"))
+      : p.page ? h("a", { class: "btn sm", href: p.page, target: "_blank", rel: "noopener" }, icon("external"), t("farm.open")) : null;
+    return h("section", { class: "card fcard", "data-state": p.phase },
+      h("div", { class: "fc-top" },
+        h("div", { class: "fc-ic" }, icon(FARM_ICON[p.phase] || "info")),
+        h("div", { class: "grow", style: { minWidth: 0 } },
+          h("div", { class: "fc-name", dir: "auto", text: p.name }),
+          h("div", { class: "fc-host" }, p.local ? h("span", { class: "badge accent", text: t("farm.this") }) : h("span", { class: "ltr", text: p.host }),
+            p.auto_eject ? h("span", { class: "badge", text: t("farm.auto_eject") }) : null)),
+        h("button", { type: "button", class: "icon-btn", title: t("farm.edit"), "aria-label": t("farm.edit"), onclick: () => editPrinter(p) }, icon("edit"))),
+      h("div", { class: "fc-state" }, h("b", { text: t("farm.phase." + p.phase) }), h("span", { dir: "auto", text: farmLine(p) })),
+      file ? h("div", { class: "fc-file ltr", title: file, text: file }) : null,
+      ["printing", "paused"].includes(p.phase) ? h("div", { class: "progress" }, h("i", { style: { width: num((p.progress || 0) * 100, 1) + "%" } })) : null,
+      p.camera && p.phase !== "offline" ? h("img", { class: "fc-cam", alt: t("remote.camera"), "data-live": "farmcam", "data-id": p.id, src: farm.cam[p.id] || farmCam(p.id) }) : null,
+      p.phase !== "offline" ? h("div", { class: "chips" },
+        bed ? h("span", { class: "chip" }, icon("thermo"), h("span", { text: t("c.bed") }), h("b", { class: "ltr", text: bed })) : null,
+        p.jobs ? h("span", { class: "chip" }, icon("queue"), h("span", { text: t("facts.queue") + ":" }), h("b", { text: num(p.jobs, 0) })) : null) : null,
+      h("div", { class: "fc-acts" }, M.farmActions(p).map((a) => h("button", { type: "button", class: "btn sm " + ACT[a][2], onclick: () => farmAct(p, a) }, icon(ACT[a][0]), t(ACT[a][1]))), open));
+  }
+
+  function farmSetupCard() {
+    return h("section", { class: "card" },
+      h("h2", null, icon("farm"), t("farm.setup_title")),
+      h("p", { text: t("farm.setup") }),
+      h("div", { class: "codeblock", text: "~/klipper-auto-eject/install.sh --farm" }),
+      h("p", { class: "note", style: { marginTop: "12px" } }, icon("info"), h("span", { text: t("farm.setup_note") })),
+      h("div", { class: "toolbar", style: { marginTop: "14px" } },
+        h("a", { class: "btn", href: DOCS + "/blob/main/docs/farm.md", target: "_blank", rel: "noopener" }, icon("external"), t("farm.docs"))));
+  }
+
+  function viewFarm() {
+    if (!farmShown()) {
+      if (farm.available === null) return { el: h("div", null, head("farm.title"), h("div", { class: "card empty" }, h("span", { class: "spinner" }))) };
+      return { el: h("div", null, head("farm.title", "farm.intro"), farmSetupCard()) };
+    }
+    const list = M.farmOrder(farm.data.printers || []);
+    const c = M.farmCounts(list);
+    const el = h("div", null,
+      head("farm.title", "farm.intro", h("button", { type: "button", class: "btn primary", onclick: openScan }, icon("search"), t("farm.search"))),
+      h("div", { class: "farm-sum" }, ["needs", "printing", "idle", "offline"].filter((k) => c[k])
+        .map((k) => h("span", { class: "badge " + FARM_BADGE[k], text: t("farm.count." + k, { n: num(c[k], 0) }) }))),
+      h("div", { class: "farm-grid" }, list.map(farmCard)),
+      list.length < 2 ? h("section", { class: "card", style: { marginTop: "16px" } },
+        h("p", { class: "note" }, icon("search"), h("span", { text: t("farm.first") })),
+        h("div", { class: "toolbar", style: { marginTop: "12px" } }, h("button", { type: "button", class: "btn primary", onclick: openScan }, icon("search"), t("farm.search")))) : null,
+      h("p", { class: "note", style: { marginTop: "16px" } }, icon("info"), h("span", { text: t("farm.notify_note") })));
+    return { el };
+  }
+  viewFarm.sig = function () {
+    if (!farmShown()) return String(farm.available);
+    return JSON.stringify(farm.data.printers.map((p) => [p.id, p.name, p.phase, p.reason, p.filename, Math.round((p.progress || 0) * 100),
+      p.eta === null || p.eta === undefined ? null : Math.round(p.eta / 60), p.layer, Math.round(p.bed || 0), p.bed_target, p.jobs, p.queue,
+      p.parts, p.leftover, p.camera, p.message, p.page, p.auto_eject]));
+  };
+
+  function closeModal(cls) {
+    const old = $("#modal-root").querySelector(".modal-back." + cls);
+    if (old) old.remove();
+  }
+
+  // A dialog; drawn again in place (no new fade-in) when it is already open.
+  function modal(cls, title, body, footer, onClose) {
+    const box = h("div", { class: "modal", role: "dialog", "aria-modal": "true" },
+      h("header", null, h("h3", { text: title }),
+        h("button", { type: "button", class: "icon-btn", "aria-label": t("c.close"), onclick: onClose }, icon("bad"))),
+      h("div", { class: "body" }, body),
+      footer ? h("footer", null, footer) : null);
+    const old = $("#modal-root").querySelector(".modal-back." + cls);
+    if (old) {
+      old.firstChild.replaceChildren(...Array.from(box.childNodes));
+      old.onClose = onClose;
+      return old;
+    }
+    const root = h("div", { class: "modal-back " + cls, onclick: (e) => { if (e.target === root) root.onClose(); } }, box);
+    root.onClose = onClose;
+    root.addEventListener("keydown", (e) => { if (e.key === "Escape") root.onClose(); });
+    $("#modal-root").appendChild(root);
+    return root;
+  }
+
+  // ----- search the network, add what it finds
+  function openScan() {
+    farm.scanOpen = true;
+    farm.scanWait = true;
+    farm.pick = null;
+    farm.scanSig = "";
+    renderScan();
+    farmCall("/scan", {}).then(() => loadFarm()).catch((e) => toast(cleanError(e.message), "bad"))
+      .then(() => { farm.scanWait = false; renderScan(); });
+  }
+
+  function addPrinters(entries, done) {
+    return farmCall("/printers", { add: entries }).then((r) => {
+      toast(t("farm.added", { n: num((r.added || []).length, 0) }), "ok");
+      if (done) done();
+      loadFarm();
+    }).catch((e) => toast(cleanError(e.message), "bad"));
+  }
+
+  function renderScan() {
+    if (!farm.scanOpen) return closeModal("scan");
+    const sc = (farm.data && farm.data.scan) || { running: true, found: [] };
+    const running = farm.scanWait || sc.running;
+    const sig = JSON.stringify([running, sc.found, lang]);
+    if (sig === farm.scanSig) return;
+    farm.scanSig = sig;
+    const close = () => { farm.scanOpen = false; closeModal("scan"); };
+    const found = running ? [] : sc.found || [];
+    if (!running && farm.pick === null) farm.pick = new Set(found.map((f) => f.host + ":" + f.port));
+    const pick = farm.pick || new Set();
+    const addr = h("input", { class: "input ltr", type: "text", placeholder: "192.168.1.50", autocomplete: "off", spellcheck: "false", style: { flex: "1 1 160px", minWidth: 0 } });
+    const addOne = () => { const v = addr.value.trim(); if (v) addPrinters([{ host: v }], close); };
+    addr.addEventListener("keydown", (e) => { if (e.key === "Enter") addOne(); });
+    const body = h("div", null,
+      running ? h("div", { class: "scan-wait" }, h("span", { class: "spinner" }), h("div", null, h("b", { text: t("farm.searching") }), h("p", { class: "muted", text: t("farm.search_note") })))
+        : found.length ? h("div", null, h("p", { text: t("farm.found", { n: num(found.length, 0) }) }),
+          h("div", { class: "list scan-list" }, found.map((f) => {
+            const key = f.host + ":" + f.port;
+            return h("label", { class: "row switch-row" },
+              h("input", { type: "checkbox", checked: pick.has(key), onchange: (e) => { if (e.target.checked) pick.add(key); else pick.delete(key); farm.scanSig = ""; renderScan(); } }),
+              h("div", { class: "grow" }, h("div", { class: "name", dir: "auto", text: f.name }), h("div", { class: "sub ltr", text: f.host + (f.port !== 7125 ? ":" + f.port : "") })),
+              f.klippy && f.klippy !== "ready" ? h("span", { class: "badge warn", text: f.klippy }) : null);
+          })))
+        : h("p", { class: "note" }, icon("info"), h("span", { text: t("farm.found_none") })),
+      h("h3", { class: "sub-head", text: t("farm.add_by_address") }),
+      h("div", { class: "form-row", style: { display: "flex", gap: "8px", flexWrap: "wrap" } }, addr,
+        h("button", { type: "button", class: "btn", onclick: addOne }, icon("plus"), t("farm.add"))),
+      h("p", { class: "muted", style: { fontSize: "12.5px", marginTop: "6px" }, text: t("farm.address_note") }));
+    const chosen = found.filter((f) => pick.has(f.host + ":" + f.port));
+    modal("scan", t("farm.search"), body, [
+      h("button", { type: "button", class: "btn", onclick: close, text: t("c.close") }),
+      running ? null : h("button", { type: "button", class: "btn", onclick: openScan }, icon("restart"), t("farm.again")),
+      chosen.length ? h("button", { type: "button", class: "btn primary", onclick: () => addPrinters(chosen, close) }, icon("plus"), t("farm.add_n", { n: num(chosen.length, 0) })) : null
+    ], close);
+  }
+
+  // ----- rename or remove one printer
+  function editPrinter(p) {
+    const close = () => closeModal("edit");
+    const name = h("input", { class: "input", type: "text", value: p.name, maxlength: 40, dir: "auto" });
+    const save = () => farmCall("/printers", { rename: p.id, name: name.value }).then(() => { close(); loadFarm(); }).catch((e) => toast(cleanError(e.message), "bad"));
+    name.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); });
+    const remove = () => confirm(t("farm.remove"), t("farm.remove_confirm", { name: p.name }), t("farm.remove"), "danger").then((ok) => {
+      if (ok) farmCall("/printers", { remove: p.id }).then(() => { close(); loadFarm(); }).catch((e) => toast(cleanError(e.message), "bad"));
+    });
+    modal("edit", p.name, h("div", null,
+      h("label", { class: "field" }, h("span", { text: t("farm.name") }), name),
+      h("p", { class: "muted ltr", style: { marginTop: "8px" }, text: p.local ? location.host : p.host })), [
+      p.local ? null : h("button", { type: "button", class: "btn danger", onclick: remove }, icon("trash"), t("farm.remove")),
+      h("button", { type: "button", class: "btn", onclick: close, text: t("c.cancel") }),
+      h("button", { type: "button", class: "btn primary", onclick: save, text: t("farm.save") })
+    ], close);
+    name.focus();
+    name.select();
+  }
+
   /* =========================================================== activity */
 
   const activityUi = { only: true };
@@ -1506,8 +1741,29 @@
       img.src = u + (u.includes("?") ? "&" : "?") + "t=" + Date.now();
     }
   }, 1200);
+  // the farm: often while it is shown, now and then for the menu's count
+  loadFarm();
+  setInterval(() => {
+    if (document.hidden || farm.available === false) return;
+    if (route() === "farm" || farm.scanOpen || ++farm.tick % 5 === 0) loadFarm();
+  }, 3000);
+  setInterval(() => {
+    if (document.hidden) return;
+    document.querySelectorAll('[data-live="farmcam"]').forEach((img) => {
+      // the next picture loads first, so the shown one never blinks
+      const u = farmCam(img.dataset.id);
+      const next = new Image();
+      next.onload = () => { img.src = u; farm.cam[img.dataset.id] = u; };
+      next.src = u;
+    });
+  }, 4000);
   if ("serviceWorker" in navigator && window.isSecureContext && !DEMO) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
+    // a tapped notification names the tab to show
+    navigator.serviceWorker.addEventListener("message", (e) => {
+      if (!e.data || e.data.type !== "open") return;
+      try { const hash = new URL(e.data.url).hash; if (hash && hash !== location.hash) location.hash = hash; } catch (err) { /* no address */ }
+    });
   }
   refresh();
   client.connect();

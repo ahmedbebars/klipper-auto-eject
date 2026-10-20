@@ -317,6 +317,8 @@ def test_service_worker_caches_files_that_exist():
     for name in shell:
         if name != "./":
             assert (WEB / name).exists(), name
+    # the farm's live answers and camera pictures are never kept
+    assert 'url.pathname.startsWith(API)' in sw and 'ROOT + "api/"' in sw
 
 
 def test_page_is_an_app_only_where_browsers_allow_it():
@@ -330,7 +332,7 @@ def test_page_is_an_app_only_where_browsers_allow_it():
 
 def test_every_section_has_a_short_label_for_the_phone_tab_bar():
     en = (WEB / "lang" / "en.js").read_text(encoding="utf-8")
-    for view in ("overview", "queue", "check", "setup", "settings", "activity", "guide"):
+    for view in ("overview", "farm", "queue", "check", "setup", "settings", "activity", "guide"):
         assert '"navs.%s"' % view in en, view
 
 
@@ -358,3 +360,45 @@ def test_the_ntfy_topic_comes_from_moonrakers_config():
     assert js("ntfyTopic", conf) == "auto-eject-1a2b"
     assert js("ntfyTopic", {"notifier auto_eject": {"url": "ntfys://tk_x@ntfy.example.com/alerts"}}) == "alerts"
     assert js("ntfyTopic", {"notifier telegram": {"url": "tgram://a/b"}}) == ""
+
+
+# ------------------------------------------------------------------- the farm
+def card(name, phase, reason="", **kw):
+    return dict({"name": name, "phase": phase, "reason": reason, "eta": None, "jobs": 0, "queue": "ready"}, **kw)
+
+
+@needs_node
+def test_farm_shows_who_needs_you_first():
+    printers = [card("e", "idle"), card("d", "printing", eta=900), card("c", "offline"), card("b", "needs", "done"),
+                card("a", "printing", eta=60), card("f", "stopped"), card("g", "printing")]
+    assert [p["name"] for p in js("farmOrder", printers)] == ["b", "f", "a", "d", "g", "e", "c"]
+    assert js("farmCounts", printers) == {"needs": 2, "printing": 3, "idle": 1, "offline": 1}
+    assert js("farmOrder", [card("printer 10", "idle"), card("printer 9", "idle")])[0]["name"] == "printer 9"
+
+
+@needs_node
+@pytest.mark.parametrize("p, actions", [
+    (card("a", "needs", "done"), ["clear"]),
+    (card("a", "needs", "leftover", queue="paused", jobs=3), ["clear"]),     # the bed first, then the queue
+    (card("a", "needs", "queue", queue="paused", jobs=3), ["continue"]),
+    (card("a", "idle", queue="paused", jobs=2), ["continue"]),
+    (card("a", "idle", queue="paused", jobs=0), []),
+    (card("a", "printing"), ["estop"]),
+    (card("a", "ejecting"), ["estop"]),
+    (card("a", "stopped", "shutdown"), []),
+    (card("a", "offline"), []),
+])
+def test_farm_card_buttons(p, actions):
+    assert js("farmActions", p) == actions
+
+
+def test_farm_api_matches_the_page():
+    """The page calls only what push/farm.py answers, through nginx's /auto-eject/api/."""
+    app = (WEB / "app.js").read_text(encoding="utf-8")
+    assert 'const FARM_API = "../api/farm"' in app
+    farm_py = (WEB.parent / "push" / "farm.py").read_text(encoding="utf-8")
+    for action in re.findall(r'(clear|continue|estop): \["', app):
+        assert '"%s"' % action in farm_py, action
+    install = (WEB.parent / "install.sh").read_text(encoding="utf-8")
+    assert "location ^~ /auto-eject/api/ {" in install and "proxy_pass http://127.0.0.1:7128/;" in install
+    assert 'default=7128' in (WEB.parent / "push" / "auto_eject_push.py").read_text(encoding="utf-8")

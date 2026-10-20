@@ -12,6 +12,16 @@ All notable changes to this project are documented here. The format is based on
   run `install.sh --web` again to update the nginx file.
 
 ### Added
+- **A printer farm** (`install.sh --farm`, `docs/farm.md`): every Klipper printer of the network on
+  one page, the **Printer farm** tab, with the ones that need you first: a print to take off, a part
+  that stayed on the bed, an error, a paused queue. Installed on one printer only: **Search the
+  network** finds the others (its own network and Tailscale) and adds them; they need nothing
+  installed, and printers without auto-eject show their prints too. Buttons per printer: **Bed is
+  clear**, **Start the queue**, **Emergency stop** (both ask first), **Open** its own page, rename
+  or remove; camera pictures come through the farm printer, so the whole farm works from a phone
+  with remote access on that printer alone. Phones with notifications on get them from every
+  printer, with its name. It runs in the `klipper-auto-eject` service (`push/farm.py`), which
+  nginx publishes at `/auto-eject/api/` (`--farm` and `--push` add that to a page installed before).
 - **`AUTO_EJECT_GUARD` checks the bed itself** (`guard_action: "check"`, the new default). When
   the printer remembers parts from an earlier print that was not ejected, the next print first
   homes around them and probes where they were: nothing there, the print simply starts and nobody

@@ -18,6 +18,7 @@ WEB=0
 REMOTE=0
 NOTIFY=0
 PUSH=0
+FARM=0
 # Moonraker's update manager restarts a service after an update only when it
 # has the update_manager section's name, so the service is klipper-auto-eject
 PUSH_NAME="klipper-auto-eject"
@@ -45,6 +46,10 @@ Usage: install.sh [options]
                           app on your phone gets notifications even while it is
                           closed. Needs HTTPS (--remote) and sudo once
                           (docs/notifications.md)
+  -F, --farm              All your printers on one page: the web page and the
+                          klipper-auto-eject service on this printer, which
+                          finds the others on the network. They need nothing
+                          installed (docs/farm.md)
   -N, --notify            Also send notifications to your phone with ntfy: a
                           part still on the bed, a print that finished...
                           Asks before every step (docs/notifications.md)
@@ -69,6 +74,7 @@ while [[ $# -gt 0 ]]; do
         -R|--remote)          REMOTE=1; shift ;;
         -N|--notify)          NOTIFY=1; shift ;;
         -P|--push)            PUSH=1; shift ;;
+        -F|--farm)            FARM=1; WEB=1; PUSH=1; shift ;;
         -u|--uninstall)       UNINSTALL=1; shift ;;
         -h|--help)            usage; exit 0 ;;
         *) usage; die "Unknown option: $1" ;;
@@ -293,13 +299,19 @@ PY
 
 install_push() {
     local py env="${HOME}/klipper-auto-eject-env" name url i
-    log "Notifications in the auto-eject app, even while it is closed (docs/notifications.md)"
+    log "The klipper-auto-eject service: notifications in the app, even while it is closed"
+    log "(docs/notifications.md), and the printer farm (docs/farm.md)"
     name="$(tailscale status --json 2>/dev/null | python3 -c 'import json, sys; print(json.load(sys.stdin)["Self"].get("DNSName", "").rstrip("."))' 2>/dev/null || true)"
     if [[ -z "${name}" ]] || ! tailscale serve status 2>/dev/null | grep -q "${name}"; then
-        warn "Phones allow notifications only over HTTPS. Set that up first: install.sh --remote (docs/remote-access.md)"
+        warn "Phones allow notifications only over HTTPS: install.sh --remote sets that up (docs/remote-access.md)."
+        [[ "${FARM}" -eq 1 ]] && log "The farm works without it, on your network."
     fi
-    if ! ask "Install the notification service? (asks for your sudo password once)" y; then
+    if ! ask "Install the klipper-auto-eject service? (asks for your sudo password once)" y; then
         return
+    fi
+    # the page reaches the service through nginx: an older web page lacks the way
+    if [[ -f "${NGINX_SNIPPET}" ]] && ! grep -q "/auto-eject/api/" "${NGINX_SNIPPET}"; then
+        install_web
     fi
     if python3 -c "import cryptography" 2>/dev/null; then
         py="$(command -v python3)"
@@ -321,9 +333,10 @@ install_push() {
         sudo rm -f "${OLD_PUSH_UNIT}"
     fi
     sudo tee "${PUSH_UNIT}" >/dev/null <<EOF
-# klipper-auto-eject, added by install.sh --push (docs/notifications.md)
+# klipper-auto-eject, added by install.sh --push or --farm
+# (docs/notifications.md, docs/farm.md)
 [Unit]
-Description=klipper-auto-eject notifications in the web page (Web Push)
+Description=klipper-auto-eject: notifications in the web page (Web Push) and the printer farm
 After=network-online.target moonraker.service
 Wants=network-online.target
 
@@ -344,8 +357,11 @@ EOF
     restart_moonraker
     for i in $(seq 1 20); do
         if curl -s -m 3 "${url}/server/database/item?namespace=auto_eject_push&key=vapid" | grep -q '"value"'; then
-            log "The notification service is running"
-            log "Now, in the auto-eject app on your phone: Blade and setup, Notifications, Turn on"
+            log "The klipper-auto-eject service is running"
+            if [[ "${FARM}" -eq 1 ]]; then
+                log "Now open the Printer farm tab of the web page and press Search the network"
+            fi
+            log "Notifications: in the auto-eject app on your phone, Blade and setup, Notifications, Turn on"
             return
         fi
         sleep 1
@@ -434,11 +450,17 @@ location /auto-eject/ {
     index index.html;
     add_header Cache-Control "no-cache";
 }
+# the klipper-auto-eject service: the printer farm (install.sh --farm or --push)
+location ^~ /auto-eject/api/ {
+    proxy_pass http://127.0.0.1:7128/;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_read_timeout 30s;
+}
 EOF
     local site
     while IFS= read -r site; do
         if sudo grep -q "include ${NGINX_SNIPPET};" "${site}"; then
-            log "${site} already includes the web page"
+            log "${site} already includes the web page (updated)"
             continue
         fi
         # the backup goes next to nginx.conf, where nginx never loads it
@@ -636,6 +658,12 @@ elif grep -qs "klipper-auto-eject: remote access" "${MOONRAKER_CONF}"; then
 else
     echo "  Optional: watch and control it from your phone, from anywhere:"
     echo "    ${REPO_DIR}/install.sh --remote   (docs/remote-access.md)"
+fi
+if [[ -f "${PUSH_UNIT}" && -f "${NGINX_SNIPPET}" ]]; then
+    echo "  All your printers: http://$(hostname -I 2>/dev/null | awk '{print $1}')/auto-eject/web/#/farm"
+else
+    echo "  Optional: all your printers on one page (a printer farm):"
+    echo "    ${REPO_DIR}/install.sh --farm     (docs/farm.md)"
 fi
 if [[ -f "${PUSH_UNIT}" ]]; then
     echo "  Notifications in the app: turn them on in the app, Blade and setup tab."

@@ -119,6 +119,7 @@ nav:
       - Recovery: recovery.md
       - Remote access: remote-access.md
       - Notifications: notifications.md
+      - Printer farm: farm.md
   - Reference:
       - Configuration: configuration.md
       - Strategies: strategies.md

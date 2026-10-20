@@ -13,7 +13,8 @@ A message on your phone when the printer needs you, and, if you like, when every
 | a print stopped with an error, or was cancelled | |
 | every print finishes (optional) | with `AUTO_EJECT` in the end G-code this comes once the bed is clear |
 
-Tapping a notification opens the auto-eject page.
+Tapping a notification opens the auto-eject page. With a [printer farm](farm.md), the app also
+gets them from every other printer of the farm, each with its name.
 
 There are two ways to get them:
 

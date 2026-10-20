@@ -521,3 +521,42 @@ button.row.active { background: var(--accent-soft); }
 .toast { background: var(--text); color: var(--bg); padding: 11px 15px; border-radius: 11px; box-shadow: var(--shadow-lg); font-size: 13.5px; animation: pop 0.18s ease; display: flex; gap: 10px; align-items: flex-start; }
 .toast.bad { background: var(--bad); color: #fff; }
 .toast.ok { background: var(--ok); color: #fff; }
+
+/* --------------------------------------------------------------- farm */
+.farm-sum { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.farm-sum .badge { font-size: 13px; padding: 4px 11px; }
+.farm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 14px; align-items: start; }
+.farm-grid > .card + .card { margin-top: 0; }
+.fcard { --state: var(--ok); --state-soft: var(--ok-soft); display: grid; gap: 10px; padding: 16px; border-top: 3px solid var(--state); }
+.fcard[data-state="printing"], .fcard[data-state="ejecting"] { --state: var(--blue); --state-soft: var(--blue-soft); }
+.fcard[data-state="ejecting"] { --state: var(--accent); --state-soft: var(--accent-soft); }
+.fcard[data-state="paused"] { --state: var(--warn); --state-soft: var(--warn-soft); }
+.fcard[data-state="needs"], .fcard[data-state="stopped"] { --state: var(--bad); --state-soft: var(--bad-soft); }
+.fcard[data-state="offline"] { --state: var(--muted); --state-soft: var(--surface-2); opacity: 0.8; }
+.fc-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.fc-top .grow { flex: 1; }
+.fc-ic { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; background: var(--state-soft); color: var(--state); flex: none; }
+.fcard[data-state="ejecting"] .fc-ic, .fcard[data-state="needs"] .fc-ic { animation: pulse 1.6s ease-in-out infinite; }
+.fc-name { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-host { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.fc-host .badge { font-size: 11px; padding: 0 7px; }
+.fc-state { display: grid; gap: 2px; }
+.fc-state b { color: var(--state); font-size: 14px; }
+.fc-state span { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.fc-file { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fcard .progress i { background: var(--state); }
+.fc-cam { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; background: var(--surface-2); display: block; }
+.fcard .chips { margin-top: 0; }
+.fc-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fc-acts .btn { flex: 1 1 auto; justify-content: center; }
+.fc-acts .btn.stop { flex: 0 0 auto; color: var(--bad); }
+.fc-acts .btn.stop:hover { background: var(--bad-soft); }
+.chip.bad { background: var(--bad-soft); border-color: transparent; color: var(--bad); }
+.chip.bad b { color: var(--bad); }
+.nav a .count.bad, .nav a.active .count.bad { background: var(--bad); color: #fff; }
+.scan-wait { display: flex; gap: 14px; align-items: flex-start; padding: 6px 0 4px; }
+.scan-wait .spinner { flex: none; margin-top: 2px; }
+.scan-wait p { margin: 4px 0 0; font-size: 13px; }
+.scan-list { max-height: 46vh; overflow-y: auto; margin-top: 8px; }
+.scan-list .row:first-child { border-top: 0; }
+.scan-list .row { cursor: pointer; }

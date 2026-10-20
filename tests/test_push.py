@@ -136,6 +136,14 @@ def test_test_notification_text():
     assert m["title"] == "Auto-eject" and m["body"] == "Notifications from your printer work."
 
 
+def test_a_farm_printer_names_itself_and_opens_the_farm():
+    sub = {"lang": "en", "url": "https://voron.example.ts.net/auto-eject/web/#/setup"}
+    note = ap.message_for("stuck", "a part is still on the bed", sub, printer="ender-2")
+    assert note["title"].startswith("ender-2 · ")
+    assert note["url"] == "https://voron.example.ts.net/auto-eject/web/#/farm"
+    assert note["tag"] != ap.message_for("stuck", "x", sub)["tag"]     # never replaces this printer's own
+
+
 def test_the_service_and_the_page_agree_on_what_notifies():
     from test_web import NODE, js
     if NODE is None:

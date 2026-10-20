@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""klipper-auto-eject: notifications in the installed web page (Web Push).
+"""klipper-auto-eject service: notifications (Web Push) and the farm.
 
 Runs on the printer next to Moonraker (install.sh --push). It watches the
 printer and sends a notification to every phone or computer that turned
@@ -17,6 +17,9 @@ in Moonraker's database, so this service needs no port of its own. It
 reads the printer over Moonraker's HTTP API on this machine. Messages are
 encrypted for each device (RFC 8291), so the push services cannot read them.
 
+It also runs the farm (farm.py): every Klipper printer on the network in the
+auto-eject page, with notifications from all of them.
+
 Needs Python 3.9+ and the cryptography package.
 """
 
@@ -26,6 +29,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -198,11 +202,15 @@ class Watcher:
         return events
 
 
-def message_for(kind, text, sub):
+def message_for(kind, text, sub, printer=None):
     lang = sub.get("lang") if sub.get("lang") in TITLES else "en"
     body = TEST_BODY[lang] if kind == "test" else text
-    return {"title": TITLES[lang].get(kind, "Auto-eject"), "body": body, "tag": "auto-eject-" + kind,
-            "url": sub.get("url") or ""}
+    title = TITLES[lang].get(kind, "Auto-eject")
+    url = sub.get("url") or ""
+    if printer:                    # another printer of the farm
+        title = "%s · %s" % (printer, title)
+        url = url.split("#")[0] + "#/farm" if url else ""
+    return {"title": title, "body": body, "tag": "auto-eject-%s-%s" % (printer or "here", kind), "url": url}
 
 
 # ----------------------------------------------------------------- Moonraker
@@ -228,28 +236,28 @@ class Moonraker:
     def console(self, count=50):
         return self._call("/server/gcode_store?count=%d" % count)["gcode_store"]
 
-    def get(self, key):
+    def get(self, key, namespace=NAMESPACE):
         try:
-            return self._call("/server/database/item?namespace=%s&key=%s" % (NAMESPACE, key))["value"]
+            return self._call("/server/database/item?namespace=%s&key=%s" % (namespace, key))["value"]
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 return None
             raise
 
-    def put(self, key, value):
-        self._call("/server/database/item", {"namespace": NAMESPACE, "key": key, "value": value})
+    def put(self, key, value, namespace=NAMESPACE):
+        self._call("/server/database/item", {"namespace": namespace, "key": key, "value": value})
 
-    def delete(self, key):
-        self._call("/server/database/item?namespace=%s&key=%s" % (NAMESPACE, key), method="DELETE")
+    def delete(self, key, namespace=NAMESPACE):
+        self._call("/server/database/item?namespace=%s&key=%s" % (namespace, key), method="DELETE")
 
 
-def deliver(events, moonraker, vapid, sender=send):
+def deliver(events, moonraker, vapid, sender=send, printer=None):
     subs = moonraker.get("subs") or {}
     for kind, text in events:
         for sid, sub in list(subs.items()):
             if kind == "complete" and not sub.get("jobs", True):
                 continue
-            status = sender(sub, message_for(kind, text, sub), vapid,
+            status = sender(sub, message_for(kind, text, sub, printer), vapid,
                             "high" if kind in PROBLEMS else "normal")
             log.info("%s -> %s: %s", kind, sub.get("name", sid), status)
             if status in (404, 410):          # the device turned them off or went away
@@ -262,12 +270,35 @@ def main():
     p.add_argument("--moonraker", default="http://127.0.0.1:7125")
     p.add_argument("--key", default=os.path.expanduser("~/.config/klipper-auto-eject/vapid.pem"))
     p.add_argument("--interval", type=float, default=2.0)
+    p.add_argument("--api-port", type=int, default=7128, help="the farm API on 127.0.0.1; 0 = no farm")
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     vapid = Vapid(args.key)
     moonraker = Moonraker(args.moonraker)
     watcher = Watcher()
     published = False
+    if args.api_port:
+        import farm as farm_mod
+        port = urllib.parse.urlsplit(args.moonraker).port or 7125
+
+        def farm_events(name, events):
+            try:
+                deliver(events, moonraker, vapid, printer=name)
+            except Exception as e:
+                log.info("farm notification failed: %s", e)
+
+        farm = farm_mod.Farm(moonraker, on_events=farm_events, local_port=port)
+        farm_mod.serve(farm, args.api_port)
+
+        def farm_loop():
+            while True:
+                try:
+                    farm.poll(watcher_factory=Watcher)
+                except Exception as e:
+                    log.debug("farm: %s", e)
+                time.sleep(3)
+        threading.Thread(target=farm_loop, daemon=True).start()
+        log.info("farm API on 127.0.0.1:%d", args.api_port)
     while True:
         try:
             if not published:

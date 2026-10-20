@@ -113,6 +113,12 @@ from the printer itself.
   ([crowsnest](https://github.com/mainsail-crew/crowsnest)). Add it in Mainsail's settings under
   **Webcams**, and the auto-eject page shows it on its overview.
 
+## Many printers
+
+Set up remote access on one printer only and add the others to its
+[printer farm](farm.md): you see them all from your phone through that one printer, without
+Tailscale on the others.
+
 ## Notifications
 
 `install.sh --push` sends a notification to the auto-eject app on your phone when the printer

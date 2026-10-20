@@ -106,6 +106,10 @@ to the internet ([docs/remote-access.md](docs/remote-access.md)). `install.sh --
 notification to the app on your phone when the printer needs you, even while it is closed
 ([docs/notifications.md](docs/notifications.md)).
 
+**A printer farm:** `install.sh --farm` on one printer puts every Klipper printer of your network
+on one page, the ones that need you first. It searches the network and adds them by itself; the
+other printers need nothing installed ([docs/farm.md](docs/farm.md)).
+
 ## The blade
 
 <p align="center">
@@ -194,6 +198,7 @@ All commands and options: [docs/commands.md](docs/commands.md).
 | [Safety](docs/safety.md) | [Slicer setup](docs/slicer-setup.md) | [Web page](docs/web-page.md) | [Troubleshooting](docs/troubleshooting.md) |
 | | | [Remote access](docs/remote-access.md) | |
 | | | [Notifications](docs/notifications.md) | |
+| | | [Printer farm](docs/farm.md) | |
 
 ## Contributing
 

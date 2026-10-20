@@ -619,5 +619,111 @@
     }
   };
 
+  /* --------------------------------------------------------------- farm */
+
+  // A pretend farm for the Farm tab: this demo printer and five others,
+  // two more to find when the network is searched.
+  const FARM = [
+    { id: "f1", name: "voron-01", host: "192.168.1.21", auto_eject: true, kind: "printing", file: "clips_x12_PLA_1h40m.gcode", time: 6000, at: 0.35, layers: 120 },
+    { id: "f2", name: "voron-02", host: "192.168.1.22", auto_eject: true, kind: "leftover", file: "hooks_x8_PETG.gcode", left: ["hook_3"] },
+    { id: "f3", name: "ender3-s1", host: "192.168.1.30", auto_eject: false, kind: "done", file: "bracket_PETG_2h5m.gcode" },
+    { id: "f4", name: "prusa-mk3s", host: "192.168.1.31", auto_eject: false, kind: "printing", file: "vase_PLA_4h.gcode", time: 14400, at: 0.82, layers: 610 },
+    { id: "f5", name: "sovol-sv06", host: "192.168.1.33", auto_eject: false, kind: "offline" }
+  ];
+  const FARM_FOUND = [{ host: "192.168.1.40", port: 7125, name: "trident-300", klippy: "ready" },
+                      { host: "192.168.1.41", port: 7125, name: "ender5-plus", klippy: "ready" }];
+
+  Demo.prototype.farmLocal = function () {
+    const st = this.status, ps = st.print_stats, ae = st["gcode_macro _AUTO_EJECT_STATE"];
+    let phase = "idle", reason = "";
+    if (st.webhooks.state !== "ready") { phase = "stopped"; reason = "shutdown"; }
+    else if (ae.busy) phase = "ejecting";
+    else if (ps.state === "printing") phase = "printing";
+    else if (ps.state === "paused") { phase = "paused"; reason = "paused"; }
+    else if ((ae.leftover || []).length) { phase = "needs"; reason = "leftover"; }
+    else if ((ae.objects || []).length) { phase = "needs"; reason = "parts"; }
+    else if (this.queue.state === "paused" && this.queue.jobs.length) { phase = "needs"; reason = "queue"; }
+    const progress = st.virtual_sdcard.progress || 0;
+    const info = ps.info || {};
+    return { id: "local", name: this.farmLocalName || "demo-printer", host: "127.0.0.1", local: true, auto_eject: true, camera: false,
+      phase, reason, state: ps.state, filename: ps.filename, message: phase === "stopped" ? st.webhooks.state_message : ps.message,
+      progress, eta: phase === "printing" && progress > 0.01 ? Math.round(ps.print_duration * (1 - progress) / progress) : null,
+      layer: info.current_layer, layers: info.total_layer, bed: st.heater_bed.temperature, bed_target: st.heater_bed.target,
+      nozzle: st.extruder.temperature, parts: (ae.objects || []).length, leftover: ae.leftover || [],
+      jobs: this.queue.jobs.length, queue: this.queue.state };
+  };
+
+  Demo.prototype.farmCard = function (f) {
+    const now = Date.now() / 1000;
+    if (!this.farmStart) this.farmStart = now;
+    const base = { id: f.id, name: f.name, host: f.host, local: false, auto_eject: f.auto_eject, camera: false,
+      page: "http://" + f.host + (f.auto_eject ? "/auto-eject/" : "/"), parts: 0, leftover: [], jobs: f.jobs || 0, queue: "ready" };
+    if (f.kind === "offline") return Object.assign(base, { phase: "offline" });
+    const card = Object.assign(base, { state: "standby", filename: f.file || "", message: "", bed: 23, bed_target: 0, nozzle: 24, progress: 0, eta: null });
+    if (f.kind === "printing") {
+      // a print that runs 40 times faster than a real one, then starts again
+      const p = (f.at + (now - (f.start || this.farmStart)) * 40 / f.time) % 1;
+      return Object.assign(card, { phase: "printing", reason: "", state: "printing", progress: p, eta: Math.round(f.time * (1 - p)),
+        layer: Math.max(1, Math.round(p * f.layers)), layers: f.layers, bed: 60, bed_target: 60, nozzle: 215, jobs: 3 });
+    }
+    if (f.kind === "leftover") return Object.assign(card, { phase: "needs", reason: "leftover", state: "complete", leftover: f.left, parts: 8, queue: "paused", jobs: 4 });
+    if (f.kind === "done") return Object.assign(card, { phase: "needs", reason: "done", state: "complete", progress: 1 });
+    return Object.assign(card, { phase: "idle", reason: "", filename: "" });
+  };
+
+  // What the farm API (push/farm.py) answers, for the demo's Farm tab.
+  Demo.prototype.farm = function (path, body) {
+    const ok = (v) => new Promise((resolve) => setTimeout(() => resolve(v), 120));
+    const fail = (msg) => new Promise((resolve, reject) => setTimeout(() => reject(new Error(msg)), 120));
+    if (!this.farmList) { this.farmList = FARM.map((f) => Object.assign({}, f)); this.farmScan = { running: false, found: [], finished: null }; }
+    if (path === "") return ok({ printers: [this.farmLocal()].concat(this.farmList.map((f) => this.farmCard(f))), scan: this.farmScan });
+    if (path === "/scan") {
+      this.farmScan = { running: true, found: [], finished: null };
+      setTimeout(() => {
+        const have = new Set(this.farmList.map((f) => f.host));
+        this.farmScan = { running: false, found: FARM_FOUND.filter((f) => !have.has(f.host)), finished: Date.now() / 1000 };
+      }, 3500);
+      return ok({ started: true });
+    }
+    if (path === "/printers") {
+      if (body.add) {
+        const added = [];
+        for (const e of body.add) {
+          const host = String(e.host || "").split(":")[0];
+          if (!/^[A-Za-z0-9][A-Za-z0-9.-]*$/.test(host)) return fail("not an address: " + e.host);
+          if (!e.name && !FARM_FOUND.some((f) => f.host === host)) return fail("no printer answers at " + host);
+          if (this.farmList.some((f) => f.host === host)) continue;
+          const id = "n" + host.replace(/\D/g, "");
+          this.farmList.push({ id, name: e.name || (FARM_FOUND.find((f) => f.host === host) || {}).name || host, host, auto_eject: false, kind: "idle" });
+          added.push(id);
+        }
+        this.farmScan.found = this.farmScan.found.filter((f) => !this.farmList.some((x) => x.host === f.host));
+        return ok({ added });
+      }
+      if (body.remove) { this.farmList = this.farmList.filter((f) => f.id !== body.remove); return ok({ removed: true }); }
+      if (body.rename) {
+        const f = body.rename === "local" ? null : this.farmList.find((x) => x.id === body.rename);
+        if (body.rename === "local") this.farmLocalName = String(body.name || "").trim();
+        else if (f) f.name = String(body.name || "").trim() || f.host;
+        return ok({ renamed: true });
+      }
+    }
+    const m = /^\/([^/]+)\/(continue|clear|estop)$/.exec(path);
+    if (m) {
+      if (m[1] === "local") {
+        if (m[2] === "estop") return this.call("printer.emergency_stop").then((r) => ({ result: r }));
+        if (m[2] === "continue") return this.call("server.job_queue.start").then((r) => ({ result: r }));
+        return this.gcode("AUTO_EJECT_CLEAR").then((r) => ({ result: r }));
+      }
+      const f = this.farmList.find((x) => x.id === m[1]);
+      if (!f) return fail("not found");
+      if (m[2] === "clear") f.kind = "idle";
+      if (m[2] === "estop") f.kind = "offline";
+      if (m[2] === "continue") { f.kind = "printing"; f.file = f.file || "next_job.gcode"; f.time = 5400; f.at = 0; f.layers = 90; f.start = Date.now() / 1000; }
+      return ok({ result: "ok" });
+    }
+    return fail("not found");
+  };
+
   root.AEDemo = Demo;
 })(window);
