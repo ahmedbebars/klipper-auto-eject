@@ -86,10 +86,18 @@ trusted_clients:
 
 ## Who can control the printer
 
-Every device on your Tailscale network. If you share that network with other people, or run
-servers on it, allow only your own devices: in `trusted_clients`, list their addresses
-(`100.x.y.z`, shown in the Tailscale app) instead of `100.64.0.0/10`, or limit who can reach
-the printer with [Tailscale access controls](https://tailscale.com/kb/1018/acls).
+Every device on your Tailscale network, and nothing else. Someone who learns the address cannot
+use it: the `https://….ts.net` name has no address on the public internet (it appears in public
+certificate logs, as every HTTPS name does, but that gives no way in), and the `100.…` address
+can only be reached through your Tailscale network. `tailscale serve status` should say
+**tailnet only**. Never turn on `tailscale funnel` for the printer: Funnel publishes it to the
+whole internet.
+
+If you share your Tailscale network with other people, or run servers on it, let only your own
+devices reach the printer with [Tailscale access controls](https://tailscale.com/kb/1018/acls).
+Listing your devices' addresses (`100.x.y.z`) in `trusted_clients` instead of `100.64.0.0/10`
+only covers the `100.…` address: through the HTTPS address Moonraker sees every request coming
+from the printer itself.
 
 ## Phone apps and the camera
 
