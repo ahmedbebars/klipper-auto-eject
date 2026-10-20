@@ -158,6 +158,7 @@ Points the toolhead cannot reach are skipped.
 | `verify_probe_gcode` | `"PROBE"` | Command run at each verification point. Eddy probes need their contact/touch command here, otherwise verification is skipped with a warning |
 | `home_z_gcode` | `"PROBE"` | Command `AUTO_EJECT HOME=1` uses to find Z at the chosen spot. With `"PROBE"`, Z is set from the probe result. Any other command must home Z by itself at the current XY |
 | `nozzle_clearance` | `5.0` | Offset probes: while probing, the nozzle stays at least this far from where any part was |
+| `nozzle_probe_max_temp` | `150.0` | Probes that touch the bed with the nozzle (Voron Tap, eddy touch modes): wait until the nozzle is this cool, in °C, before touching the bed, so a hot nozzle does not mark the print sheet. `0` = do not wait |
 | `verify_unsafe_action` | `"error"` | A part that cannot be probed without the nozzle passing over a part: `"error"` stops, `"skip"` warns |
 
 See [probes.md](probes.md) for how offset and eddy-current probes are handled.

@@ -528,9 +528,9 @@
         out.push("EXCLUDE_OBJECT_DEFINE NAME=" + pn + " CENTER=" + r[5] + "," + r[6] + " POLYGON=" + JSON.stringify(poly));
       }
     }
-    out.push("PRINT_START BED=55 EXTRUDER=215", "G1 X10 Y10 Z0.2", "; ... the print ...", "; EXECUTABLE_BLOCK_END");
-    if (f.eject) out.push("AUTO_EJECT HEIGHT=" + f.height.toFixed(2));
-    out.push("PRINT_END", "; CONFIG_BLOCK_START", "; machine_end_gcode = PRINT_END", "; CONFIG_BLOCK_END");
+    out.push("PRINT_START BED=55 EXTRUDER=215", "G1 X10 Y10 Z0.2", "; ... the print ...", "PRINT_END");
+    if (f.eject) out.push("AUTO_EJECT HEIGHT=" + f.height.toFixed(2) + " HOME=1");
+    out.push("; EXECUTABLE_BLOCK_END", "; CONFIG_BLOCK_START", "; machine_end_gcode = PRINT_END", "; CONFIG_BLOCK_END");
     return out.join("\n");
   };
 

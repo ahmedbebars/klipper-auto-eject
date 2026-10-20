@@ -80,8 +80,8 @@ to check that it worked. In short:
 5. **Run the guided setup:** type `AUTO_EJECT_SETUP` in the console and press the buttons.
    With Voron Tap the printer measures the blade by itself ([with pictures](docs/setup-wizard.md)).
 6. **Watch a test:** print two or three test cubes, leave them on the bed, and run `AUTO_EJECT`.
-7. **Slicer:** turn on *Label objects* and add `AUTO_EJECT HEIGHT=[max_layer_z]` to the end
-   G-code, above your end macro ([slicer-setup.md](docs/slicer-setup.md)).
+7. **Slicer:** turn on *Label objects* and add `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1` to the
+   end G-code, below your end macro ([slicer-setup.md](docs/slicer-setup.md)).
 8. **Print in a row:** turn on Moonraker's job queue and queue as many prints as you like.
 
 ## The web page

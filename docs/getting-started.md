@@ -244,10 +244,10 @@ The slicer has to do two things: write down where each part is (**object labels*
 **OrcaSlicer**
 
 1. *Process → Others → G-code output*: turn on **Label objects** and **Exclude objects**.
-2. *Printer settings → Machine G-code → Machine end G-code*: add this line **above** what is
+2. *Printer settings → Machine G-code → Machine end G-code*: add this line **below** what is
    already there:
    ```gcode
-   AUTO_EJECT HEIGHT=[max_layer_z]
+   AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
    ```
 
 **PrusaSlicer / SuperSlicer:** *Print Settings → Output options → Label objects:
@@ -257,8 +257,9 @@ Firmware-specific*, and the same end G-code line.
 `HEIGHT=[max_layer_z]` tells the printer how tall the print is, so flat prints like stencils,
 which the blade cannot catch, are left on the bed for you instead of being pushed.
 
-> Your end macro may turn the motors off or park the toolhead. `AUTO_EJECT` must run **before**
-> that, which is why it goes above it. Using DEMON, Klippain or a custom `PRINT_END`? See
+> Your end macro retracts the filament while the nozzle is hot. `AUTO_EJECT` lets the nozzle
+> cool, so it must run **after** that, which is why it goes below it. `HOME=1` homes the printer
+> again around the parts if the end macro turned the motors off. More in
 > [integration.md](integration.md).
 
 **It worked if** the next print clears the bed by itself when it finishes.

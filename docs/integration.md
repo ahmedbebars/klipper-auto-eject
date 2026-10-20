@@ -2,75 +2,84 @@
 
 # Integration
 
-`AUTO_EJECT` must run **while the printer is still homed**, before anything turns the steppers
-off (`M84`) or runs a park routine that assumes the print is done. In practice, that means early
-in your print end macro, or just before it.
+Where `AUTO_EJECT` goes depends on one thing your end macro almost certainly does: it
+**retracts the filament** (`G1 E-2` or similar). `AUTO_EJECT` turns the hotend off and cools the
+bed for several minutes, and Klipper refuses to move the filament once the nozzle is below
+`min_extrude_temp` ("Extrude below minimum temp"). An end macro that runs after `AUTO_EJECT`
+would stop there: the print ends with an error and the job queue stops.
 
-> Never let the end sequence home the printer with parts still on the bed: homing Z on a
-> part gives a wrong Z height, and the next push would hit the bed. `AUTO_EJECT` refuses to run
-> when the printer is not homed for exactly this reason.
+So run `AUTO_EJECT` after the retract. There are two ways:
 
-## Simplest: slicer end G-code
+| Where | Use it when |
+|---|---|
+| [After your end macro, with `HOME=1`](#after-the-end-macro-recommended) | You don't want to change your macros (DEMON, Klippain, RatOS, stock Voron). Z must home with the probe |
+| [Inside your own end macro](#inside-your-own-print_end), after the retract | You write your own `PRINT_END`, or Z homes with a switch |
 
-This works with any macro set (stock, KAMP, Klippain, RatOS and others). Put `AUTO_EJECT` in the
-slicer's end G-code **before** your end macro:
+> Never home Z on a part: the probe would measure the part, not the bed, and the next push
+> would hit the bed. `AUTO_EJECT` refuses to run on an unhomed printer, and `HOME=1` homes Z on
+> a free spot inside the bed mesh, away from every part.
 
-```
-AUTO_EJECT
+## After the end macro (recommended)
+
+Slicer end G-code:
+
+```gcode
 PRINT_END
+AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
 ```
+
+Use your end macro's name (`DEMON_END`, `END_PRINT`, …). The end macro retracts while the nozzle
+is hot, parks, turns the heaters off and usually the motors too. Then `AUTO_EJECT HOME=1`:
+
+1. homes X and Y, and homes Z with the probe on a free spot inside the `[bed_mesh]` area, on the
+   print sheet;
+2. with a nozzle probe (Voron Tap), first waits for the nozzle to cool to
+   `nozzle_probe_max_temp` (150 °C), so it does not mark the sheet;
+3. cools the bed, pushes the parts off and checks the bed, as always.
+
+Needs Z to home with the probe (`endstop_pin: probe:z_virtual_endstop`) and `[force_move]`
+with `enable_force_move: True`. If Z homes with a switch that sits off the bed, set
+`home_method: "g28"`. If the switch is on the bed, use the next method instead.
 
 You can keep a second printer profile in the slicer without the `AUTO_EJECT` line for prints
 you want to remove by hand.
 
-## Generic `PRINT_END`
+## Inside your own `PRINT_END`
 
-Add `AUTO_EJECT` before the heaters are turned off and before `M84`:
+Add `AUTO_EJECT` after the retract and before the heaters and motors are turned off:
 
 ```ini
 [gcode_macro PRINT_END]
 gcode:
     G91
-    G1 E-2 F2700          ; retract
+    G1 E-2 F2700          ; retract while the nozzle is hot
     G1 Z5 F600            ; lift off the part
     G90
     {% if params.EJECT|default(0)|int == 1 %}
-      AUTO_EJECT
+      AUTO_EJECT {% if params.HEIGHT is defined %}HEIGHT={params.HEIGHT}{% endif %}
     {% endif %}
     TURN_OFF_HEATERS
     M107
     M84
 ```
 
-Slicer end G-code: `PRINT_END EJECT=1`. Leave `EJECT` out on prints you want to remove by hand.
+Slicer end G-code: `PRINT_END EJECT=1 HEIGHT=[max_layer_z]`. Leave `EJECT` out on prints you
+want to remove by hand. The printer is still homed, so no `HOME=1` is needed.
 
 ## DEMON Klipper Essentials
 
-`DEMON_END` parks and runs `M84`, so use the `_CUSTOM_PRE_END` hook, which runs first and
-receives the parameters passed to `DEMON_END`.
+`DEMON_END` retracts at its start (also after its `_CUSTOM_PRE_END` hook), so a hook that runs
+`AUTO_EJECT` hits the cold-nozzle error. Use the slicer end G-code instead:
 
-1. In `Demon_User_Files/demon_custom_expansion_*.cfg`, turn the hooks on:
-   ```ini
-   variable_ceal_master_enable: True
-   variable_pre_end: True
-   ```
-   Hooks only run when their flag is `True`. Turning on the master switch does **not** enable
-   the others.
-2. In the same file:
-   ```ini
-   [gcode_macro _CUSTOM_PRE_END]
-   gcode:
-     {% if params.EJECT|default(0)|int == 1 %}
-       AUTO_EJECT
-     {% endif %}
-   ```
-3. Slicer end G-code: `DEMON_END EJECT=1`.
+```gcode
+DEMON_END
+AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
+```
 
-## Klippain and other macro sets
+## Klippain, RatOS and other macro sets
 
-Use the [slicer end G-code](#simplest-slicer-end-g-code) method, which needs no changes to the
-macro set. If your macro set offers a hook that runs at the start of its end macro, before the
-park and `M84`, calling `AUTO_EJECT` there works too.
+The same: put `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1` in the slicer end G-code after the end
+macro. The web page's **Check a file** warns when a file runs `AUTO_EJECT` before another macro.
 
 ## Moonraker job queue
 

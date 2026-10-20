@@ -8,7 +8,7 @@ Every slicer needs three things for auto-eject:
 |:-:|---|---|
 | 1 | **Object labels** in the G-code | `AUTO_EJECT` plans the sweep from the part outlines |
 | 2 | **Start G-code** with `AUTO_EJECT_GUARD` and `EJECT_PURGE` | Never print on old parts. A purge pellet the sweep can remove |
-| 3 | **End G-code** with `AUTO_EJECT` | Runs while the printer is still homed, before your end macro |
+| 3 | **End G-code** with `AUTO_EJECT ... HOME=1` | Runs after your end macro, which retracts the filament while the nozzle is still hot |
 
 The examples call your start macro `PRINT_START` and your end macro `PRINT_END`. Use the names
 your configuration uses (`START_PRINT`, `DEMON_START`, …).
@@ -46,13 +46,16 @@ EJECT_PURGE
 **Machine end G-code**
 
 ```gcode
-AUTO_EJECT HEIGHT=[max_layer_z]
 PRINT_END
+AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
 ```
 
 `M104 S0` / `M140 S0` before the macro stop Orca from adding its own heat-and-wait commands.
 `HEIGHT=[max_layer_z]` passes the print height, so stencils and other
-[thin prints](configuration.md#thin-parts) are recognised and left alone.
+[thin prints](configuration.md#thin-parts) are recognised and left alone. `AUTO_EJECT` goes
+**after** the end macro: end macros retract the filament, which Klipper refuses once the nozzle
+has cooled, and `HOME=1` homes again around the parts if the end macro turned the motors off
+([integration.md](integration.md)).
 
 ---
 
@@ -75,8 +78,8 @@ EJECT_PURGE
 **End G-code**
 
 ```gcode
-AUTO_EJECT HEIGHT=[max_layer_z]
 PRINT_END
+AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
 ```
 
 ---
@@ -96,8 +99,8 @@ Using these variables stops Cura from inserting its own heating commands.
 **End G-code**
 
 ```gcode
-AUTO_EJECT
 PRINT_END
+AUTO_EJECT HOME=1
 ```
 
 **Object labels:** see the next section.
@@ -138,11 +141,12 @@ The same file then works on a printer without the blade fitted.
 
 ## DEMON Klipper Essentials
 
-`DEMON_END` parks and turns the motors off, so pass a parameter instead and let the
-`_CUSTOM_PRE_END` hook call `AUTO_EJECT` ([integration.md](integration.md#demon-klipper-essentials)):
+`DEMON_END` retracts the filament, so `AUTO_EJECT` goes after it
+([integration.md](integration.md#demon-klipper-essentials)):
 
 ```gcode
-DEMON_END EJECT=1
+DEMON_END
+AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
 ```
 
 ## Check the G-code
@@ -153,7 +157,7 @@ After slicing, open the G-code and search for:
 |---|---|
 | `EXCLUDE_OBJECT_DEFINE` | Object labels are in the file |
 | `EJECT_PURGE` | The pellet purge is in the start G-code |
-| `AUTO_EJECT` near the end | The eject runs after the print |
+| `AUTO_EJECT` after your end macro | The eject runs after the print |
 
 If the labels are missing and Moonraker object processing is on, check the file in Mainsail or
 Fluidd: the *Exclude objects* button appears during the print once it has been processed.
@@ -170,5 +174,5 @@ automatic_transition: True
 job_transition_delay: 5
 ```
 
-Don't put `AUTO_EJECT` in `job_transition_gcode`: by then the end macro has usually turned the
-motors off, and `AUTO_EJECT` refuses to run on an unhomed printer.
+Don't put `AUTO_EJECT` in `job_transition_gcode`: Moonraker runs it only between two queued
+jobs, so the last print of the queue would stay on the bed.

@@ -210,8 +210,13 @@ class Printer:
         th = self.status["toolhead"]
         if cmd in ("G0", "G1"):
             self.moving = True
-        elif cmd in ("M400", "G4", "G28", "PROBE"):
+        elif cmd in ("M400", "G4", "G28", "PROBE", "TEMPERATURE_WAIT"):
             self.moving = False      # these wait until every move is done
+        if cmd == "TEMPERATURE_WAIT":
+            w = dict(a.split("=", 1) for a in shlex.split(raw))
+            sensor = self.status.get(w["SENSOR"], {})
+            if "MAXIMUM" in w and sensor.get("temperature", 0.0) > float(w["MAXIMUM"]):
+                sensor["temperature"] = float(w["MAXIMUM"])
         if cmd == "SET_GCODE_VARIABLE":
             p = dict(a.split("=", 1) for a in shlex.split(raw))
             macro = "gcode_macro " + p["MACRO"]

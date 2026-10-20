@@ -6,7 +6,19 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+- **`AUTO_EJECT` now goes after your end macro**, as `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1`.
+  End macros retract the filament (`G1 E-2`), and once `AUTO_EJECT` had let the nozzle cool,
+  Klipper refused that retract ("Extrude below minimum temp"): the print ended with an error and
+  the job queue stopped. After the end macro, `HOME=1` homes again around the parts if the motors
+  were turned off. Your own `PRINT_END` can instead call it after its retract. See
+  `docs/integration.md`; the DEMON `_CUSTOM_PRE_END` hook method is gone for the same reason.
+
 ### Added
+- Probes that touch the bed with the nozzle (Voron Tap, eddy touch modes) wait for the nozzle to
+  cool to `nozzle_probe_max_temp` (150 °C) before homing Z or checking the bed, so a nozzle the end
+  macro has only just turned off does not mark the print sheet.
+- The web page's **Check a file** warns when a file runs `AUTO_EJECT` before another macro.
 - A web page for the printer's web interface, with its own entry in the Mainsail sidebar
   (`install.sh --web`, see `docs/web-page.md`). It shows the printer's state and a live map of
   the bed with the parts, the push lanes and the toolhead; ejects, dry-runs or forgets the parts
@@ -30,6 +42,8 @@ All notable changes to this project are documented here. The format is based on
   of the bed full, it probed the bare plate at the front, among its holes, and every height after
   that was 0.6 mm off. With a `[bed_mesh]` the spot now stays inside the mesh area (`mesh_min` /
   `mesh_max`, or `mesh_radius` on a round bed), where the probe is known to work.
+- `auto_eject.cfg` held six copies of the last lines of its defaults. Klipper ignored them (the
+  values were the same), and a test now makes sure no option is given twice.
 
 ### Documentation
 - A project website built from `docs/` with MkDocs Material (`mkdocs.yml`, `website/`): a home

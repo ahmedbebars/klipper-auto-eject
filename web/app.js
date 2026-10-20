@@ -980,7 +980,7 @@
               } }, icon("plus"), t("queue.add_button")))),
           h("section", { class: "card" },
             h("p", { class: "note" }, icon(app.autoTransition ? "ok" : "info"), h("span", { text: app.autoTransition ? t("queue.auto_on") : t("queue.auto_off") })),
-            h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", null, t("guide.slicer"), " ", h("code", { class: "ltr", text: "AUTO_EJECT HEIGHT=[max_layer_z]" })))))));
+            h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", null, t("guide.slicer"), " ", h("code", { class: "ltr", text: "AUTO_EJECT HEIGHT=[max_layer_z] HOME=1" })))))));
     return { el };
   }
   viewQueue.sig = function () {
@@ -1186,7 +1186,7 @@
     blade_offset: "mm", blade_width: "mm", column_overlap: "mm", head_depth: "mm", side_margin: "mm", push_z: "mm",
     blade_clearance: "mm", rear_clearance: "mm", z_hop: "mm", min_safe_z: "mm", push_z_min: "mm", cool_temp: "°C",
     cool_timeout: "s", cool_time: "s", min_part_height: "mm", verify_z: "mm", home_clearance: "mm", home_edge_margin: "mm",
-    nozzle_clearance: "mm", purge_height: "mm", purge_start_z: "mm", purge_retract: "mm", purge_gap: "mm",
+    nozzle_clearance: "mm", nozzle_probe_max_temp: "°C", purge_height: "mm", purge_start_z: "mm", purge_retract: "mm", purge_gap: "mm",
     purge_edge_margin: "mm", filament_diameter: "mm", blade_lift: "mm", push_end: "mm"
   };
 
@@ -1290,7 +1290,7 @@
       head("guide.title", "guide.intro", h("a", { class: "btn", href: DOCS + "#readme", target: "_blank", rel: "noopener" }, icon("external"), t("guide.docs"))),
       h("section", { class: "card guide-hero" }, h("img", { src: "../docs/images/how-it-works.svg", alt: t("guide.title"), loading: "lazy" }),
         h("p", { class: "note", style: { marginTop: "14px" } }, icon("info"), h("span", null, t("guide.slicer"))),
-        h("div", { class: "codeblock", text: "AUTO_EJECT HEIGHT=[max_layer_z]" })),
+        h("div", { class: "codeblock", text: "PRINT_END\nAUTO_EJECT HEIGHT=[max_layer_z] HOME=1" })),
       h("section", { class: "card" }, h("h2", null, icon("wand"), t("guide.steps")),
         h("div", { class: "steps" }, steps.map((st, i) => h("figure", null,
           h("img", { src: "../docs/images/setup/" + st[0] + ".svg", alt: t("guide." + st[1]), loading: "lazy" }),

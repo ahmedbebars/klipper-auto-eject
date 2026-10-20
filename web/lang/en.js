@@ -140,7 +140,8 @@ window.AE_LANG("en", "English", "ltr", {
   "check.labels_ok": "The parts are labelled: {n}",
   "check.labels_bad": "The parts are not labelled. Turn on Label objects (Exclude objects) in your slicer.",
   "check.line_ok": "The end G-code runs {cmd}",
-  "check.line_bad": "No AUTO_EJECT found in the end G-code. Add AUTO_EJECT HEIGHT=[max_layer_z] before your end macro, unless your end macro runs it.",
+  "check.line_bad": "No AUTO_EJECT found in the end G-code. Add AUTO_EJECT HEIGHT=[max_layer_z] HOME=1 after your end macro, unless your end macro runs it.",
+  "check.line_order": "{cmd} runs before {macro}. End macros usually retract the filament, which Klipper refuses once the nozzle has cooled, so the print would end with an error. Put it after: {macro}, then AUTO_EJECT HEIGHT=[max_layer_z] HOME=1.",
   "check.height_ok": "{h} mm tall: tall enough for the blade",
   "check.thin": "Only {h} mm tall, lower than min_part_height ({m} mm): it is left on the bed for you",
   "check.reach_ok": "The blade gets behind every part ({n} pushes)",
@@ -218,7 +219,7 @@ window.AE_LANG("en", "English", "ltr", {
   "guide.s5": "Pick the cooling temperature and save.",
   "guide.s6": "Watch the first eject.",
   "guide.docs": "Full documentation",
-  "guide.slicer": "In the slicer's end G-code, before your end macro:",
+  "guide.slicer": "In the slicer's end G-code, after your end macro:",
 
   "c.cancel": "Cancel",
   "c.close": "Close",

@@ -41,3 +41,12 @@ def test_settings_file_overrides_defaults_and_saved_values_override_both():
     p.status["gcode_macro _AUTO_EJECT_OVERRIDES"]["data"] = {"push_z": 2.2}
     lines = p.execute("AUTO_EJECT", COOL=0, VERIFY=0)
     assert "G1 Z2.2 F600" in lines
+
+
+def test_no_option_is_given_twice():
+    # Klipper keeps the last of two equal options without a word, so a
+    # copy left by an edit would go unnoticed
+    for name in ("auto_eject.cfg", "auto_eject_settings.cfg"):
+        text = (CONFIG_DIR / name).read_text(encoding="utf-8")
+        lines = "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+        configparser.RawConfigParser(strict=True).read_string(lines, name)

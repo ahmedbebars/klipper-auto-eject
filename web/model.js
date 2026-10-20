@@ -286,6 +286,21 @@
     return null;
   }
 
+  // The first macro after AUTO_EJECT in the end G-code, like PRINT_END, or
+  // null. End macros usually retract the filament, which Klipper refuses
+  // once AUTO_EJECT has let the nozzle cool.
+  const HARMLESS = /^(?:[GMT]\d+|SET_\w+|TURN_OFF_HEATERS|BED_MESH_CLEAR|RESPOND|SAVE_VARIABLE|UPDATE_DELAYED_GCODE|EXCLUDE_OBJECT\w*|TIMELAPSE_\w+|AUTO_EJECT\w*)$/i;
+  function macroAfterEject(text) {
+    let seen = false;
+    for (const l of String(text).split(/\r?\n/)) {
+      const word = l.split(";")[0].trim().split(/\s+/)[0];
+      if (!word) continue;
+      if (!seen) seen = /^AUTO_EJECT$/i.test(word);
+      else if (!HARMLESS.test(word)) return word.toUpperCase();
+    }
+    return null;
+  }
+
   // Slicers write the print height in the header or the config block.
   function findHeight(text) {
     const pats = [/^;\s*max_z_height:\s*([\d.]+)/im, /^;\s*Max Z:\s*([\d.]+)/im, /^;MAXZ:\s*([\d.]+)/im];
@@ -310,8 +325,10 @@
     const checks = [];
     checks.push(records.length ? { ok: "ok", key: "check.labels_ok", vars: { n: records.length } }
                                : { ok: "bad", key: "check.labels_bad" });
-    checks.push(command ? { ok: "ok", key: "check.line_ok", vars: { cmd: command } }
-                        : { ok: "warn", key: "check.line_bad" });
+    const after = command ? macroAfterEject(tail) : null;
+    checks.push(!command ? { ok: "warn", key: "check.line_bad" }
+      : after ? { ok: "warn", key: "check.line_order", vars: { cmd: command, macro: after } }
+      : { ok: "ok", key: "check.line_ok", vars: { cmd: command } });
     if (height > 0) {
       checks.push(thin ? { ok: "warn", key: "check.thin", vars: { h: fmt(height), m: fmt(s.min_part_height) } }
                        : { ok: "ok", key: "check.height_ok", vars: { h: fmt(height) } });
@@ -409,7 +426,7 @@
 
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
-    planPushes, probeKind, parseObjectDefines, findEjectCommand, findHeight, checkFile,
+    planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

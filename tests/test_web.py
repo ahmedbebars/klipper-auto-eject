@@ -167,11 +167,12 @@ EXCLUDE_OBJECT_DEFINE NAME=ring CENTER=200,120 POLYGON=[[180,100],[220,100],[220
 PRINT_START
 """
 GCODE_TAIL = """G1 X10 Y10
-; EXECUTABLE_BLOCK_END
-AUTO_EJECT HEIGHT=15.50 ; clear the bed
 PRINT_END
+M84
+AUTO_EJECT HEIGHT=15.50 HOME=1 ; clear the bed
+; EXECUTABLE_BLOCK_END
 ; CONFIG_BLOCK_START
-; machine_end_gcode = AUTO_EJECT HEIGHT=[max_layer_z]\\nPRINT_END
+; machine_end_gcode = PRINT_END\\nAUTO_EJECT HEIGHT=[max_layer_z] HOME=1
 ; CONFIG_BLOCK_END
 """
 
@@ -188,12 +189,23 @@ def test_check_a_good_file():
     assert r["verdict"] == "ok"
     assert [o["name"] for o in r["objects"]] == ["star", "ring"]
     assert r["height"] == 15.5
-    assert r["command"] == "AUTO_EJECT HEIGHT=15.50"
+    assert r["command"] == "AUTO_EJECT HEIGHT=15.50 HOME=1"
+
+
+@needs_node
+def test_auto_eject_before_the_end_macro_is_flagged():
+    # the end macro's retract would fail on the nozzle AUTO_EJECT let cool
+    tail = GCODE_TAIL.replace("PRINT_END\nM84\nAUTO_EJECT HEIGHT=15.50 HOME=1 ; clear the bed\n",
+                              "AUTO_EJECT HEIGHT=[max_layer_z]\n; printing object ENDGCODE\nDEMON_END\n")
+    r = check(GCODE_HEAD, tail)
+    order = [c for c in r["checks"] if c["key"] == "check.line_order"]
+    assert order and order[0]["vars"]["macro"] == "DEMON_END"
+    assert r["verdict"] == "warn"
 
 
 @needs_node
 def test_auto_eject_only_in_the_config_block_does_not_count():
-    tail = GCODE_TAIL.replace("AUTO_EJECT HEIGHT=15.50 ; clear the bed\n", "")
+    tail = GCODE_TAIL.replace("AUTO_EJECT HEIGHT=15.50 HOME=1 ; clear the bed\n", "")
     r = check(GCODE_HEAD, tail)
     assert r["command"] is None
     assert r["verdict"] == "warn"

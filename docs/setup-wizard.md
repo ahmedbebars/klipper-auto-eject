@@ -109,8 +109,9 @@ for you, to 60 % of your motors' `run_current`.
 
 <p align="center"><img src="images/setup/6-first-eject.svg" alt="Your first real eject" width="900"></p>
 
-After that, put `AUTO_EJECT HEIGHT=[max_layer_z]` in your slicer's end G-code
-([slicer-setup.md](slicer-setup.md)), and the printer clears the bed after every print.
+After that, put `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1` in your slicer's end G-code, after
+your end macro ([slicer-setup.md](slicer-setup.md)), and the printer clears the bed after every
+print.
 
 ## Automatic blade measurement
 

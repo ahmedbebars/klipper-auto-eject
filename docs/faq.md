@@ -69,8 +69,9 @@ Yes, the setup dialogs work in both. The web page works too; Fluidd just has no 
 for it, so bookmark `http://<printer>/auto-eject/`.
 
 **Does it work with my print start/end macros (DEMON, Klippain, RatOS…)?**
-Yes. Put `AUTO_EJECT` in the slicer's end G-code before your end macro. Notes for each macro set
-are in [integration.md](integration.md).
+Yes. Put `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1` in the slicer's end G-code **after** your end
+macro, which retracts the filament while the nozzle is still hot. Details in
+[integration.md](integration.md).
 
 ## When something goes wrong
 
