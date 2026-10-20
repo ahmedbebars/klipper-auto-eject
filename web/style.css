@@ -227,6 +227,8 @@ code { background: var(--surface-2); border: 1px solid var(--border); border-rad
   .btn { min-height: 40px; }
 }
 
+.switch-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.switch-row input { width: 18px; height: 18px; accent-color: var(--accent); }
 .card .sub-head { font-size: 13px; margin: 18px 0 8px; color: var(--muted); font-weight: 600; }
 
 /* -------------------------------------------------------------- parts */

@@ -26,6 +26,13 @@ All notable changes to this project are documented here. The format is based on
   bars; a service worker keeps a copy of its own files, so it opens and shows that the printer is
   unreachable without a connection. On phones the sections move to a tab bar at the bottom, and the
   page keeps clear of notches and the home indicator.
+- **Notifications in the app, even while it is closed** (Web Push): `install.sh --push` installs
+  the `auto-eject-push` service (`push/auto_eject_push.py`), which watches the printer through
+  Moonraker and sends each notification, encrypted for that device (RFC 8291, VAPID), to the push
+  service of every phone or computer that turned them on in the app. Devices subscribe through
+  Moonraker's database, so the service needs no port; Moonraker restarts it after updates. Each
+  device chooses whether it also wants every finished print. Android, iPhone (iOS 16.4+, from the
+  Home Screen) and desktop browsers.
 - **Notifications on your phone**: `install.sh --notify` sets up ntfy through Moonraker's
   `[notifier]` (a random topic, kept when run again, and an optional notification for every finished
   print); the new `notify` setting sends auto-eject's own messages: a part still on the bed, parts

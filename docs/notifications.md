@@ -15,7 +15,50 @@ A message on your phone when the printer needs you, and, if you like, when every
 
 Tapping a notification opens the auto-eject page.
 
-## Set it up (about 5 minutes)
+There are two ways to get them:
+
+| | [In the auto-eject app](#in-the-auto-eject-app-recommended) | [With ntfy](#with-ntfy) |
+|---|---|---|
+| Another app on the phone | No: the notifications come from the auto-eject app | The free ntfy app |
+| While the app is closed | Yes | Yes |
+| Needs | HTTPS ([remote-access.md](remote-access.md#https)), `sudo` once | Nothing else |
+| Who can read the messages | Only your devices: encrypted end to end | Anyone who knows the topic name |
+| Telegram, Discord, email… | No | Yes, through Apprise |
+
+## In the auto-eject app (recommended)
+
+A small service on the printer watches it and sends each notification, encrypted, to the push
+service of every device that turned them on: Google's for Chrome and Android, Apple's for
+iPhone and iPad, Mozilla's for Firefox. It works while the app is closed, and even while the
+phone's Tailscale is off: only opening the app needs Tailscale.
+
+1. Set up [remote access with HTTPS](remote-access.md) first: phones allow notifications only
+   over HTTPS.
+2. **On the printer**, over SSH:
+   ```bash
+   ~/klipper-auto-eject/install.sh --push
+   ```
+   It installs the `auto-eject-push` service (Python's `cryptography` package goes into
+   `~/klipper-auto-eject-env` if it is missing) and lets Moonraker restart it after updates. It
+   asks for your password once.
+3. **On the phone**, open the auto-eject app over HTTPS, **Blade and setup** tab,
+   **Notifications**, **Turn on**, and allow notifications. A test notification arrives.
+4. Do the same on every phone, tablet or computer that should get them. Each one chooses
+   whether it also wants a notification when every print finishes.
+
+| Device | Works |
+|---|---|
+| Android: Chrome, Edge, Samsung Internet, Firefox | Yes, installed as an app or not |
+| iPhone and iPad | iOS 16.4 or newer, and only in the app [added to the Home Screen](web-page.md#on-your-phone-as-an-app) |
+| Computers: Chrome, Edge, Firefox, Safari | Yes, while the browser runs |
+
+How it works: the device subscribes with its browser and stores the subscription in Moonraker's
+database (namespace `auto_eject_push`), so the service needs no port of its own. Each message is
+encrypted for that one device ([RFC 8291](https://www.rfc-editor.org/rfc/rfc8291)); the push
+services carry it without being able to read it. The service's own key stays in
+`~/.config/klipper-auto-eject/vapid.pem`. Its log: `journalctl -u auto-eject-push`.
+
+## With ntfy
 
 The notifications go through [ntfy](https://ntfy.sh), a free, open-source notification app.
 
@@ -37,7 +80,7 @@ The notifications go through [ntfy](https://ntfy.sh), a free, open-source notifi
 
 **It worked if** the test notification arrives on the phone. Send another one any time with
 `AUTO_EJECT_NOTIFY_TEST` in the console, or **Send a test** on the page: it goes the whole way,
-from Klipper through Moonraker to the phone.
+from Klipper through Moonraker to the phone, by both ways that are set up.
 
 The auto-eject page shows the topic on its **Blade and setup** tab, with a button that opens it
 in ntfy.
@@ -88,13 +131,11 @@ AUTO_EJECT_SET KEY=notify VALUE=auto_eject
 auto_eject_jobs]` gets Moonraker's own events for whole prints. Leave the second one out if you
 only want to hear about problems.
 
-## On the device itself
+## Without the service
 
-While the auto-eject app is open, or in the background, it can also show notifications by
-itself, without ntfy: **Blade and setup** tab, **Notifications**, **Turn on**. Browsers allow it
-only over HTTPS ([remote-access.md](remote-access.md#https)); on an iPhone, only in the
-installed app ([web-page.md](web-page.md#on-your-phone-as-an-app)). When the app is closed, only
-ntfy can reach you.
+Without `install.sh --push`, **Turn on** still works while the auto-eject app is open or in the
+background: the page shows the notifications itself. When the app is closed, only the service
+or ntfy can reach you.
 
 ## Mobileraker
 
@@ -106,6 +147,9 @@ It works next to ntfy.
 
 | What you see | What to do |
 |---|---|
+| No **Turn on** button in the app | The page is not on HTTPS ([remote-access.md](remote-access.md#https)), or notifications are blocked for it in the browser's site settings |
+| The app says notifications are on only while it runs | The service is not installed or not running: `install.sh --push`, then `systemctl status auto-eject-push` |
+| Nothing arrives on an iPhone | Add the app to the Home Screen and turn notifications on from there (iOS 16.4 or newer) |
 | The test notification does not arrive | In the ntfy app, check the topic and the server (`ntfy.sh`). On the printer, `curl -d test https://ntfy.sh/<topic>` should reach the phone |
 | Test works, but nothing from the printer | Moonraker was not restarted after the change, or `notify` is not set: `AUTO_EJECT_SET KEY=notify VALUE=auto_eject` |
 | `Remote method 'notify' not registered` | `notify` names a notifier that Moonraker does not have. Check the section names in `moonraker.conf`, or set `notify` back to `""` |

@@ -115,8 +115,8 @@ from the printer itself.
 
 ## Notifications
 
-`install.sh --notify` sends a notification to your phone when the printer needs you, through the
-free ntfy app; tapping it opens the auto-eject page ([notifications.md](notifications.md)).
+`install.sh --push` sends a notification to the auto-eject app on your phone when the printer
+needs you, even while the app is closed; tapping it opens the page ([notifications.md](notifications.md)).
 
 ## Without Tailscale
 

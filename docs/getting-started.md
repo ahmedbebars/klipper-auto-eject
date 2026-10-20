@@ -316,7 +316,8 @@ It asks before every step and shows the address to open on your phone at the end
 [remote-access.md](remote-access.md).
 
 To get a notification when the printer needs you (a part still on the bed, a print that
-finished), add `--notify`; see [notifications.md](notifications.md).
+finished), add `--push`, then turn notifications on in the app; see
+[notifications.md](notifications.md).
 
 ---
 

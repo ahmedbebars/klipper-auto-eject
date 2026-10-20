@@ -149,6 +149,7 @@
     webcams: [],
     trustedClients: undefined,   // Moonraker's trusted_clients, null without [authorization]
     ntfy: "",                    // the ntfy topic of [notifier auto_eject], if any
+    push: { key: null, id: null, jobs: true },   // the printer's notification service and this device
     log: [],
     template: null,              // parsed auto_eject_settings.cfg, or false
     prompt: null,
@@ -273,6 +274,7 @@
         app.ntfy = M.ntfyTopic(r.config);
         refresh();
       }).catch(() => {});
+      loadPush();
       if (app.klippy === "ready") klippyReady();
       else refresh();
       if (app.files === null && (route() === "check" || route() === "queue")) loadFiles();
@@ -1121,12 +1123,78 @@
   }
   viewSetup.sig = function () { return JSON.stringify([sv(), blocked(), Object.keys(app.config).length, parts().length, remoteInfo()]); };
 
-  // Notifications on this device, while the app is open or in the
-  // background. When it is closed, ntfy delivers them (install.sh --notify).
+  // Notifications. With the printer's notification service (install.sh
+  // --push) this device subscribes with its browser's push service and gets
+  // them even while the app is closed. Without it the page shows them itself
+  // while it is open or in the background.
+  const PUSH = "auto_eject_push";
+  function pushReady() {
+    return !!(app.push.key && window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window);
+  }
   function notifyState() {
     if (!("Notification" in window) || !window.isSecureContext) return "unsupported";
     if (Notification.permission === "denied") return "denied";
+    if (app.push.id) return "push";
     return Notification.permission === "granted" && store("ae.notify") === "1" ? "on" : "off";
+  }
+  function b64ToBytes(text) {
+    const s = atob(text.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((text.length + 3) % 4));
+    return Uint8Array.from(s, (c) => c.charCodeAt(0));
+  }
+  function bytesToB64(buf) {
+    return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  async function subId(endpoint) {
+    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(endpoint));
+    return Array.from(new Uint8Array(hash).slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  // Is the service installed, and is this device subscribed to it?
+  async function loadPush() {
+    if (DEMO || !window.isSecureContext || !("serviceWorker" in navigator)) return;
+    try {
+      app.push.key = (await client.call("server.database.get_item", { namespace: PUSH, key: "vapid" })).value;
+    } catch (e) { app.push.key = null; refresh(); return; }
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = reg.pushManager && await reg.pushManager.getSubscription();
+      app.push.id = null;
+      if (sub) {
+        const id = await subId(sub.endpoint);
+        const mine = await client.call("server.database.get_item", { namespace: PUSH, key: "subs." + id }).catch(() => null);
+        const sameKey = sub.options && sub.options.applicationServerKey && bytesToB64(sub.options.applicationServerKey) === app.push.key;
+        if (mine && sameKey) { app.push.id = id; app.push.jobs = mine.value.jobs !== false; }
+      }
+    } catch (e) { /* no push in this browser */ }
+    refresh();
+  }
+  async function pushOn() {
+    const reg = await navigator.serviceWorker.ready;
+    const old = await reg.pushManager.getSubscription();
+    if (old) await old.unsubscribe();        // made for another key: start again
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(app.push.key) });
+    const json = sub.toJSON();
+    const id = await subId(json.endpoint);
+    await client.call("server.database.post_item", { namespace: PUSH, key: "subs." + id, value: {
+      endpoint: json.endpoint, keys: json.keys, lang, jobs: app.push.jobs,
+      url: location.origin + location.pathname, name: deviceName(), time: Math.round(Date.now() / 1000) } });
+    app.push.id = id;
+  }
+  async function pushOff() {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) await sub.unsubscribe();
+    if (app.push.id) await client.call("server.database.delete_item", { namespace: PUSH, key: "subs." + app.push.id }).catch(() => {});
+    app.push.id = null;
+  }
+  function pushJobs(on) {
+    app.push.jobs = on;
+    if (app.push.id) client.call("server.database.post_item", { namespace: PUSH, key: "subs." + app.push.id + ".jobs", value: on }).catch((e) => toast(e.message, "bad"));
+    refresh();
+  }
+  function deviceName() {
+    const ua = navigator.userAgent;
+    const m = /Android [\d.]+; ([^;)]+)/.exec(ua) || /(iPhone|iPad|Macintosh|Windows|Linux)/.exec(ua);
+    return (m ? m[1] : "Device").trim().slice(0, 40);
   }
   function showNote(title, body) {
     const opts = { body: String(body || ""), icon: "icons/icon-192.png", badge: "icons/icon-192.png",
@@ -1138,16 +1206,21 @@
     }
   }
   function notifyUser(title, body) {
-    // in front of the user the page itself shows it
+    // in front of the user the page itself shows it; with push the service sends it
     if (DEMO || notifyState() !== "on" || (document.visibilityState === "visible" && document.hasFocus())) return;
     showNote(title, body);
   }
-  function notifyToggle() {
-    if (notifyState() === "on") { store("ae.notify", "0"); refresh(); return; }
-    Notification.requestPermission().then((p) => {
-      if (p === "granted") { store("ae.notify", "1"); showNote(t("note.test"), t("note.test_body")); }
-      refresh();
-    });
+  async function notifyToggle() {
+    try {
+      const state = notifyState();
+      if (state === "push") await pushOff();
+      else if (state === "on") store("ae.notify", "0");
+      else if ((await Notification.requestPermission()) === "granted") {
+        if (pushReady()) { await pushOn(); gcode("AUTO_EJECT_NOTIFY_TEST", { quiet: true }); }
+        else { store("ae.notify", "1"); showNote(t("note.test"), t("note.test_body")); }
+      }
+    } catch (e) { toast(t("c.error", { e: e.message }), "bad"); }
+    refresh();
   }
 
   // Installing the page as an app. Chrome and Edge offer a prompt the page
@@ -1175,7 +1248,8 @@
     const ts = /\.ts\.net$/i.test(host) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host);
     const tc = app.trustedClients;
     const trusts = tc === null ? true : tc === undefined ? null : tc.some((c) => /^100\./.test(String(c).trim()));
-    return { ts, https: location.protocol === "https:", trusts, cams: app.webcams.length, app: appMode(), notify: notifyState(), ntfy: app.ntfy };
+    return { ts, https: location.protocol === "https:", trusts, cams: app.webcams.length, app: appMode(), notify: notifyState(),
+      ntfy: app.ntfy, push: !!app.push.key, jobs: app.push.jobs };
   }
 
   function remoteCard() {
@@ -1204,14 +1278,16 @@
       h("h3", { class: "sub-head", text: t("remote.notify_title") }),
       h("dl", { class: "kv" },
         h("dt", { text: t("remote.notify_here") }), h("dd", { text: t("remote.notify_" + r.notify) }),
-        h("dt", { text: t("remote.ntfy") }), h("dd", { text: r.ntfy ? t("remote.ntfy_on") : t("remote.no") })),
-      r.notify === "on" || r.notify === "off" || r.ntfy ? h("div", { class: "toolbar", style: { marginTop: "10px" } },
-        r.notify === "on" || r.notify === "off" ? h("button", { type: "button", class: "btn" + (r.notify === "off" ? " primary" : ""), onclick: notifyToggle },
-          icon(r.notify === "on" ? "bad" : "ok"), t(r.notify === "on" ? "remote.notify_stop" : "remote.notify_start")) : null,
-        r.ntfy ? h("a", { class: "btn", href: "https://ntfy.sh/" + encodeURIComponent(r.ntfy), target: "_blank", rel: "noopener" }, icon("external"), t("remote.ntfy_open")) : null,
-        r.ntfy ? h("button", { type: "button", class: "btn", onclick: () => gcode("AUTO_EJECT_NOTIFY_TEST") }, icon("play"), t("remote.ntfy_test")) : null) : null,
-      r.ntfy ? null : h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", { text: t("remote.ntfy_setup") })),
-      r.ntfy ? null : h("div", { class: "codeblock", style: { marginTop: "8px" }, text: "~/klipper-auto-eject/install.sh --notify" }),
+        r.ntfy ? h("dt", { text: t("remote.ntfy") }) : null, r.ntfy ? h("dd", { text: t("remote.ntfy_on") }) : null),
+      r.notify === "push" ? h("label", { class: "switch-row", style: { marginTop: "10px" } },
+        h("input", { type: "checkbox", checked: r.jobs, onchange: (e) => pushJobs(e.target.checked) }), h("span", { text: t("remote.push_jobs") })) : null,
+      h("div", { class: "toolbar", style: { marginTop: "10px" } },
+        r.notify === "push" || r.notify === "on" || r.notify === "off" ? h("button", { type: "button", class: "btn" + (r.notify === "off" ? " primary" : ""), onclick: notifyToggle },
+          icon(r.notify === "off" ? "ok" : "bad"), t(r.notify === "off" ? "remote.notify_start" : "remote.notify_stop")) : null,
+        r.notify === "push" || r.ntfy ? h("button", { type: "button", class: "btn", onclick: () => gcode("AUTO_EJECT_NOTIFY_TEST") }, icon("play"), t("remote.ntfy_test")) : null,
+        r.ntfy ? h("a", { class: "btn", href: "https://ntfy.sh/" + encodeURIComponent(r.ntfy), target: "_blank", rel: "noopener" }, icon("external"), t("remote.ntfy_open")) : null),
+      r.push || r.notify === "unsupported" ? null : h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", { text: t("remote.push_setup") })),
+      r.push || r.notify === "unsupported" ? null : h("div", { class: "codeblock", style: { marginTop: "8px" }, text: "~/klipper-auto-eject/install.sh --push" }),
       h("div", { class: "toolbar", style: { marginTop: "14px" } }, docs("remote-access.md", "remote.docs"), docs("notifications.md", "remote.notify_docs")));
   }
 

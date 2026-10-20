@@ -26,8 +26,8 @@ def notes(p):
 
 def test_the_test_command():
     p = Printer()
-    with pytest.raises(MacroError, match="notify is not set"):
-        p.execute("AUTO_EJECT_NOTIFY_TEST")
+    p.execute("AUTO_EJECT_NOTIFY_TEST")              # the app's service sees the console line
+    assert notes(p) == [] and p.messages == ["AUTO_EJECT: test notification sent"]
     p = Printer(extra_settings={"notify": "auto_eject"})
     p.execute("AUTO_EJECT_NOTIFY_TEST")
     assert notes(p) == [{"name": "auto_eject", "message": "Auto-eject: notifications from your printer work."}]

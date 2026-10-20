@@ -17,6 +17,8 @@ UNINSTALL=0
 WEB=0
 REMOTE=0
 NOTIFY=0
+PUSH=0
+PUSH_UNIT="/etc/systemd/system/auto-eject-push.service"
 TAILNET="100.64.0.0/10"
 BRANCH="main"
 NGINX_SNIPPET="/etc/nginx/auto-eject.conf"
@@ -35,6 +37,10 @@ Usage: install.sh [options]
   -R, --remote            Also set up remote access with Tailscale: watch and
                           control the printer from your phone, from anywhere.
                           Asks before every step (docs/remote-access.md)
+  -P, --push              Also install the notification service: the auto-eject
+                          app on your phone gets notifications even while it is
+                          closed. Needs HTTPS (--remote) and sudo once
+                          (docs/notifications.md)
   -N, --notify            Also send notifications to your phone with ntfy: a
                           part still on the bed, a print that finished...
                           Asks before every step (docs/notifications.md)
@@ -58,6 +64,7 @@ while [[ $# -gt 0 ]]; do
         -w|--web)             WEB=1; shift ;;
         -R|--remote)          REMOTE=1; shift ;;
         -N|--notify)          NOTIFY=1; shift ;;
+        -P|--push)            PUSH=1; shift ;;
         -u|--uninstall)       UNINSTALL=1; shift ;;
         -h|--help)            usage; exit 0 ;;
         *) usage; die "Unknown option: $1" ;;
@@ -249,6 +256,104 @@ install_notify() {
     fi
 }
 
+# ------------------------------------------------- notifications in the app
+# Moonraker restarts the services listed in moonraker.asvc on request, and
+# its update manager restarts this one after an update.
+push_moonraker_links() {
+    local action="$1" asvc="${CONFIG_DIR%/config}/moonraker.asvc"
+    if [[ "${action}" == "add" ]]; then
+        if [[ -f "${asvc}" ]] && ! grep -qx "auto-eject-push" "${asvc}"; then
+            echo "auto-eject-push" >> "${asvc}"
+        fi
+    elif [[ -f "${asvc}" ]]; then
+        sed -i '/^auto-eject-push$/d' "${asvc}"
+    fi
+    [[ -f "${MOONRAKER_CONF}" ]] || return 0
+    python3 - "${MOONRAKER_CONF}" "${action}" <<'PY'
+import re, sys
+path, action = sys.argv[1], sys.argv[2]
+lines = open(path, encoding="utf-8").read().split("\n")
+out, inside = [], False
+for line in lines:
+    if re.match(r"^\[", line):
+        inside = line.strip() == "[update_manager klipper-auto-eject]"
+    elif inside and re.match(r"^(is_system_service|managed_services)\s*[:=]", line):
+        continue
+    out.append(line)
+    if inside and line.strip() == "[update_manager klipper-auto-eject]":
+        out.append("managed_services: auto-eject-push" if action == "add" else "is_system_service: False")
+open(path, "w", encoding="utf-8").write("\n".join(out))
+PY
+}
+
+install_push() {
+    local py env="${HOME}/klipper-auto-eject-env" name url i
+    log "Notifications in the auto-eject app, even while it is closed (docs/notifications.md)"
+    name="$(tailscale status --json 2>/dev/null | python3 -c 'import json, sys; print(json.load(sys.stdin)["Self"].get("DNSName", "").rstrip("."))' 2>/dev/null || true)"
+    if [[ -z "${name}" ]] || ! tailscale serve status 2>/dev/null | grep -q "${name}"; then
+        warn "Phones allow notifications only over HTTPS. Set that up first: install.sh --remote (docs/remote-access.md)"
+    fi
+    if ! ask "Install the notification service? (asks for your sudo password once)" y; then
+        return
+    fi
+    if python3 -c "import cryptography" 2>/dev/null; then
+        py="$(command -v python3)"
+    else
+        log "Installing Python's cryptography package in ${env}"
+        if ! python3 -m venv "${env}"; then
+            warn "python3 -m venv failed. Install it (sudo apt install python3-venv), then run install.sh --push again."
+            return
+        fi
+        if ! "${env}/bin/pip" install --quiet --upgrade pip cryptography; then
+            warn "pip could not install cryptography. Check the internet connection, then run install.sh --push again."
+            return
+        fi
+        py="${env}/bin/python"
+    fi
+    url="http://127.0.0.1:$(moonraker_port)"
+    sudo tee "${PUSH_UNIT}" >/dev/null <<EOF
+# klipper-auto-eject, added by install.sh --push (docs/notifications.md)
+[Unit]
+Description=klipper-auto-eject notifications in the web page (Web Push)
+After=network-online.target moonraker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$(id -un)
+ExecStart=${py} ${REPO_DIR}/push/auto_eject_push.py --moonraker ${url}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now auto-eject-push
+    push_moonraker_links add
+    restart_moonraker
+    for i in $(seq 1 20); do
+        if curl -s -m 3 "${url}/server/database/item?namespace=auto_eject_push&key=vapid" | grep -q '"value"'; then
+            log "The notification service is running"
+            log "Now, in the auto-eject app on your phone: Blade and setup, Notifications, Turn on"
+            return
+        fi
+        sleep 1
+    done
+    warn "The service did not start. See: journalctl -u auto-eject-push -n 30"
+    : "${i}"
+}
+
+uninstall_push() {
+    if [[ -f "${PUSH_UNIT}" ]]; then
+        sudo systemctl disable --now auto-eject-push || true
+        sudo rm -f "${PUSH_UNIT}"
+        sudo systemctl daemon-reload
+        log "Removed the notification service"
+    fi
+    push_moonraker_links remove
+}
+
 # ------------------------------------------------------------- web page
 # nginx site files that serve Mainsail or Fluidd
 nginx_sites() {
@@ -385,6 +490,9 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
     if [[ -f "${NGINX_SNIPPET}" ]]; then
         uninstall_web
     fi
+    if [[ -f "${PUSH_UNIT}" ]]; then
+        uninstall_push
+    fi
     navi_entry remove
     if [[ -f "${MOONRAKER_CONF}" ]] && command -v python3 >/dev/null && [[ -f "${REPO_DIR}/tools/moonraker_trust.py" ]] \
         && [[ "$(python3 "${REPO_DIR}/tools/moonraker_trust.py" remove "${MOONRAKER_CONF}" "${TAILNET}")" == "removed" ]]; then
@@ -487,6 +595,10 @@ if [[ "${NOTIFY}" -eq 1 ]]; then
     install_notify
 fi
 
+if [[ "${PUSH}" -eq 1 ]]; then
+    install_push
+fi
+
 cat <<EOF
 
   Installed. Next steps:
@@ -511,6 +623,12 @@ else
     echo "  Optional: watch and control it from your phone, from anywhere:"
     echo "    ${REPO_DIR}/install.sh --remote   (docs/remote-access.md)"
 fi
+if [[ -f "${PUSH_UNIT}" ]]; then
+    echo "  Notifications in the app: turn them on in the app, Blade and setup tab."
+else
+    echo "  Optional: notifications in the app, even while it is closed:"
+    echo "    ${REPO_DIR}/install.sh --push     (docs/notifications.md)"
+fi
 if [[ -z "${NOTIFY_TOPIC}" ]] && [[ -f "${MOONRAKER_CONF}" ]] && command -v python3 >/dev/null; then
     NOTIFY_TOPIC="$(python3 "${REPO_DIR}/tools/moonraker_notifier.py" topic "${MOONRAKER_CONF}" 2>/dev/null || true)"
 fi
@@ -518,8 +636,5 @@ if [[ -n "${NOTIFY_TOPIC}" ]]; then
     echo "  Notifications: install the ntfy app (Google Play, F-Droid or the App Store),"
     echo "  tap +, and subscribe to this topic on ntfy.sh: ${NOTIFY_TOPIC}"
     echo "  (or open https://ntfy.sh/${NOTIFY_TOPIC} in a browser). Keep the topic to yourself."
-else
-    echo "  Optional: notifications on your phone:"
-    echo "    ${REPO_DIR}/install.sh --notify   (docs/notifications.md)"
 fi
 echo

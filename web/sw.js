@@ -26,6 +26,17 @@ self.addEventListener("activate", (event) => {
     .then(() => self.clients.claim()));
 });
 
+// A notification from the printer's notification service (Web Push), shown
+// even while the app is closed.
+self.addEventListener("push", (event) => {
+  let note = {};
+  try { note = event.data ? event.data.json() : {}; } catch (e) { note = { body: event.data ? event.data.text() : "" }; }
+  event.waitUntil(self.registration.showNotification(note.title || "Auto-eject", {
+    body: note.body || "", icon: "icons/icon-192.png", badge: "icons/icon-192.png",
+    tag: note.tag || "auto-eject", renotify: true, data: { url: note.url || self.registration.scope }
+  }));
+});
+
 // Tapping a notification brings the app to the front, or opens it.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();

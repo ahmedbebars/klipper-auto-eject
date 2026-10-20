@@ -102,8 +102,9 @@ You can also [try a demo](docs/web-page.md#trying-it-on-a-computer) without a pr
 
 **From your phone, anywhere:** `install.sh --remote` sets up Tailscale, a free private network
 between your devices, so the printer opens from your phone wherever you are, without opening it
-to the internet ([docs/remote-access.md](docs/remote-access.md)). `install.sh --notify` sends a
-notification to your phone when the printer needs you ([docs/notifications.md](docs/notifications.md)).
+to the internet ([docs/remote-access.md](docs/remote-access.md)). `install.sh --push` sends a
+notification to the app on your phone when the printer needs you, even while it is closed
+([docs/notifications.md](docs/notifications.md)).
 
 ## The blade
 
