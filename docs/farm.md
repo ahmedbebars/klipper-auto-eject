@@ -45,8 +45,9 @@ The list is kept on that printer. Press **Search the network** again whenever yo
 ### A printer that is not found
 
 The search asks every address of the printer's own network (the 254 addresses around its own,
-such as `192.168.1.1` to `192.168.1.254`) and every device on your Tailscale network. On each one
-it looks for Moonraker on port 7125 and port 80.
+such as `192.168.1.1` to `192.168.1.254`) and every Linux device on your Tailscale network. On each
+one it looks for Moonraker on port 7125 and port 80. A printer it finds both ways is listed once,
+with its local address: it knows it is the same machine by its network card.
 
 - **On another network or VLAN:** type its address under **Add by address**, such as
   `10.0.5.20`.

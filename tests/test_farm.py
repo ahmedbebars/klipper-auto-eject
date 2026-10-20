@@ -100,17 +100,66 @@ def test_search_skips_this_printer_and_names_tailscale_peers():
     assert "192.168.5.1" not in asked and len(asked) == 254
 
 
+def test_one_printer_found_twice_is_listed_once():
+    """Over the local network and over Tailscale: same network card, same port."""
+    mac = ["48:8f:4c:16:d6:27"]
+    answers = {
+        "192.168.5.12": {"host": "192.168.5.12", "port": 7125, "name": "big", "klippy": "ready", "macs": mac},
+        "100.79.1.35": {"host": "100.79.1.35", "port": 7125, "name": "big", "klippy": "ready", "macs": mac},
+        # the same hostname on another machine is another printer
+        "192.168.5.13": {"host": "192.168.5.13", "port": 7125, "name": "big", "klippy": "ready", "macs": ["aa:bb:cc:dd:ee:ff"]},
+        # a second Klipper on the same computer is another printer too
+        "192.168.5.14": {"host": "192.168.5.14", "port": 7126, "name": "two", "klippy": "ready", "macs": ["11:22:33:44:55:66"]},
+        "100.79.1.36": {"host": "100.79.1.36", "port": 7125, "name": "one", "klippy": "ready", "macs": ["11:22:33:44:55:66"]},
+        # already in the farm under its Tailscale address
+        "192.168.5.20": {"host": "192.168.5.20", "port": 7125, "name": "old", "klippy": "ready", "macs": ["77:77:77:77:77:77"]},
+    }
+    found = farm.scan(networks=["192.168.5.0/24"], peers=[("100.79.1.35", "big"), ("100.79.1.36", "one")],
+                      prober=answers.get, known=[(7125, ["77:77:77:77:77:77"])])
+    assert [f["host"] for f in found] == ["100.79.1.36", "192.168.5.12", "192.168.5.13", "192.168.5.14"]
+
+
+def test_the_same_machine_is_not_added_twice():
+    f = farm.Farm(FakeMoonraker())
+    mac = ["48:8f:4c:16:d6:27"]
+    assert len(f.add([{"host": "192.168.1.12", "port": 7125, "name": "big", "macs": mac}])) == 1
+    assert f.add([{"host": "100.79.1.35", "port": 7125, "name": "big", "macs": mac}]) == []
+    assert len(f.add([{"host": "192.168.1.12", "port": 7126, "name": "big-2", "macs": mac}])) == 1
+    saved = f.moonraker.db[(farm.NAMESPACE, "printers")]
+    assert all(r["macs"] == mac for r in saved.values())
+    assert all(p.macs == mac for p in farm.Farm(f.moonraker).printers.values())
+
+
+def test_only_linux_tailscale_devices_are_asked(monkeypatch):
+    status = {"Peer": {
+        "a": {"Online": True, "OS": "linux", "HostName": "voron", "TailscaleIPs": ["100.64.0.5", "fd7a::5"]},
+        "b": {"Online": True, "OS": "android", "HostName": "phone", "TailscaleIPs": ["100.64.0.6"]},
+        "c": {"Online": False, "OS": "linux", "HostName": "off", "TailscaleIPs": ["100.64.0.7"]},
+        "d": {"Online": True, "OS": "", "HostName": "se-sto-wg-001", "TailscaleIPs": ["100.64.0.8"],
+              "Location": {"Country": "Sweden"}},
+    }}
+
+    class Done:
+        stdout = json.dumps(status)
+    monkeypatch.setattr(farm.subprocess, "run", lambda *a, **k: Done())
+    assert farm.tailscale_peers() == [("100.64.0.5", "voron")]
+
+
 def test_a_probe_wants_moonraker(monkeypatch):
     def fake(url, timeout=0):
         if url.startswith("http://10.0.0.5:7125/server/info"):
             return {"klippy_state": "ready"}
         if url.startswith("http://10.0.0.5:7125/printer/info"):
             return {"hostname": "ender"}
+        if url.startswith("http://10.0.0.5:7125/machine/system_info"):
+            return {"system_info": {"network": {"wlan0": {"mac_address": "48:8F:4C:16:D6:27"},
+                                                "lo": {"mac_address": "00:00:00:00:00:00"}}}}
         if url.startswith("http://10.0.0.6:80/server/info"):
             return {"something": "else"}
         raise OSError("refused")
     monkeypatch.setattr(farm, "http_json", fake)
-    assert farm.probe("10.0.0.5") == {"host": "10.0.0.5", "port": 7125, "name": "ender", "klippy": "ready"}
+    assert farm.probe("10.0.0.5") == {"host": "10.0.0.5", "port": 7125, "name": "ender", "klippy": "ready",
+                                      "macs": ["48:8f:4c:16:d6:27"]}
     assert farm.probe("10.0.0.6") is None
     assert farm.probe("10.0.0.7") is None
 

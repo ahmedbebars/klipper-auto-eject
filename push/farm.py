@@ -31,6 +31,7 @@ QUERY = ("/printer/objects/query?print_stats=state,filename,print_duration,info,
          "&webhooks=state,state_message&idle_timeout=state"
          "&gcode_macro%20_AUTO_EJECT_STATE=objects,busy,swept,leftover,height")
 HOST = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$")
+TAILNET = ipaddress.ip_network("100.64.0.0/10")
 # what the farm page can ask a printer to do
 ACTIONS = {
     "continue": ("POST", "/server/job_queue/start", None),
@@ -52,6 +53,21 @@ def http_json(url, data=None, method=None, timeout=3.0):
 
 def printer_id(host, port):
     return hashlib.sha1(("%s:%s" % (host, port)).encode()).hexdigest()[:10]
+
+
+def machine_macs(host, port, timeout=2.0):
+    """The machine's network cards. The same printer reached over the local
+    network and over Tailscale has the same ones; two printers with the same
+    hostname (mainsailos...) do not."""
+    try:
+        net = http_json("http://%s:%d/machine/system_info" % (host, port), timeout=timeout)["system_info"].get("network") or {}
+    except Exception:
+        return []
+    return sorted({str(v.get("mac_address") or "").lower() for v in net.values()} - {"", "00:00:00:00:00:00"})
+
+
+def same_machine(a_port, a_macs, b_port, b_macs):
+    return a_port == b_port and bool(set(a_macs) & set(b_macs))
 
 
 # --------------------------------------------------------------- one printer
@@ -106,8 +122,9 @@ def summarize(status, queue=None, now=None):
 
 
 class Printer:
-    def __init__(self, host, port, name="", local=False, pid=None):
+    def __init__(self, host, port, name="", local=False, pid=None, macs=None):
         self.host, self.port, self.name, self.local = host, int(port), name or host, local
+        self.macs = list(macs or [])
         self.id = pid or ("local" if local else printer_id(host, port))
         self.card = {"phase": "offline"}
         self.status = {}
@@ -122,7 +139,10 @@ class Printer:
         return "http://%s:%d" % (self.host, self.port)
 
     def record(self):
-        return {"host": self.host, "port": self.port, "name": self.name}
+        out = {"host": self.host, "port": self.port, "name": self.name}
+        if self.macs:
+            out["macs"] = self.macs
+        return out
 
     def poll(self, now=None):
         now = now or time.time()
@@ -137,6 +157,7 @@ class Printer:
                 self._slow = now
                 self.webcam = self._webcam()
                 self.page = self._page()
+                self.macs = self.macs or machine_macs(self.host, self.port)
             self.status = status
             self.card = summarize(status, queue, now)
         except Exception:
@@ -213,7 +234,9 @@ def tailscale_peers():
     out = []
     for peer in (data.get("Peer") or {}).values():
         ips = [ip for ip in peer.get("TailscaleIPs", []) if ":" not in ip]
-        if peer.get("Online") and ips:
+        # Klipper runs on Linux; phones and computers are not asked, nor the
+        # hundreds of Mullvad exit nodes a tailnet may list (they have a Location)
+        if peer.get("Online") and ips and peer.get("OS") == "linux" and not peer.get("Location"):
             out.append((ips[0], peer.get("HostName") or ""))
     return out
 
@@ -232,12 +255,15 @@ def probe(host, ports=PORTS, timeout=0.8):
             name = http_json("http://%s:%d/printer/info" % (host, port), timeout=timeout).get("hostname", "")
         except Exception:
             pass
-        return {"host": host, "port": port, "name": name or host, "klippy": info.get("klippy_state", "")}
+        return {"host": host, "port": port, "name": name or host, "klippy": info.get("klippy_state", ""),
+                "macs": machine_macs(host, port, timeout=timeout + 1)}
     return None
 
 
-def scan(skip=(), networks=None, peers=None, prober=probe, workers=64):
-    """Every printer on the local networks and on Tailscale, except those in skip."""
+def scan(skip=(), networks=None, peers=None, prober=probe, workers=64, known=()):
+    """Every printer on the local networks and on Tailscale, except the
+    addresses in skip and the machines in known ((port, macs) pairs). A
+    printer found on both is listed once, with its local address."""
     hosts = {}
     for net in (local_networks() if networks is None else networks):
         for ip in ipaddress.ip_network(net).hosts():
@@ -253,7 +279,14 @@ def scan(skip=(), networks=None, peers=None, prober=probe, workers=64):
                 if hosts.get(result["host"]) and result["name"] == result["host"]:
                     result["name"] = hosts[result["host"]]
                 found.append(result)
-    return sorted(found, key=lambda r: ipaddress.ip_address(r["host"]))
+    found.sort(key=lambda r: (ipaddress.ip_address(r["host"]) in TAILNET, ipaddress.ip_address(r["host"])))
+    seen, kept = [tuple(k) for k in known], []
+    for r in found:
+        if any(same_machine(r["port"], r.get("macs") or [], port, macs) for port, macs in seen):
+            continue
+        seen.append((r["port"], r.get("macs") or []))
+        kept.append(r)
+    return sorted(kept, key=lambda r: ipaddress.ip_address(r["host"]))
 
 
 # ------------------------------------------------------------------- the farm
@@ -281,7 +314,7 @@ class Farm:
             return False
         with self.lock:
             for pid, r in records.items():
-                self.printers.setdefault(pid, Printer(r["host"], r.get("port", 7125), r.get("name", ""), pid=pid))
+                self.printers.setdefault(pid, Printer(r["host"], r.get("port", 7125), r.get("name", ""), pid=pid, macs=r.get("macs")))
             if local.get("name"):
                 self.local.name, self.local_named = local["name"], True
             self.loaded = True
@@ -340,7 +373,9 @@ class Farm:
 
     def _scan(self, skip):
         try:
-            found = scan(skip=skip)
+            self.local.macs = self.local.macs or machine_macs(self.local.host, self.local.port)
+            known = [(p.port, p.macs) for p in self.all() if p.macs]
+            found = scan(skip=skip, known=known)
         except Exception:
             found = []
         with self.lock:
@@ -366,9 +401,10 @@ class Farm:
                     raise LookupError("no printer answers at %s" % host)
                 e = found
                 host, port = found["host"], found["port"]
-            p = Printer(host, port or 7125, e.get("name", ""))
+            p = Printer(host, port or 7125, e.get("name", ""), macs=e.get("macs"))
             with self.lock:
-                if p.id not in self.printers and p.host not in mine:
+                twin = any(same_machine(p.port, p.macs, q.port, q.macs) for q in [self.local] + list(self.printers.values()))
+                if p.id not in self.printers and p.host not in mine and not twin:
                     self.printers[p.id] = p
                     added.append(p.id)
         with self.lock:
@@ -450,6 +486,11 @@ def make_handler(farm):
             return json.loads(self.rfile.read(length) or b"{}") if length else {}
 
         def _route(self, method):
+            # read the whole request first: a socket closed with unread data resets the connection
+            try:
+                body = self._body() if method == "POST" else {}
+            except ValueError:
+                return self._send(400, {"error": "not JSON"})
             if not trusted(self._client()):
                 return self._send(403, {"error": "not allowed from this network"})
             path = urllib.parse.urlsplit(self.path).path.rstrip("/")
@@ -460,7 +501,6 @@ def make_handler(farm):
                 if parts == ["farm", "scan"] and method == "POST":
                     return self._send(200, {"started": farm.start_scan()})
                 if parts == ["farm", "printers"] and method == "POST":
-                    body = self._body()
                     if "add" in body:
                         try:
                             return self._send(200, {"added": farm.add(body["add"])})
