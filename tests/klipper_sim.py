@@ -66,6 +66,11 @@ class Printer:
         self.under_probe = 0.0   # height under the probe, or f(x, y) -> height
         self.g28_drops_z = False  # homing override that un-homes Z on G28 X Y
         self.calls = []
+        # Klipper works out a macro when it is called, without pausing. A
+        # move queued before it is sent late if that takes long ("Timer too
+        # close"), so the slow macros must be called with nothing moving.
+        self.moving = False
+        self.called_while_moving = []
         self.bed_cooling = 5.0   # degrees per second while dwelling (G4)
         self.set_machine()
 
@@ -172,6 +177,8 @@ class Printer:
             raise MacroError("Macro %s called recursively" % name)
         self.active.add(name)
         self.calls.append(name)
+        if self.moving:
+            self.called_while_moving.append(name)
         try:
             self._run_template(self.macros[name], params, raw)
         finally:
@@ -201,6 +208,10 @@ class Printer:
             return
         self.executed.append(line)
         th = self.status["toolhead"]
+        if cmd in ("G0", "G1"):
+            self.moving = True
+        elif cmd in ("M400", "G4", "G28", "PROBE"):
+            self.moving = False      # these wait until every move is done
         if cmd == "SET_GCODE_VARIABLE":
             p = dict(a.split("=", 1) for a in shlex.split(raw))
             macro = "gcode_macro " + p["MACRO"]

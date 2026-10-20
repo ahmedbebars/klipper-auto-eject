@@ -18,6 +18,15 @@ All notable changes to this project are documented here. The format is based on
 - `AUTO_EJECT_SET KEY=<setting> VALUE=<value>` changes one setting, checks the value against the
   setting's type and keeps it after a restart. `RESET=1` goes back to the settings file.
 
+### Fixed
+- Klipper could stop with "MCU shutdown: Timer too close" at the start of an eject when the bed
+  was already cool. The 240 cooling passes, all with nothing left to do, ran back to back while
+  the toolhead was still rising, and the move reached the board too late. Now no cooling pass runs
+  when the bed is already cool, the passes left after cooling return at once, and every move
+  finishes (`M400`) before the macros that take Klipper a moment to work out: the push plan, the
+  check with the probe and homing Z around the parts. The tests check that none of these starts
+  while a move is pending.
+
 ### Documentation
 - A project website built from `docs/` with MkDocs Material (`mkdocs.yml`, `website/`): a home
   page, search, light and dark, and the web page running as a live demo in the browser.
