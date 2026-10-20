@@ -1164,6 +1164,12 @@
         const sameKey = sub.options && sub.options.applicationServerKey && bytesToB64(sub.options.applicationServerKey) === app.push.key;
         if (mine && sameKey) { app.push.id = id; app.push.jobs = mine.value.jobs !== false; }
       }
+      // turned on before the service was installed: move on to push, the
+      // permission is there already
+      if (!app.push.id && store("ae.notify") === "1" && Notification.permission === "granted" && pushReady()) {
+        await pushOn();
+        store("ae.notify", "0");
+      }
     } catch (e) { /* no push in this browser */ }
     refresh();
   }
