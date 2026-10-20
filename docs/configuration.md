@@ -165,6 +165,20 @@ Points the toolhead cannot reach are skipped.
 
 See [probes.md](probes.md) for how offset and eddy-current probes are handled.
 
+## The parts box
+
+The box under the drop edge fills up on a long night. auto-eject counts every part it pushes off,
+and keeps the count across restarts.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `bin_capacity` | `0` | How many parts the box holds. At 80 % you get a message (and a notification), at the limit another. `0` = no messages; the web page still shows the count |
+| `bin_full_action` | `"stop"` | When the box is full: `"stop"` holds the next print in `AUTO_EJECT_GUARD` until you empty it (so `AUTO_EJECT_GUARD` must be in the start G-code), `"notify"` only sends the message |
+
+After emptying the box, run `AUTO_EJECT_BIN_EMPTY` or press **I emptied the box** in the web page
+(on the overview, or the printer's card in the farm). Count by the biggest parts you print: a box
+that holds 40 cookie cutters holds fewer vases.
+
 ## Recovery
 
 | Setting | Default | Description |

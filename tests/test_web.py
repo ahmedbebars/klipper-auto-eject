@@ -281,7 +281,8 @@ def test_page_only_sends_known_commands():
     sent |= set(re.findall(r'"(AUTO_EJECT[A-Z_]*)', app))
     known = {"AUTO_EJECT", "AUTO_EJECT_SET", "AUTO_EJECT_SETUP", "AUTO_EJECT_CALIBRATE",
              "AUTO_EJECT_CLEAR", "AUTO_EJECT_CONTINUE", "AUTO_EJECT_NOTIFY_TEST", "RESPOND",
-             "AUTO_EJECT_GUARD"}            # only shown, to paste into the slicer
+             "AUTO_EJECT_GUARD",            # only shown, to paste into the slicer
+             "AUTO_EJECT_BIN_EMPTY"}
     assert sent <= known, sent - known
     macros = Printer().macros
     for name in known - {"RESPOND"}:
@@ -373,7 +374,9 @@ def test_farm_shows_who_needs_you_first():
     printers = [card("e", "idle"), card("d", "printing", eta=900), card("c", "offline"), card("b", "needs", "done"),
                 card("a", "printing", eta=60), card("f", "stopped"), card("g", "printing")]
     assert [p["name"] for p in js("farmOrder", printers)] == ["b", "f", "a", "d", "g", "e", "c"]
-    assert js("farmCounts", printers) == {"needs": 2, "printing": 3, "idle": 1, "offline": 1}
+    assert js("farmCounts", printers) == {"needs": 2, "printing": 3, "idle": 1, "off": 0, "offline": 1}
+    assert js("farmCounts", [card("x", "off")])["off"] == 1
+    assert [p["name"] for p in js("farmOrder", [card("o", "offline"), card("s", "off"), card("i", "idle")])] == ["i", "s", "o"]
     assert js("farmOrder", [card("printer 10", "idle"), card("printer 9", "idle")])[0]["name"] == "printer 9"
 
 
@@ -388,6 +391,8 @@ def test_farm_shows_who_needs_you_first():
     (card("a", "ejecting"), ["estop"]),
     (card("a", "stopped", "shutdown"), []),
     (card("a", "offline"), []),
+    (card("a", "off"), []),
+    (card("a", "needs", "bin", queue="paused", jobs=3), ["bin_empty"]),     # the box first, then the queue
 ])
 def test_farm_card_buttons(p, actions):
     assert js("farmActions", p) == actions
@@ -446,3 +451,13 @@ def test_the_end_gcode_to_paste_matches_the_docs():
     docs = (WEB.parent / "docs" / "slicer-setup.md").read_text(encoding="utf-8")
     assert "PRINT_END\nAUTO_EJECT HEIGHT=[max_layer_z] HOME=1" in docs
     assert "PRINT_END\nAUTO_EJECT HOME=1" in docs                       # Cura
+
+
+@needs_node
+@pytest.mark.parametrize("line", [
+    "// AUTO_EJECT: the parts box is almost full (24 of 30 parts).",
+    "// AUTO_EJECT: the parts box is full (30 of 30 parts). Empty it, then run AUTO_EJECT_BIN_EMPTY.",
+    "!! AUTO_EJECT_GUARD: the parts box is full (30 of 30 parts). Empty it, run AUTO_EJECT_BIN_EMPTY, then start the print again.",
+])
+def test_the_parts_box_notifies(line):
+    assert js("noticeFor", line)["kind"] == "bin"

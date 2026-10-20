@@ -307,7 +307,8 @@
     [/STILL ON THE BED/, "stuck"],
     [/^AUTO_EJECT_GUARD: .*(still on the bed|may still be on the bed)/, "guard"],
     [/too thin to push/, "thin"],
-    [/the print ended and \d+ part\(s\) are still on the bed/, "left"]
+    [/the print ended and \d+ part\(s\) are still on the bed/, "left"],
+    [/the parts box is (almost )?full/, "bin"]
   ];
   function noticeFor(line) {
     const text = String(line).replace(/^(\/\/|!!)\s*/, "").trim();
@@ -447,19 +448,20 @@
 
   // The farm: printers that need someone first, then the ones that will
   // soon (printing, the nearest end first), then the free and the offline.
-  const FARM_RANK = { needs: 0, stopped: 1, paused: 2, ejecting: 3, printing: 4, idle: 5, offline: 6 };
+  const FARM_RANK = { needs: 0, stopped: 1, paused: 2, ejecting: 3, printing: 4, idle: 5, off: 6, offline: 7 };
   function farmOrder(printers) {
-    const rank = (p) => (FARM_RANK[p.phase] === undefined ? 6 : FARM_RANK[p.phase]);
+    const rank = (p) => (FARM_RANK[p.phase] === undefined ? 7 : FARM_RANK[p.phase]);
     return printers.slice().sort((a, b) => rank(a) - rank(b) ||
       (a.phase === "printing" ? (a.eta === null || a.eta === undefined ? 1e9 : a.eta) - (b.eta === null || b.eta === undefined ? 1e9 : b.eta) : 0) ||
       String(a.name).localeCompare(String(b.name), "en", { numeric: true }));
   }
   function farmCounts(printers) {
-    const out = { needs: 0, printing: 0, idle: 0, offline: 0 };
+    const out = { needs: 0, printing: 0, idle: 0, off: 0, offline: 0 };
     for (const p of printers) {
       if (p.phase === "needs" || p.phase === "stopped" || p.phase === "paused") out.needs++;
       else if (p.phase === "printing" || p.phase === "ejecting") out.printing++;
       else if (p.phase === "idle") out.idle++;
+      else if (p.phase === "off") out.off++;
       else out.offline++;
     }
     return out;
@@ -468,7 +470,8 @@
   function farmActions(p) {
     const out = [];
     if (p.phase === "needs" && ["leftover", "parts", "done", "cancelled", "error"].includes(p.reason)) out.push("clear");
-    if (p.queue === "paused" && p.jobs > 0 && ["idle", "needs"].includes(p.phase) && !["leftover", "parts", "done", "cancelled", "error"].includes(p.reason)) out.push("continue");
+    if (p.phase === "needs" && p.reason === "bin") out.push("bin_empty");
+    if (p.queue === "paused" && p.jobs > 0 && ["idle", "needs"].includes(p.phase) && !["leftover", "parts", "done", "cancelled", "error", "bin"].includes(p.reason)) out.push("continue");
     if (["printing", "paused", "ejecting"].includes(p.phase)) out.push("estop");
     return out;
   }

@@ -29,7 +29,10 @@ PORTS = (7125, 80)
 QUERY = ("/printer/objects/query?print_stats=state,filename,print_duration,info,message"
          "&virtual_sdcard=progress&heater_bed=temperature,target&extruder=temperature,target"
          "&webhooks=state,state_message&idle_timeout=state"
-         "&gcode_macro%20_AUTO_EJECT_STATE=objects,busy,swept,leftover,height")
+         "&gcode_macro%20_AUTO_EJECT_STATE=objects,busy,swept,leftover,height,bin"
+         "&gcode_macro%20_AUTO_EJECT_DEFAULTS=bin_capacity&gcode_macro%20_AUTO_EJECT_SETTINGS=bin_capacity"
+         "&gcode_macro%20_AUTO_EJECT_OVERRIDES=data")
+NOZZLE_COOL = 50.0     # turning the power off stops the hotend fan: never above this
 HOST = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$")
 TAILNET = ipaddress.ip_network("100.64.0.0/10")
 # what the farm page can ask a printer to do
@@ -39,6 +42,7 @@ ACTIONS = {
     # forgets the finished job, so it shows as free again
     "clear": ("POST", "/printer/gcode/script", {"script": "AUTO_EJECT_CLEAR"}),
     "clear_plain": ("POST", "/printer/gcode/script", {"script": "SDCARD_RESET_FILE"}),
+    "bin_empty": ("POST", "/printer/gcode/script", {"script": "AUTO_EJECT_BIN_EMPTY"}),
     "estop": ("POST", "/printer/emergency_stop", None),
 }
 
@@ -78,6 +82,21 @@ def same_printer(a, b):
 
 
 # --------------------------------------------------------------- one printer
+def bin_capacity(status):
+    """bin_capacity as the macros see it: saved with AUTO_EJECT_SET, else the
+    settings file, else the default. Old settings files lack it."""
+    sources = ((status.get("gcode_macro _AUTO_EJECT_OVERRIDES") or {}).get("data") or {},
+               status.get("gcode_macro _AUTO_EJECT_SETTINGS") or {},
+               status.get("gcode_macro _AUTO_EJECT_DEFAULTS") or {})
+    for src in sources:
+        if src.get("bin_capacity") is not None:
+            try:
+                return max(0, int(src["bin_capacity"]))
+            except (TypeError, ValueError):
+                return 0
+    return 0
+
+
 def summarize(status, queue=None, now=None):
     """A printer's card from its Moonraker status: phase and what needs you."""
     ps = status.get("print_stats", {})
@@ -91,7 +110,8 @@ def summarize(status, queue=None, now=None):
     progress = vs.get("progress", 0.0) or 0.0
     duration = ps.get("print_duration", 0.0) or 0.0
     parts = len(ae.get("objects", [])) if ae else 0
-    leftover = list(ae.get("leftover", [])) if ae else []
+    leftover = list(ae.get("leftover") or []) if ae else []
+    box, box_cap = (int(ae.get("bin") or 0), bin_capacity(status)) if ae else (0, 0)
     state = ps.get("state", "")
     if wh.get("state") in ("shutdown", "error"):
         phase, reason = "stopped", "shutdown"
@@ -107,6 +127,8 @@ def summarize(status, queue=None, now=None):
         phase, reason = "needs", "error"
     elif parts:
         phase, reason = "needs", "parts"
+    elif box_cap and box >= box_cap:
+        phase, reason = "needs", "bin"
     elif not ae and state in ("complete", "cancelled"):
         # without auto-eject, the print is still on the bed until someone says so
         phase, reason = "needs", "done" if state == "complete" else "cancelled"
@@ -124,6 +146,7 @@ def summarize(status, queue=None, now=None):
         "nozzle": status.get("extruder", {}).get("temperature"),
         "parts": parts, "leftover": leftover, "height": ae.get("height") if ae else None,
         "auto_eject": ae is not None, "jobs": jobs, "queue": queue.get("queue_state", ""),
+        "bin": box, "bin_cap": box_cap,
     }
     return card
 
@@ -148,9 +171,13 @@ def history_stats(totals, jobs, now=None):
 
 
 class Printer:
-    def __init__(self, host, port, name="", local=False, pid=None, macs=None):
+    def __init__(self, host, port, name="", local=False, pid=None, macs=None, auto_off=0, auto_off_device=""):
         self.host, self.port, self.name, self.local = host, int(port), name or host, local
         self.macs = list(macs or [])
+        self.power = None             # Moonraker [power] devices, or None without any
+        self.auto_off = int(auto_off or 0)              # minutes with nothing to do, then off; 0 = never
+        self.auto_off_device = auto_off_device or ""
+        self.idle_since = None
         self.id = pid or ("local" if local else printer_id(host, port))
         self.card = {"phase": "offline"}
         self.status = {}
@@ -169,6 +196,8 @@ class Printer:
         out = {"host": self.host, "port": self.port, "name": self.name}
         if self.macs:
             out["macs"] = self.macs
+        if self.auto_off:
+            out["auto_off"], out["auto_off_device"] = self.auto_off, self.auto_off_device
         return out
 
     def poll(self, now=None):
@@ -186,11 +215,19 @@ class Printer:
                 self.page = self._page()
                 self.macs = self.macs or machine_macs(self.host, self.port)
                 self.stats = self._stats(now)
+                self.power = self._power()
             self.status = status
             self.card = summarize(status, queue, now)
         except Exception:
             self.status = {}
             self.card = {"phase": "offline"}
+        if self.card["phase"] in ("offline", "stopped"):
+            # Moonraker may still answer while the printer's board is switched off
+            power = self._power()
+            if power is not None:
+                self.power = power
+            if self.power and any(d["status"] == "off" for d in self.power):
+                self.card = {"phase": "off"}
         self.updated = now
         return self.card
 
@@ -201,6 +238,31 @@ class Printer:
         except Exception:
             return self.stats
         return history_stats(totals, jobs, now)
+
+    def _power(self):
+        try:
+            devices = http_json(self.base + "/machine/device_power/devices")["devices"]
+        except Exception:
+            return None
+        return [{"device": str(d.get("device", "")), "status": d.get("status", ""), "locked": bool(d.get("locked_while_printing"))}
+                for d in devices]
+
+    def set_power(self, device, action):
+        """Switch a power device; never off while printing or with a hot nozzle,
+        whose fan would stop with it."""
+        names = [d["device"] for d in self.power or []]
+        if device not in names or action not in ("on", "off"):
+            raise LookupError("no power device %s" % device)
+        if action == "off":
+            if self.card.get("phase") in ("printing", "paused", "ejecting"):
+                raise PermissionError("the printer is busy")
+            if (self.card.get("nozzle") or 0) > NOZZLE_COOL:
+                raise PermissionError("the nozzle is still hot (%.0f °C)" % self.card["nozzle"])
+        result = http_json(self.base + "/machine/device_power/device", data={"device": device, "action": action}, timeout=10)
+        for d in self.power:
+            if d["device"] == device and isinstance(result, dict) and device in result:
+                d["status"] = result[device]
+        return result
 
     def _webcam(self):
         try:
@@ -225,6 +287,7 @@ class Printer:
     def public(self):
         return dict(self.card, id=self.id, name=self.name, host=self.host, local=self.local,
                     page=None if self.local else self.page, camera=bool(self.webcam), stats=self.stats,
+                    power=self.power, auto_off=self.auto_off, auto_off_device=self.auto_off_device,
                     updated=self.updated)
 
 
@@ -353,9 +416,12 @@ class Farm:
             return False
         with self.lock:
             for pid, r in records.items():
-                self.printers.setdefault(pid, Printer(r["host"], r.get("port", 7125), r.get("name", ""), pid=pid, macs=r.get("macs")))
+                self.printers.setdefault(pid, Printer(r["host"], r.get("port", 7125), r.get("name", ""), pid=pid, macs=r.get("macs"),
+                                                      auto_off=r.get("auto_off", 0), auto_off_device=r.get("auto_off_device", "")))
             if local.get("name"):
                 self.local.name, self.local_named = local["name"], True
+            self.local.auto_off = int(local.get("auto_off") or 0)
+            self.local.auto_off_device = local.get("auto_off_device") or ""
             self.skipped = list(skipped)
             self.loaded = True
         return True
@@ -371,6 +437,7 @@ class Farm:
 
     def poll(self, now=None, watcher_factory=None):
         self.load()
+        now = now or time.time()
         printers = self.all()
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, len(printers))) as pool:
             list(pool.map(lambda p: self._poll_one(p, now, watcher_factory), printers))
@@ -383,6 +450,8 @@ class Farm:
 
     def _poll_one(self, p, now, watcher_factory):
         p.poll(now)
+        if self.auto_off(p, now) and self.on_events:
+            self.on_events(p.name, [("off", "Switched off after %d minutes with nothing to do" % p.auto_off)])
         # this printer's own notifications come from the service itself
         if p.local or not self.on_events or watcher_factory is None or p.card.get("phase") == "offline":
             return
@@ -478,7 +547,7 @@ class Farm:
             if p.local:
                 if not self.loaded:
                     raise RuntimeError("Moonraker is not answering yet")
-                self.moonraker.put("local", {"name": name}, namespace=NAMESPACE)
+                self.moonraker.put("local", self._local_record(name), namespace=NAMESPACE)
                 if name:
                     p.name, self.local_named = name, True
                 else:
@@ -488,15 +557,63 @@ class Farm:
                 self._save()
         return True
 
+    def _local_record(self, name=None):
+        out = {"name": (self.local.name if self.local_named else "") if name is None else name}
+        if self.local.auto_off:
+            out["auto_off"], out["auto_off_device"] = self.local.auto_off, self.local.auto_off_device
+        return out
+
+    def set_auto_off(self, pid, minutes, device=""):
+        """Switch the printer off after this many minutes with nothing to do; 0 = never."""
+        minutes = max(0, min(24 * 60, int(minutes or 0)))
+        with self.lock:
+            p = self.find(pid)
+            if p is None:
+                return False
+            if not self.loaded:
+                raise RuntimeError("Moonraker is not answering yet")
+            p.auto_off, p.auto_off_device, p.idle_since = minutes, str(device or ""), None
+            if p.local:
+                self.moonraker.put("local", self._local_record(), namespace=NAMESPACE)
+            else:
+                self._save()
+        return True
+
+    def auto_off(self, p, now):
+        """Switch p off once it has had nothing to do for p.auto_off minutes:
+        not printing, nothing in its queue, the nozzle cool. Returns True when
+        it was switched off."""
+        devices = p.power or []
+        dev = next((d for d in devices if d["device"] == p.auto_off_device), devices[0] if devices else None)
+        c = p.card
+        quiet = (c.get("phase") in ("idle", "needs") and not c.get("jobs") and c.get("nozzle") is not None
+                 and c["nozzle"] < NOZZLE_COOL and dev is not None and dev["status"] == "on")
+        if not p.auto_off or not quiet:
+            p.idle_since = None
+            return False
+        if p.idle_since is None:
+            p.idle_since = now
+            return False
+        if now - p.idle_since < p.auto_off * 60:
+            return False
+        p.idle_since = None
+        try:
+            p.set_power(dev["device"], "off")
+        except Exception:
+            return False
+        return True
+
     def find(self, pid):
         return self.local if pid == "local" else self.printers.get(pid)
 
     def act(self, pid, action):
         p = self.find(pid)
-        if p is None or action not in ("continue", "clear", "estop"):
+        if p is None or action not in ("continue", "clear", "estop", "bin_empty"):
             return None
         if action == "clear" and not p.card.get("auto_eject"):
             action = "clear_plain"
+        if action == "bin_empty" and not p.card.get("auto_eject"):
+            return None
         method, path, data = ACTIONS[action]
         return http_json(p.base + path, data=data, method=method, timeout=10)
 
@@ -562,6 +679,16 @@ def make_handler(farm):
                         return self._send(200, {"removed": farm.remove(body["remove"])})
                     if "rename" in body:
                         return self._send(200, {"renamed": farm.rename(body["rename"], body.get("name", ""))})
+                    if "auto_off" in body:
+                        return self._send(200, {"saved": farm.set_auto_off(body.get("id"), body["auto_off"], body.get("device", ""))})
+                if len(parts) == 3 and parts[0] == "farm" and parts[2] == "power" and method == "POST":
+                    p = farm.find(parts[1])
+                    if p is None:
+                        return self._send(404, {"error": "not found"})
+                    try:
+                        return self._send(200, {"result": p.set_power(body.get("device"), body.get("action"))})
+                    except (LookupError, PermissionError) as e:
+                        return self._send(409, {"error": str(e)})
                 if len(parts) == 3 and parts[0] == "farm" and method == "POST":
                     result = farm.act(parts[1], parts[2])
                     return self._send(200 if result is not None else 404, {"result": result})

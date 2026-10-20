@@ -417,3 +417,94 @@ def test_a_card_carries_its_statistics(monkeypatch):
     p = farm.Printer("10.1.1.2", 7125)
     p.poll()
     assert p.public()["stats"]["hours"] == 2.0 and p.public()["stats"]["recent_ok"] == 1
+
+
+# ------------------------------------------------------------- the parts box
+def test_the_box_capacity_comes_from_where_the_macros_take_it():
+    st = status("standby", ae=dict(tracker(), bin=12))
+    st["gcode_macro _AUTO_EJECT_DEFAULTS"] = {"bin_capacity": 0}
+    assert farm.bin_capacity(st) == 0
+    st["gcode_macro _AUTO_EJECT_SETTINGS"] = {"bin_capacity": 40}
+    assert farm.bin_capacity(st) == 40
+    st["gcode_macro _AUTO_EJECT_OVERRIDES"] = {"data": {"bin_capacity": 12}}
+    assert farm.bin_capacity(st) == 12
+    card = farm.summarize(st)
+    assert (card["phase"], card["reason"], card["bin"], card["bin_cap"]) == ("needs", "bin", 12, 12)
+    # an older settings file without it, and a printer without auto-eject
+    assert farm.bin_capacity(status()) == 0
+    assert farm.summarize(status())["bin_cap"] == 0
+
+
+# ------------------------------------------------------------------ power
+def powered(card, devices, http=None):
+    p = farm.Printer("10.1.1.2", 7125)
+    p.card = dict(card)
+    p.power = [dict(d) for d in devices]
+    return p
+
+
+PSU = [{"device": "printer", "status": "on", "locked": False}]
+
+
+def test_power_off_never_while_busy_or_hot(monkeypatch):
+    sent = []
+    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0: sent.append(data) or {"printer": data["action"]})
+    with pytest.raises(PermissionError, match="busy"):
+        powered({"phase": "printing", "nozzle": 30}, PSU).set_power("printer", "off")
+    with pytest.raises(PermissionError, match="hot"):
+        powered({"phase": "idle", "nozzle": 120}, PSU).set_power("printer", "off")
+    with pytest.raises(LookupError):
+        powered({"phase": "idle", "nozzle": 30}, PSU).set_power("lights", "off")
+    p = powered({"phase": "idle", "nozzle": 30}, PSU)
+    p.set_power("printer", "off")
+    assert sent == [{"device": "printer", "action": "off"}] and p.power[0]["status"] == "off"
+    p.set_power("printer", "on")                                     # on is always allowed
+    assert p.power[0]["status"] == "on"
+
+
+def test_a_switched_off_printer_shows_off(monkeypatch):
+    def fake(url, data=None, method=None, timeout=0):
+        if "/printer/objects/query" in url:
+            return {"status": status(webhooks="error")}           # the board does not answer
+        if "/machine/device_power/devices" in url:
+            return {"devices": [{"device": "printer", "status": "off", "locked_while_printing": True, "type": "tasmota"}]}
+        raise OSError(url)
+    monkeypatch.setattr(farm, "http_json", fake)
+    p = farm.Printer("10.1.1.2", 7125)
+    assert p.poll()["phase"] == "off"
+    assert p.public()["power"] == [{"device": "printer", "status": "off", "locked": True}]
+
+
+def test_auto_off_after_the_chosen_minutes_with_nothing_to_do(monkeypatch):
+    sent = []
+    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0: sent.append(data) or {"printer": "off"})
+    f = farm.Farm(FakeMoonraker())
+    p = powered({"phase": "idle", "nozzle": 35, "jobs": 0}, PSU)
+    p.auto_off = 30
+    assert not f.auto_off(p, 1000)                                   # starts counting
+    assert not f.auto_off(p, 1000 + 29 * 60)
+    p.card["jobs"] = 2                                               # a job was queued: start again
+    assert not f.auto_off(p, 1000 + 31 * 60)
+    p.card["jobs"] = 0
+    assert not f.auto_off(p, 5000)
+    p.card["nozzle"] = 80                                            # hot again
+    assert not f.auto_off(p, 5000 + 40 * 60)
+    p.card["nozzle"] = 30
+    assert not f.auto_off(p, 9000)
+    assert f.auto_off(p, 9000 + 30 * 60)
+    assert sent == [{"device": "printer", "action": "off"}]
+    q = powered({"phase": "printing", "nozzle": 215, "jobs": 0}, PSU)
+    q.auto_off = 1
+    assert not f.auto_off(q, 0) and not f.auto_off(q, 10 ** 6)
+
+
+def test_auto_off_is_kept(monkeypatch):
+    mr = FakeMoonraker()
+    f = farm.Farm(mr)
+    pid = f.add([{"host": "10.1.1.2", "port": 7125, "name": "ender"}])[0]
+    assert f.set_auto_off(pid, 45, "printer")
+    assert f.set_auto_off("local", 20)
+    g = farm.Farm(mr)
+    assert (g.printers[pid].auto_off, g.printers[pid].auto_off_device) == (45, "printer")
+    assert g.local.auto_off == 20
+    assert not f.set_auto_off("nope", 5)

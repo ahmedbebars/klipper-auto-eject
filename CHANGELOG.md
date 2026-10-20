@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **The parts box** (`bin_capacity`, `bin_full_action`, `AUTO_EJECT_BIN_EMPTY`): auto-eject counts
+  the parts it pushes into the box under the drop edge, keeps the count across restarts, and says
+  when the box is almost full (80 %) and full, with a notification. With `"stop"` (the default)
+  `AUTO_EJECT_GUARD` holds the next print until the box is emptied. The web page shows the count
+  (**Box: 26 / 30**) with **I emptied the box**, and the farm shows it on every printer.
+- **Power switches in the farm**: printers with a Moonraker `[power]` device get **Turn on** and
+  **Turn off** (never while printing or with the nozzle above 50 °C, whose fan would stop), show
+  **Switched off** when off, and can switch off by themselves after 15 minutes to 4 hours with
+  nothing to do; a notification says so.
 - **In your slicer**, a card in the web page's **Blade and setup** tab: where each setting is in
   OrcaSlicer, PrusaSlicer/SuperSlicer or Cura, and the start and end G-code to paste with a
   **Copy** button. The end G-code names the end macro the printer really uses: the one its newest

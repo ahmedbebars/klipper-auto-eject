@@ -10,6 +10,7 @@ A message on your phone when the printer needs you, and, if you like, when every
 | a print is too thin for the blade and was left on the bed | the job queue waits for you |
 | a print ended without an eject (no `AUTO_EJECT` in the end G-code, or cancelled) | the parts are still on the bed |
 | the next print did not start because old parts are still on the bed | [the guard](recovery.md#the-guard-auto_eject_guard) |
+| the parts box is almost full, or full ([`bin_capacity`](configuration.md#the-parts-box)) | when full, the next print waits until you empty it |
 | a print stopped with an error, or was cancelled | |
 | every print finishes (optional) | with `AUTO_EJECT` in the end G-code this comes once the bed is clear |
 

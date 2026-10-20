@@ -126,17 +126,19 @@ NOTICES = [
     (re.compile(r"^AUTO_EJECT_GUARD: .*(still on the bed|may still be on the bed)"), "guard"),
     (re.compile(r"too thin to push"), "thin"),
     (re.compile(r"the print ended and \d+ part\(s\) are still on the bed"), "left"),
+    (re.compile(r"the parts box is (almost )?full"), "bin"),
     (re.compile(r"^AUTO_EJECT: test notification"), "test"),
 ]
-PROBLEMS = {"stuck", "guard", "thin", "left", "error", "shutdown"}
+PROBLEMS = {"stuck", "guard", "thin", "left", "bin", "error", "shutdown"}
 TITLES = {
     "en": {"stuck": "A part is still on the bed", "guard": "The print did not start",
            "thin": "Parts left on the bed", "left": "Take the parts off", "complete": "Print finished",
            "error": "Print stopped with an error", "cancelled": "Print cancelled", "shutdown": "Klipper stopped",
-           "test": "Auto-eject"},
+           "bin": "Empty the parts box", "off": "Switched off", "test": "Auto-eject"},
     "ar": {"stuck": "قطعة ما زالت على السرير", "guard": "لم تبدأ الطباعة", "thin": "قطع متروكة على السرير",
            "left": "أزل القطع", "complete": "انتهت الطباعة", "error": "توقفت الطباعة بخطأ",
-           "cancelled": "أُلغيت الطباعة", "shutdown": "توقف Klipper", "test": "الإزالة التلقائية"},
+           "cancelled": "أُلغيت الطباعة", "shutdown": "توقف Klipper", "bin": "أفرغ صندوق القطع", "off": "أُطفئت",
+           "test": "الإزالة التلقائية"},
 }
 TEST_BODY = {"en": "Notifications from your printer work.", "ar": "إشعارات طابعتك تعمل."}
 

@@ -15,7 +15,7 @@
   // Settings the demo printer's own settings file changes.
   const DEMO_FILE = {
     blade_offset: 62.0, blade_width: 100.0, push_z: 0.8, blade_lift: 2.1,
-    push_current: 0.45, cool_temp: 32
+    push_current: 0.45, cool_temp: 32, bin_capacity: 30
   };
 
   // Used when ../config/auto_eject_settings.cfg cannot be read.
@@ -118,7 +118,7 @@
       extruder: { temperature: 60.0, target: 0, power: 0 },
       fan: { speed: 0 },
       exclude_object: { objects: [], excluded_objects: [], current_object: null },
-      "gcode_macro _AUTO_EJECT_STATE": { objects: [], height: 15.5, job: "cookie_cutters_x6.gcode", leftover: [],
+      "gcode_macro _AUTO_EJECT_STATE": { objects: [], height: 15.5, job: "cookie_cutters_x6.gcode", leftover: [], bin: 20,
                                          busy: false, swept: false, captured: true, abort: false },
       "gcode_macro _AUTO_EJECT_DEFAULTS": {},
       "gcode_macro _AUTO_EJECT_SETTINGS": {},
@@ -329,7 +329,11 @@
         }
       }
       this.say("// AUTO_EJECT: bed verified clear (" + n + " probe points)");
-      this.state({ objects: [], height: 0, busy: false });
+      const box = (this.status["gcode_macro _AUTO_EJECT_STATE"].bin || 0) + Math.max(1, this.parts.length);
+      const cap = this.settings().bin_capacity || 0;
+      this.state({ objects: [], height: 0, busy: false, bin: box });
+      if (cap && box >= cap) this.say("// AUTO_EJECT: the parts box is full (" + box + " of " + cap + " parts). Empty it, then run AUTO_EJECT_BIN_EMPTY; the next print waits until then.");
+      else if (cap && box >= Math.ceil(cap * 0.8) && box - Math.max(1, this.parts.length) < Math.ceil(cap * 0.8)) this.say("// AUTO_EJECT: the parts box is almost full (" + box + " of " + cap + " parts).");
       this.setParts([]);
       await this.moveTo(PARK[0], PARK[1], PARK[2], 900);
     } finally {
@@ -497,6 +501,10 @@
         this.say("// AUTO_EJECT: stored parts forgotten, the bed is treated as clear");
         this.nextJobSoon();
         return;
+      case "AUTO_EJECT_BIN_EMPTY":
+        this.state({ bin: 0 });
+        this.say("// AUTO_EJECT: parts box emptied, counting from 0");
+        return;
       case "AUTO_EJECT_CONTINUE":
         this.say("// action:prompt_end");
         this.setParts([]);
@@ -630,10 +638,15 @@
     { id: "f2", name: "voron-02", host: "192.168.1.22", auto_eject: true, kind: "leftover", file: "hooks_x8_PETG.gcode", left: ["hook_3"],
       stats: { hours: 1210, jobs: 903, recent: 50, recent_ok: 46, today_ok: 4, today_bad: 1 } },
     { id: "f3", name: "ender3-s1", host: "192.168.1.30", auto_eject: false, kind: "done", file: "bracket_PETG_2h5m.gcode",
+      power: [{ device: "printer", status: "on", locked: false }],
       stats: { hours: 356.2, jobs: 188, recent: 50, recent_ok: 44, today_ok: 2, today_bad: 0 } },
     { id: "f4", name: "prusa-mk3s", host: "192.168.1.31", auto_eject: false, kind: "printing", file: "vase_PLA_4h.gcode", time: 14400, at: 0.82, layers: 610,
       stats: { hours: 2034, jobs: 1240, recent: 50, recent_ok: 47, today_ok: 1, today_bad: 1 } },
-    { id: "f5", name: "sovol-sv06", host: "192.168.1.33", auto_eject: false, kind: "offline" }
+    { id: "f5", name: "sovol-sv06", host: "192.168.1.33", auto_eject: false, kind: "offline" },
+    { id: "f6", name: "voron-03", host: "192.168.1.23", auto_eject: true, kind: "bin", bin: 40, bin_cap: 40,
+      power: [{ device: "printer", status: "on", locked: true }],
+      stats: { hours: 655, jobs: 480, recent: 50, recent_ok: 50, today_ok: 7, today_bad: 0 } },
+    { id: "f7", name: "kobra-2", host: "192.168.1.34", auto_eject: false, kind: "off", power: [{ device: "psu", status: "off", locked: true }] }
   ];
   const FARM_FOUND = [{ host: "192.168.1.40", port: 7125, name: "trident-300", klippy: "ready" },
                       { host: "192.168.1.41", port: 7125, name: "ender5-plus", klippy: "ready" }];
@@ -656,7 +669,8 @@
       layer: info.current_layer, layers: info.total_layer, bed: st.heater_bed.temperature, bed_target: st.heater_bed.target,
       nozzle: st.extruder.temperature, parts: (ae.objects || []).length, leftover: ae.leftover || [],
       jobs: this.queue.jobs.length, queue: this.queue.state,
-      stats: { hours: 128.4, jobs: 97, recent: 50, recent_ok: 48, today_ok: 3, today_bad: 0 } };
+      stats: { hours: 128.4, jobs: 97, recent: 50, recent_ok: 48, today_ok: 3, today_bad: 0 },
+      bin: ae.bin || 0, bin_cap: this.settings().bin_capacity || 0, power: null };
   };
 
   Demo.prototype.farmCard = function (f) {
@@ -664,8 +678,10 @@
     if (!this.farmStart) this.farmStart = now;
     const base = { id: f.id, name: f.name, host: f.host, local: false, auto_eject: f.auto_eject, camera: false,
       page: "http://" + f.host + (f.auto_eject ? "/auto-eject/" : "/"), parts: 0, leftover: [], jobs: f.jobs || 0, queue: "ready",
-      stats: f.stats || null };
+      stats: f.stats || null, power: f.power ? f.power.map((d) => Object.assign({}, d)) : null,
+      auto_off: f.auto_off || 0, auto_off_device: f.auto_off_device || "", bin: f.bin || 0, bin_cap: f.bin_cap || 0 };
     if (f.kind === "offline") return Object.assign(base, { phase: "offline" });
+    if (f.kind === "off") return Object.assign(base, { phase: "off" });
     const card = Object.assign(base, { state: "standby", filename: f.file || "", message: "", bed: 23, bed_target: 0, nozzle: 24, progress: 0, eta: null });
     if (f.kind === "printing") {
       // a print that runs 40 times faster than a real one, then starts again
@@ -675,6 +691,7 @@
     }
     if (f.kind === "leftover") return Object.assign(card, { phase: "needs", reason: "leftover", state: "complete", leftover: f.left, parts: 8, queue: "paused", jobs: 4 });
     if (f.kind === "done") return Object.assign(card, { phase: "needs", reason: "done", state: "complete", progress: 1 });
+    if (f.kind === "bin") return Object.assign(card, { phase: "needs", reason: "bin", state: "complete", progress: 1, filename: "" });
     return Object.assign(card, { phase: "idle", reason: "", filename: "" });
   };
 
@@ -712,6 +729,11 @@
         return ok({ added });
       }
       if (body.remove) { this.farmList = this.farmList.filter((f) => f.id !== body.remove); return ok({ removed: true }); }
+      if (body.auto_off !== undefined) {
+        const f = this.farmList.find((x) => x.id === body.id);
+        if (f) { f.auto_off = body.auto_off; f.auto_off_device = body.device || ""; }
+        return ok({ saved: !!f });
+      }
       if (body.rename) {
         const f = body.rename === "local" ? null : this.farmList.find((x) => x.id === body.rename);
         if (body.rename === "local") this.farmLocalName = String(body.name || "").trim();
@@ -719,16 +741,29 @@
         return ok({ renamed: true });
       }
     }
-    const m = /^\/([^/]+)\/(continue|clear|estop)$/.exec(path);
+    const pw = /^\/([^/]+)\/power$/.exec(path);
+    if (pw) {
+      const f = this.farmList.find((x) => x.id === pw[1]);
+      const d = f && (f.power || []).find((x) => x.device === body.device);
+      if (!d) return fail("no power device " + body.device);
+      if (body.action === "off" && f.kind === "printing") return fail("the printer is busy");
+      d.status = body.action;
+      if (body.action === "off") f.kind = "off";
+      else if (f.kind === "off") f.kind = "idle";
+      return ok({ result: { [d.device]: d.status } });
+    }
+    const m = /^\/([^/]+)\/(continue|clear|estop|bin_empty)$/.exec(path);
     if (m) {
       if (m[1] === "local") {
         if (m[2] === "estop") return this.call("printer.emergency_stop").then((r) => ({ result: r }));
         if (m[2] === "continue") return this.call("server.job_queue.start").then((r) => ({ result: r }));
+        if (m[2] === "bin_empty") return this.gcode("AUTO_EJECT_BIN_EMPTY").then((r) => ({ result: r }));
         return this.gcode("AUTO_EJECT_CLEAR").then((r) => ({ result: r }));
       }
       const f = this.farmList.find((x) => x.id === m[1]);
       if (!f) return fail("not found");
       if (m[2] === "clear") f.kind = "idle";
+      if (m[2] === "bin_empty") { f.kind = "idle"; f.bin = 0; }
       if (m[2] === "estop") f.kind = "offline";
       if (m[2] === "continue") { f.kind = "printing"; f.file = f.file || "next_job.gcode"; f.time = 5400; f.at = 0; f.layers = 90; f.start = Date.now() / 1000; }
       return ok({ result: "ok" });

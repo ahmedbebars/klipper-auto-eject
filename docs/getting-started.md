@@ -287,6 +287,11 @@ When a print ends, the printer clears the bed and the queue starts the next job.
 on the bed, the print ends with an error and **the queue stops**, so nothing is printed on top
 of it. Take the part off, run `AUTO_EJECT_CLEAR`, and start the queue again.
 
+Tell it how many parts your box holds, so it warns you before the box overflows: in the web
+page's **Settings**, **Parts box**, set `bin_capacity` (for example `40`). When the box is full,
+the next print waits until you empty it and press **I emptied the box**
+([the parts box](configuration.md#the-parts-box)).
+
 Before you leave it alone, read [safety.md](safety.md).
 
 ---

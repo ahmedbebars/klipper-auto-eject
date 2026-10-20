@@ -77,7 +77,20 @@ with its local address: it knows it is the same machine by its network card.
 | **Start the queue** | Starts that printer's Moonraker job queue: the next job prints | Yes |
 | **Emergency stop** | Stops that printer at once. It then needs a firmware restart | Yes |
 | **Open** | That printer's own page: its auto-eject page if it has one, otherwise Mainsail or Fluidd | |
-| ✎ | Rename the printer here, or remove it from the farm. Nothing changes on the printer itself | |
+| **I emptied the box** | The printer's parts box is full: you emptied it, it counts from zero again (`AUTO_EJECT_BIN_EMPTY`) | No |
+| **Turn on** / **Turn off** | For printers with a power switch in Moonraker (`[power]` in `moonraker.conf`, a smart plug, a relay). Off never happens while it prints or while the nozzle is above 50 °C, because the hotend fan stops with it | Off asks |
+| ✎ | Rename the printer here, or remove it from the farm. Nothing changes on the printer itself. With a power switch: **Turn off by itself when it has nothing to do** | |
+
+### Switching printers off by themselves
+
+For a printer with a power switch, ✎ offers **Turn off by itself when it has nothing to do**:
+never, or after 15 minutes to 4 hours. Nothing to do means not printing, nothing in its queue and
+the nozzle below 50 °C. The farm then switches it off and sends a notification. Use it only for
+a switch that powers the printer, not the computer that runs Moonraker, or nothing can switch it
+on again. A printer switched off shows **Switched off**, with **Turn on**.
+
+A printer with auto-eject also shows its parts box (**Box: 32 / 40**) once
+[`bin_capacity`](configuration.md#the-parts-box) is set; a full box makes it **Needs you**.
 
 ## From your phone, anywhere
 
@@ -125,7 +138,9 @@ nginx publishes that at `/auto-eject/api/`:
 | `GET /auto-eject/api/farm` | Every printer's card, and the last search |
 | `POST /auto-eject/api/farm/scan` | Starts a search of the network |
 | `POST /auto-eject/api/farm/printers` | `{"add": [{"host": …, "port": …}]}`, `{"remove": id}`, `{"rename": id, "name": …}` |
-| `POST /auto-eject/api/farm/<id>/clear`, `…/continue`, `…/estop` | The buttons |
+| `POST /auto-eject/api/farm/<id>/clear`, `…/continue`, `…/estop`, `…/bin_empty` | The buttons |
+| `POST /auto-eject/api/farm/<id>/power` | `{"device": …, "action": "on"}` or `"off"` |
+| `POST /auto-eject/api/farm/printers` | also `{"id": …, "auto_off": minutes, "device": …}` |
 | `GET /auto-eject/api/farm/<id>/snapshot` | That printer's camera picture |
 
 Its log: `journalctl -u klipper-auto-eject`. Try it without printers in the

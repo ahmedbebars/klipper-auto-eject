@@ -585,3 +585,11 @@ button.row.active { background: var(--accent-soft); }
 .code-lines .cl { padding-left: 1.6em; text-indent: -1.6em; }
 .codecopy .btn { flex: none; align-self: center; }
 .menu-path { display: inline-block; font-size: 12.5px; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); unicode-bidi: isolate; }
+
+/* the parts box and power */
+button.chip { font: inherit; font-size: 12.5px; cursor: pointer; }
+button.chip:hover { border-color: var(--accent); }
+.chip.warn { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
+.chip.warn b { color: var(--warn); }
+.fcard[data-state="off"] { --state: var(--muted); --state-soft: var(--surface-2); }
+.fc-acts .btn.power-on .ic { color: var(--ok); }
