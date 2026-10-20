@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+- `http://<printer>/auto-eject/` redirected to the page with an absolute `http://` address, so
+  behind an HTTPS proxy such as `tailscale serve` the page lost HTTPS. The redirect is relative now;
+  run `install.sh --web` again to update the nginx file.
+
 ### Added
 - **`AUTO_EJECT_GUARD` checks the bed itself** (`guard_action: "check"`, the new default). When
   the printer remembers parts from an earlier print that was not ejected, the next print first

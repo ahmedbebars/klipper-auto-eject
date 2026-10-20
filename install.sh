@@ -412,8 +412,9 @@ install_web() {
     sudo tee "${NGINX_SNIPPET}" >/dev/null <<EOF
 # klipper-auto-eject web page, added by install.sh --web
 # https://github.com/ahmedbebars/klipper-auto-eject/blob/main/docs/web-page.md
-location = /auto-eject { return 302 /auto-eject/web/; }
-location = /auto-eject/ { return 302 /auto-eject/web/; }
+# relative redirects keep https:// behind an HTTPS proxy such as tailscale serve
+location = /auto-eject { absolute_redirect off; return 302 /auto-eject/web/; }
+location = /auto-eject/ { absolute_redirect off; return 302 /auto-eject/web/; }
 location ~ ^/auto-eject/(.*/)?\. { deny all; }
 location /auto-eject/ {
     alias ${REPO_DIR}/;

@@ -59,7 +59,7 @@ Add this inside the `server { ... }` block of your Mainsail or Fluidd site
 (`/etc/nginx/sites-available/mainsail` on most installs), with your own path:
 
 ```nginx
-location = /auto-eject/ { return 302 /auto-eject/web/; }
+location = /auto-eject/ { absolute_redirect off; return 302 /auto-eject/web/; }
 location ~ ^/auto-eject/(.*/)?\. { deny all; }
 location /auto-eject/ {
     alias /home/pi/klipper-auto-eject/;
