@@ -36,6 +36,14 @@ def stored(p):
     return p.status["gcode_macro _AUTO_EJECT_STATE"]["objects"]
 
 
+def test_stencil_with_a_height_that_includes_the_z_hop_is_still_found():
+    # 2 layers of 0.2 mm, but the tracker saw 0.7 mm: the z-hop over the top
+    p = make([STENCIL], 0.7)
+    p.under_probe = lambda x, y: (0.4 if inside(STENCIL, x, y) else 0.0) + 0.02 * (x - 225) / 100
+    with pytest.raises(MacroError, match="stencil still on the bed"):
+        p.execute("AUTO_EJECT_GUARD")
+
+
 def test_parts_taken_off_the_print_just_starts():
     p = make([STENCIL], 0.4)
     lines = p.execute("AUTO_EJECT_GUARD")
