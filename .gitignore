@@ -8,3 +8,5 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+# the website build (mkdocs build)
+site/

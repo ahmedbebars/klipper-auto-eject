@@ -578,6 +578,7 @@
       refresh();
     };
     const back = $("#back");
+    back.hidden = DEMO;          // the demo has no printer dashboard to go back to
     back.replaceChildren(icon("home"));
     back.title = t("app.back");
     back.setAttribute("aria-label", t("app.back"));

@@ -1,0 +1,40 @@
+{% extends "main.html" %}
+
+{#- The home page: a hero under the tabs, then the page's own content. -#}
+{% block tabs %}
+  {{ super() }}
+  <section class="ae-hero">
+    <div class="md-grid ae-hero__grid">
+      <div class="ae-hero__text">
+        <p class="ae-eyebrow">Klipper macros &middot; open source &middot; beta</p>
+        <h1>Your printer clears<br>its own bed</h1>
+        <p class="ae-lead">
+          When a print finishes, the bed cools, a printed blade on the toolhead pushes the parts
+          into a box, the probe checks that the bed is empty, and the next print starts.
+          For any printer running Klipper.
+        </p>
+        <div class="ae-actions">
+          <a href="{{ 'getting-started.html' | url }}" class="md-button md-button--primary">Get started</a>
+          <a href="{{ 'demo.html' | url }}" class="md-button">Try the live demo</a>
+          <a href="{{ config.repo_url }}" class="ae-source">
+            <span class="twemoji">{% include ".icons/fontawesome/brands/github.svg" %}</span>
+            Source on GitHub
+          </a>
+        </div>
+        <p class="ae-release">
+          Latest release
+          <a class="ae-pill" data-ae-release href="{{ config.repo_url }}/releases">on GitHub</a>
+        </p>
+      </div>
+      <figure class="ae-hero__media">
+        <img src="{{ 'assets/hardware/voron-stealthburner-front.jpg' | url }}"
+             alt="The printed blade mounted on a Voron Stealthburner toolhead, above the bed">
+        <figcaption>The bench: a Voron Trident 450 with a 100 mm blade on its Stealthburner toolhead.</figcaption>
+      </figure>
+    </div>
+  </section>
+{% endblock %}
+
+{% block content %}
+  {{ page.content }}
+{% endblock %}

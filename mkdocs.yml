@@ -1,0 +1,127 @@
+# The project website, built from the files in docs/ with MkDocs Material.
+# Build it with:  pip install -r website/requirements.txt && mkdocs serve
+# The pages stay plain Markdown that also reads well on GitHub;
+# website/hooks.py adapts the links for the site.
+
+site_name: klipper-auto-eject
+site_description: Your 3D printer clears its own bed between prints. Klipper macros, a printed blade and a web page.
+site_author: Ahmed Bebars
+site_url: https://ahmedbebars.github.io/klipper-auto-eject/
+repo_url: https://github.com/ahmedbebars/klipper-auto-eject
+repo_name: ahmedbebars/klipper-auto-eject
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 Ahmed Bebars &middot; GPLv3
+
+docs_dir: docs
+# every page sits next to the others, so raw HTML in the pages
+# (<img src="images/...">) needs no rewriting
+use_directory_urls: false
+exclude_docs: |
+  README.md
+
+theme:
+  name: material
+  custom_dir: website/overrides
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.code.copy
+    - content.tooltips
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.tabs
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - toc.follow
+
+extra_css:
+  - assets/site.css
+extra_javascript:
+  - assets/site.js
+
+hooks:
+  - website/hooks.py
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ahmedbebars/klipper-auto-eject
+      name: Source on GitHub
+    - icon: material/forum
+      link: https://github.com/ahmedbebars/klipper-auto-eject/discussions
+      name: Discussions
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Step by step: getting-started.md
+      - FAQ: faq.md
+      - Glossary: glossary.md
+      - Safety: safety.md
+  - Set up:
+      - The blade: hardware.md
+      - Installation: installation.md
+      - Guided setup: setup-wizard.md
+      - Slicer setup: slicer-setup.md
+      - Web page: web-page.md
+  - Everyday use:
+      - Commands: commands.md
+      - Integration: integration.md
+      - Recovery: recovery.md
+  - Reference:
+      - Configuration: configuration.md
+      - Strategies: strategies.md
+      - Probes: probes.md
+      - Troubleshooting: troubleshooting.md
+      - All pages: documentation.md
+  - Live demo: demo.md
+  - Changelog: changelog.md

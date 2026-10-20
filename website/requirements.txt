@@ -1,0 +1,3 @@
+# Builds the project website: pip install -r website/requirements.txt && mkdocs build
+mkdocs==1.6.1
+mkdocs-material==9.7.7

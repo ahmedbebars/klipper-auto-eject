@@ -19,6 +19,9 @@ All notable changes to this project are documented here. The format is based on
   setting's type and keeps it after a restart. `RESET=1` goes back to the settings file.
 
 ### Documentation
+- A project website built from `docs/` with MkDocs Material (`mkdocs.yml`, `website/`): a home
+  page, search, light and dark, and the web page running as a live demo in the browser.
+  `.github/workflows/website.yml` publishes it on GitHub Pages.
 - Rewritten for beginners. A new step-by-step guide (`docs/getting-started.md`) goes from checking
   the bed to printing in a row, with a check after every step. New pages: FAQ, glossary, every
   command with its options, and a documentation home (`docs/README.md`) grouped by what you want
