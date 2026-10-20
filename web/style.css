@@ -565,3 +565,23 @@ button.row.active { background: var(--accent-soft); }
 .scan-list { max-height: 46vh; overflow-y: auto; margin-top: 8px; }
 .scan-list .row:first-child { border-top: 0; }
 .scan-list .row { cursor: pointer; }
+
+/* farm: print statistics */
+.farm-today { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; margin-inline-start: auto; }
+.farm-today .ic, .fc-stats .ic { width: 15px; height: 15px; flex: none; }
+.fc-stats { display: flex; gap: 6px; align-items: flex-start; color: var(--muted); font-size: 12px; }
+
+/* the slicer card */
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); margin-top: 6px; }
+.seg-btn { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.seg-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.seg-btn .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.slicer-steps { margin: 14px 0 0; padding-inline-start: 20px; display: grid; gap: 14px; }
+.slicer-steps p { margin: 4px 0 6px; font-size: 13.5px; }
+.slicer-steps .small { font-size: 12px; }
+.codecopy { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.codecopy .codeblock { flex: 1 1 220px; min-width: 0; margin: 0; }
+/* one G-code command per line; a long one wraps indented, so it is not read as two */
+.code-lines .cl { padding-left: 1.6em; text-indent: -1.6em; }
+.codecopy .btn { flex: none; align-self: center; }
+.menu-path { display: inline-block; font-size: 12.5px; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); unicode-bidi: isolate; }

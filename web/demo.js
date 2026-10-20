@@ -557,7 +557,8 @@
       case "printer.objects.query": {
         const out = {};
         for (const k of Object.keys(params.objects || {})) {
-          if (k === "configfile") out.configfile = { config: { printer: {}, probe: { x_offset: "0", y_offset: "0" }, respond: {}, exclude_object: {}, save_variables: {} },
+          if (k === "configfile") out.configfile = { config: { printer: {}, probe: { x_offset: "0", y_offset: "0" }, respond: {}, exclude_object: {}, save_variables: {},
+                                                               "gcode_macro PRINT_START": {}, "gcode_macro PRINT_END": {} },
                                                      settings: { probe: { x_offset: 0, y_offset: 0, z_offset: -0.4 } } };
           else if (st[k]) out[k] = JSON.parse(JSON.stringify(st[k]));
         }
@@ -624,10 +625,14 @@
   // A pretend farm for the Farm tab: this demo printer and five others,
   // two more to find when the network is searched.
   const FARM = [
-    { id: "f1", name: "voron-01", host: "192.168.1.21", auto_eject: true, kind: "printing", file: "clips_x12_PLA_1h40m.gcode", time: 6000, at: 0.35, layers: 120 },
-    { id: "f2", name: "voron-02", host: "192.168.1.22", auto_eject: true, kind: "leftover", file: "hooks_x8_PETG.gcode", left: ["hook_3"] },
-    { id: "f3", name: "ender3-s1", host: "192.168.1.30", auto_eject: false, kind: "done", file: "bracket_PETG_2h5m.gcode" },
-    { id: "f4", name: "prusa-mk3s", host: "192.168.1.31", auto_eject: false, kind: "printing", file: "vase_PLA_4h.gcode", time: 14400, at: 0.82, layers: 610 },
+    { id: "f1", name: "voron-01", host: "192.168.1.21", auto_eject: true, kind: "printing", file: "clips_x12_PLA_1h40m.gcode", time: 6000, at: 0.35, layers: 120,
+      stats: { hours: 842.5, jobs: 611, recent: 50, recent_ok: 49, today_ok: 6, today_bad: 0 } },
+    { id: "f2", name: "voron-02", host: "192.168.1.22", auto_eject: true, kind: "leftover", file: "hooks_x8_PETG.gcode", left: ["hook_3"],
+      stats: { hours: 1210, jobs: 903, recent: 50, recent_ok: 46, today_ok: 4, today_bad: 1 } },
+    { id: "f3", name: "ender3-s1", host: "192.168.1.30", auto_eject: false, kind: "done", file: "bracket_PETG_2h5m.gcode",
+      stats: { hours: 356.2, jobs: 188, recent: 50, recent_ok: 44, today_ok: 2, today_bad: 0 } },
+    { id: "f4", name: "prusa-mk3s", host: "192.168.1.31", auto_eject: false, kind: "printing", file: "vase_PLA_4h.gcode", time: 14400, at: 0.82, layers: 610,
+      stats: { hours: 2034, jobs: 1240, recent: 50, recent_ok: 47, today_ok: 1, today_bad: 1 } },
     { id: "f5", name: "sovol-sv06", host: "192.168.1.33", auto_eject: false, kind: "offline" }
   ];
   const FARM_FOUND = [{ host: "192.168.1.40", port: 7125, name: "trident-300", klippy: "ready" },
@@ -650,14 +655,16 @@
       progress, eta: phase === "printing" && progress > 0.01 ? Math.round(ps.print_duration * (1 - progress) / progress) : null,
       layer: info.current_layer, layers: info.total_layer, bed: st.heater_bed.temperature, bed_target: st.heater_bed.target,
       nozzle: st.extruder.temperature, parts: (ae.objects || []).length, leftover: ae.leftover || [],
-      jobs: this.queue.jobs.length, queue: this.queue.state };
+      jobs: this.queue.jobs.length, queue: this.queue.state,
+      stats: { hours: 128.4, jobs: 97, recent: 50, recent_ok: 48, today_ok: 3, today_bad: 0 } };
   };
 
   Demo.prototype.farmCard = function (f) {
     const now = Date.now() / 1000;
     if (!this.farmStart) this.farmStart = now;
     const base = { id: f.id, name: f.name, host: f.host, local: false, auto_eject: f.auto_eject, camera: false,
-      page: "http://" + f.host + (f.auto_eject ? "/auto-eject/" : "/"), parts: 0, leftover: [], jobs: f.jobs || 0, queue: "ready" };
+      page: "http://" + f.host + (f.auto_eject ? "/auto-eject/" : "/"), parts: 0, leftover: [], jobs: f.jobs || 0, queue: "ready",
+      stats: f.stats || null };
     if (f.kind === "offline") return Object.assign(base, { phase: "offline" });
     const card = Object.assign(base, { state: "standby", filename: f.file || "", message: "", bed: 23, bed_target: 0, nozzle: 24, progress: 0, eta: null });
     if (f.kind === "printing") {

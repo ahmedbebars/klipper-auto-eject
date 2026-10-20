@@ -128,6 +128,25 @@ def summarize(status, queue=None, now=None):
     return card
 
 
+def history_stats(totals, jobs, now=None):
+    """Hours printed, and how the recent jobs and today's ended, from
+    Moonraker's print history (job_totals, and the newest jobs first)."""
+    now = now or time.time()
+    lt = time.localtime(now)
+    midnight = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, -1))
+    ended = [j for j in jobs or [] if j.get("status") not in (None, "in_progress")]
+    today = [j for j in ended if (j.get("end_time") or j.get("start_time") or 0) >= midnight]
+    totals = totals or {}
+    return {
+        "hours": round((totals.get("total_print_time") or 0) / 3600.0, 1),
+        "jobs": int(totals.get("total_jobs") or 0),
+        "recent": len(ended),
+        "recent_ok": sum(1 for j in ended if j.get("status") == "completed"),
+        "today_ok": sum(1 for j in today if j.get("status") == "completed"),
+        "today_bad": sum(1 for j in today if j.get("status") != "completed"),
+    }
+
+
 class Printer:
     def __init__(self, host, port, name="", local=False, pid=None, macs=None):
         self.host, self.port, self.name, self.local = host, int(port), name or host, local
@@ -135,6 +154,7 @@ class Printer:
         self.id = pid or ("local" if local else printer_id(host, port))
         self.card = {"phase": "offline"}
         self.status = {}
+        self.stats = None
         self.webcam = None
         self.page = None
         self.updated = 0.0
@@ -165,6 +185,7 @@ class Printer:
                 self.webcam = self._webcam()
                 self.page = self._page()
                 self.macs = self.macs or machine_macs(self.host, self.port)
+                self.stats = self._stats(now)
             self.status = status
             self.card = summarize(status, queue, now)
         except Exception:
@@ -172,6 +193,14 @@ class Printer:
             self.card = {"phase": "offline"}
         self.updated = now
         return self.card
+
+    def _stats(self, now):
+        try:
+            totals = http_json(self.base + "/server/history/totals")["job_totals"]
+            jobs = http_json(self.base + "/server/history/list?limit=50&order=desc")["jobs"]
+        except Exception:
+            return self.stats
+        return history_stats(totals, jobs, now)
 
     def _webcam(self):
         try:
@@ -195,7 +224,8 @@ class Printer:
 
     def public(self):
         return dict(self.card, id=self.id, name=self.name, host=self.host, local=self.local,
-                    page=None if self.local else self.page, camera=bool(self.webcam), updated=self.updated)
+                    page=None if self.local else self.page, camera=bool(self.webcam), stats=self.stats,
+                    updated=self.updated)
 
 
 # --------------------------------------------------------------- the search

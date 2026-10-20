@@ -237,6 +237,12 @@ part that is found still there each have a fix in
 The slicer has to do two things: write down where each part is (**object labels**), and run
 `AUTO_EJECT` at the end of every print (**end G-code**).
 
+**The easy way:** open the web page's **Blade and setup** tab, card **In your slicer**. It shows
+where each setting is in your slicer and the lines to paste, with your printer's own end macro
+already in them, and a **Copy** button. The same lines for each slicer:
+
+<p align="center"><img src="images/slicer-card.png" alt="The In your slicer card: where each setting is, and the lines to paste with a Copy button" width="360"></p>
+
 **OrcaSlicer**
 
 1. *Process → Others → G-code output*: turn on **Label objects** and **Exclude objects**.

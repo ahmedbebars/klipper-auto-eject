@@ -88,7 +88,8 @@
     wand: "M15 4V2 M15 16v-2 M8 9h2 M20 9h2 M17.8 11.8L19 13 M17.8 6.2L19 5 M12.2 6.2L11 5 M12.2 11.8L3 21",
     box: "M21 8l-9-5-9 5v8l9 5 9-5z M3 8l9 5 9-5 M12 13v8",
     farm: "M2 4h9v16H2z M13 4h9v16h-9z M2 9h9 M13 9h9 M5 9v3h3V9 M16 9v3h3V9",
-    edit: "M4 20h4L19 9l-4-4L4 16z M13.5 6.5l4 4"
+    edit: "M4 20h4L19 9l-4-4L4 16z M13.5 6.5l4 4",
+    copy: "M9 9h11v11H9z M5 15H4V4h11v1"
   };
   function icon(name, cls) {
     return s("svg", { class: "ic" + (cls ? " " + cls : ""), viewBox: "0 0 24 24", "aria-hidden": "true" }, s("path", { d: ICONS[name] || "" }));
@@ -1039,6 +1040,9 @@
       if (check.file !== file) return;
       const ax = axes();
       check.result = M.checkFile(headText, tailText || headText, m || {}, sv(), ax.min, ax.max);
+      check.slicer = M.slicerKind((m || {}).slicer);
+      check.tail = String(tailText || headText).slice(-262144);
+      check.endMacro = M.endMacroInFile(check.tail, M.endMacros(app.config));
     }).catch((e) => { check.error = e.message; }).then(() => { check.loading = false; refresh("check"); });
   }
 
@@ -1067,6 +1071,13 @@
           h("div", null, h("b", { text: t("check.verdict_" + r.verdict) }), h("span", { class: "ltr", text: check.file }))),
         h("ul", { class: "checks" }, r.checks.map((c) => h("li", { class: c.ok }, icon(c.ok === "ok" ? "ok" : c.ok === "warn" ? "alert" : "bad"),
           h("span", { text: t(c.key, Object.assign({}, c.vars, c.vars && c.vars.n !== undefined ? { n: num(c.vars.n, 0) } : {})) })))),
+        r.checks.some((c) => /^check\.(line_bad|line_order|labels_bad)$/.test(c.key)) ? h("div", { class: "toolbar", style: { marginTop: "12px" } },
+          h("button", { type: "button", class: "btn primary", onclick: () => {
+            if (check.slicer) slicerUi.kind = check.slicer;
+            if (check.endMacro) slicerUi.found = { file: check.file, kind: check.slicer, tail: check.tail };
+            slicerUi.scroll = true;
+            location.hash = "#/setup";
+          } }, icon("copy"), t("check.fix"))) : null,
         r.records.length ? h("div", { class: "check-map" }, bedMap(r.plan, { records: r.records, polygons: Object.fromEntries(r.objects.map((o) => [o.name.replace(/['"]/g, ""), o.polygon])), id: "c" })) : null,
         app.hasQueue ? h("div", { class: "toolbar", style: { marginTop: "14px" } },
           h("button", { type: "button", class: "btn", onclick: () => client.call("server.job_queue.post_job", { filenames: [check.file], reset: false })
@@ -1111,7 +1122,8 @@
               h("dt", { text: t("setup.offset") }), h("dd", { text: set.blade_offset !== undefined ? t("c.mm", { v: num(set.blade_offset) }) : "—" }),
               h("dt", { text: t("setup.lift") }), h("dd", { text: measured ? t("c.mm", { v: num(lift, 2) }) : t("facts.unknown") }),
               h("dt", { text: t("setup.push_z") }), h("dd", { text: set.push_z !== undefined ? t("c.mm", { v: num(set.push_z, 2) }) : "—" }),
-              h("dt", { text: t("setup.probe") }), h("dd", { text: t(pb.label) })))),
+              h("dt", { text: t("setup.probe") }), h("dd", { text: t(pb.label) }))),
+          slicerCard()),
         h("div", { class: "stack" },
           h("section", { class: "card" },
             h("h2", null, icon("wand"), t("setup.calibration")),
@@ -1127,9 +1139,19 @@
               stlRow("setup.gauge", "setup.gauge_desc", "blade_gauge.stl"),
               stlRow("setup.cube", "setup.cube_desc", "test_hollow_cube.stl"))),
           remoteCard())));
-    return { el };
+    return { el, update: () => {
+      if (!slicerUi.scroll) return;
+      slicerUi.scroll = false;
+      // at once: a smooth scroll stops when the view is drawn again
+      const card = document.getElementById("slicer");
+      if (card) card.scrollIntoView({ block: "start" });
+    } };
   }
-  viewSetup.sig = function () { return JSON.stringify([sv(), blocked(), Object.keys(app.config).length, parts().length, remoteInfo()]); };
+  viewSetup.sig = function () {
+    const f = slicerUi.found || {};
+    return JSON.stringify([sv(), blocked(), Object.keys(app.config).length, parts().length, remoteInfo(), slicerUi.kind,
+      f.file, f.kind, (f.tail || "").length, app.files === null ? -1 : app.files.length]);
+  };
 
   // Notifications. With the printer's notification service (install.sh
   // --push) this device subscribes with its browser's push service and gets
@@ -1304,6 +1326,84 @@
       r.push || r.notify === "unsupported" ? null : h("div", { class: "codeblock", style: { marginTop: "8px" }, text: "~/klipper-auto-eject/install.sh --push" }),
       h("div", { class: "toolbar", style: { marginTop: "14px" } }, docs("remote-access.md", "remote.docs"), docs("notifications.md", "remote.notify_docs"),
         docs("farm.md", "farm.docs")));
+  }
+
+  // ---------------------------------------------------- the slicer card
+  // What to paste into the slicer, with the end macro this printer uses:
+  // the one the newest file runs, or the one in its config.
+  const slicerUi = { kind: null, found: null, asked: false, scroll: false };
+  // where each setting is: the slicers' own menu names, the same in every language
+  const SLICER_PATHS = {
+    orca: { labels: "Process → Others → G-code output", end: "Printer settings → Machine G-code → Machine end G-code",
+            start: "Printer settings → Machine G-code → Machine start G-code" },
+    prusa: { labels: "Print Settings → Output options → Label objects", end: "Printer Settings → Custom G-code → End G-code",
+             start: "Printer Settings → Custom G-code → Start G-code" },
+    cura: { labels: null, end: "Preferences → Printers → Machine Settings → End G-code",
+            start: "Preferences → Printers → Machine Settings → Start G-code" }
+  };
+  function menuPath(path) { return path ? h("p", null, h("span", { class: "menu-path", dir: "ltr", text: path })) : null; }
+
+  function findSlicer() {
+    if (slicerUi.asked) return;
+    if (app.files === null) { loadFiles(); return; }      // drawn again once the files are in
+    const newest = app.files[0];
+    slicerUi.asked = true;
+    if (!newest) return;
+    const path = "/server/files/gcodes/" + newest.path.split("/").map(encodeURIComponent).join("/");
+    // the macro is looked up when drawn: the printer's config may come later
+    Promise.all([meta(newest.path), client.fetchText(path, "-262144")]).then(([m, tail]) => {
+      slicerUi.found = { file: newest.path, kind: M.slicerKind((m || {}).slicer), tail: String(tail).slice(-262144) };
+    }).catch(() => {}).then(() => refresh("setup"));
+  }
+
+  function copyText(text) {
+    const done = () => toast(t("slicer.copied"), "ok");
+    const fallback = () => {
+      const ta = h("textarea", { style: { position: "fixed", top: "0", opacity: "0" } });
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { if (!document.execCommand("copy")) throw new Error("copy"); done(); } catch (e) { toast(t("slicer.copy_failed"), "bad"); }
+      ta.remove();
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fallback);
+    else fallback();
+  }
+
+  function codeCopy(text) {
+    // a long command wraps indented, so it still reads as one line
+    return h("div", { class: "codecopy" }, h("div", { class: "codeblock code-lines" }, text.split("\n").map((l) => h("div", { class: "cl", text: l }))),
+      h("button", { type: "button", class: "btn sm", onclick: () => copyText(text) }, icon("copy"), t("slicer.copy")));
+  }
+
+  function slicerCard() {
+    findSlicer();
+    const found = slicerUi.found || {};
+    const kind = slicerUi.kind || found.kind || "orca";
+    const macros = M.endMacros(app.config);
+    if (found.tail !== undefined) found.macro = M.endMacroInFile(found.tail, macros);
+    const macro = found.macro || macros[0] || null;
+    const source = found.macro ? t("slicer.macro_file", { macro: found.macro, file: found.file })
+      : macro ? t("slicer.macro_config", { macro }) : t("slicer.macro_none");
+    const tabs = h("div", { class: "seg", role: "tablist" }, ["orca", "prusa", "cura"].map((k) =>
+      h("button", { type: "button", role: "tab", class: "seg-btn" + (k === kind ? " active" : ""), "aria-selected": k === kind ? "true" : "false",
+        onclick: () => { slicerUi.kind = k; refresh("setup"); } }, t("slicer.name_" + k), found.kind === k ? h("span", { class: "dot", title: t("slicer.found") }) : null)));
+    return h("section", { class: "card", id: "slicer" },
+      h("h2", null, icon("file"), t("slicer.title")),
+      h("p", { class: "muted", text: t("slicer.intro") }),
+      tabs,
+      found.kind === kind ? h("p", { class: "note", style: { marginTop: "8px" } }, icon("ok"), h("span", { text: t("slicer.found_file", { file: found.file }) })) : null,
+      h("ol", { class: "slicer-steps" },
+        h("li", null, h("b", { text: t("slicer.labels") }), menuPath(SLICER_PATHS[kind].labels), h("p", { text: t("slicer.labels_" + kind) })),
+        h("li", null, h("b", { text: t("slicer.end") }), menuPath(SLICER_PATHS[kind].end),
+          h("p", { text: macro ? t("slicer.end_how", { macro }) : t("slicer.end_how_none") }),
+          codeCopy(M.slicerEndGcode(kind, macro)),
+          h("p", { class: "muted small", text: source })),
+        h("li", null, h("b", { text: t("slicer.start") }), menuPath(SLICER_PATHS[kind].start),
+          h("p", { text: t("slicer.start_how") }), codeCopy("AUTO_EJECT_GUARD"))),
+      h("div", { class: "toolbar", style: { marginTop: "12px" } },
+        h("a", { class: "btn primary", href: "#/check" }, icon("check"), t("slicer.check")),
+        h("a", { class: "btn", href: DOCS + "/blob/main/docs/slicer-setup.md", target: "_blank", rel: "noopener" }, icon("external"), t("slicer.docs"))));
   }
 
   function stlRow(title, desc, file) {
@@ -1525,6 +1625,22 @@
     return go();
   }
 
+  function farmTodayLine(list) {
+    if (!list.some((p) => p.stats)) return null;
+    const d = M.farmToday(list);
+    return h("span", { class: "farm-today" }, icon("activity"),
+      h("span", { text: t("farm.today", { ok: num(d.ok, 0), bad: num(d.bad, 0) }) + " · " + t("farm.hours_all", { h: num(d.hours, 0) }) }));
+  }
+
+  function farmStatsLine(p) {
+    const s = p.stats;
+    if (!s || !(s.hours || s.recent)) return null;
+    const bits = [t("farm.hours", { h: num(s.hours, s.hours < 10 ? 1 : 0) })];
+    if (s.recent) bits.push(t("farm.success", { p: num(Math.round(100 * s.recent_ok / s.recent), 0), n: num(s.recent, 0) }));
+    if (s.today_ok || s.today_bad) bits.push(t(s.today_bad ? "farm.today_short_bad" : "farm.today_short", { ok: num(s.today_ok, 0), bad: num(s.today_bad, 0) }));
+    return h("div", { class: "fc-stats" }, icon("activity"), h("span", { text: bits.join(" · ") }));
+  }
+
   function farmCam(id) { return FARM_API + "/" + encodeURIComponent(id) + "/snapshot?t=" + Date.now(); }
 
   function farmCard(p) {
@@ -1548,6 +1664,7 @@
       p.phase !== "offline" ? h("div", { class: "chips" },
         bed ? h("span", { class: "chip" }, icon("thermo"), h("span", { text: t("c.bed") }), h("b", { class: "ltr", text: bed })) : null,
         p.jobs ? h("span", { class: "chip" }, icon("queue"), h("span", { text: t("facts.queue") + ":" }), h("b", { text: num(p.jobs, 0) })) : null) : null,
+      p.phase !== "offline" ? farmStatsLine(p) : null,
       h("div", { class: "fc-acts" }, M.farmActions(p).map((a) => h("button", { type: "button", class: "btn sm " + ACT[a][2], onclick: () => farmAct(p, a) }, icon(ACT[a][0]), t(ACT[a][1]))), open));
   }
 
@@ -1571,7 +1688,8 @@
     const el = h("div", null,
       head("farm.title", "farm.intro", h("button", { type: "button", class: "btn primary", onclick: openScan }, icon("search"), t("farm.search"))),
       h("div", { class: "farm-sum" }, ["needs", "printing", "idle", "offline"].filter((k) => c[k])
-        .map((k) => h("span", { class: "badge " + FARM_BADGE[k], text: t("farm.count." + k, { n: num(c[k], 0) }) }))),
+        .map((k) => h("span", { class: "badge " + FARM_BADGE[k], text: t("farm.count." + k, { n: num(c[k], 0) }) })),
+        farmTodayLine(list)),
       h("div", { class: "farm-grid" }, list.map(farmCard)),
       list.length < 2 ? h("section", { class: "card", style: { marginTop: "16px" } },
         h("p", { class: "note" }, icon("search"), h("span", { text: t("farm.first") })),
@@ -1583,7 +1701,7 @@
     if (!farmShown()) return String(farm.available);
     return JSON.stringify(farm.data.printers.map((p) => [p.id, p.name, p.phase, p.reason, p.filename, Math.round((p.progress || 0) * 100),
       p.eta === null || p.eta === undefined ? null : Math.round(p.eta / 60), p.layer, Math.round(p.bed || 0), p.bed_target, p.jobs, p.queue,
-      p.parts, p.leftover, p.camera, p.message, p.page, p.auto_eject]));
+      p.parts, p.leftover, p.camera, p.message, p.page, p.auto_eject, p.stats]));
   };
 
   function closeModal(cls) {

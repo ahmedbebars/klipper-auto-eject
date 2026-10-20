@@ -280,7 +280,8 @@ def test_page_only_sends_known_commands():
     sent = set(re.findall(r'gcode\(\s*(?:homed\(\) \? )?"([A-Z_]+)', app))
     sent |= set(re.findall(r'"(AUTO_EJECT[A-Z_]*)', app))
     known = {"AUTO_EJECT", "AUTO_EJECT_SET", "AUTO_EJECT_SETUP", "AUTO_EJECT_CALIBRATE",
-             "AUTO_EJECT_CLEAR", "AUTO_EJECT_CONTINUE", "AUTO_EJECT_NOTIFY_TEST", "RESPOND"}
+             "AUTO_EJECT_CLEAR", "AUTO_EJECT_CONTINUE", "AUTO_EJECT_NOTIFY_TEST", "RESPOND",
+             "AUTO_EJECT_GUARD"}            # only shown, to paste into the slicer
     assert sent <= known, sent - known
     macros = Printer().macros
     for name in known - {"RESPOND"}:
@@ -402,3 +403,46 @@ def test_farm_api_matches_the_page():
     install = (WEB.parent / "install.sh").read_text(encoding="utf-8")
     assert "location ^~ /auto-eject/api/ {" in install and "proxy_pass http://127.0.0.1:7128/;" in install
     assert 'default=7128' in (WEB.parent / "push" / "auto_eject_push.py").read_text(encoding="utf-8")
+
+
+@needs_node
+def test_farm_today_adds_up_every_printer():
+    printers = [card("a", "idle", stats={"hours": 10.4, "today_ok": 3, "today_bad": 1}),
+                card("b", "printing", stats={"hours": 20.3, "today_ok": 2, "today_bad": 0}),
+                card("c", "offline")]
+    assert js("farmToday", printers) == {"ok": 5, "bad": 1, "hours": 31}
+
+
+# ---------------------------------------------------------------- the slicer
+@needs_node
+def test_the_end_macro_comes_from_the_printers_macros():
+    voron = {"gcode_macro _CUSTOM_PRE_END": {}, "gcode_macro Z_ASCENDER": {}, "gcode_macro DEMON_END": {},
+             "gcode_macro _AUTO_EJECT_FINISH": {}, "gcode_macro PRINT_START": {}, "probe": {}}
+    assert js("endMacros", voron) == ["DEMON_END"]
+    both = {"gcode_macro end_print": {}, "gcode_macro PRINT_END": {}, "gcode_macro PRINT_FINISH_BEEP": {}}
+    assert js("endMacros", both) == ["PRINT_END", "END_PRINT", "PRINT_FINISH_BEEP"]
+    assert js("endMacros", {}) == []
+
+
+@needs_node
+def test_the_end_macro_a_file_runs():
+    tail = "G1 X10\nDEMON_END ; the end macro\nAUTO_EJECT HEIGHT=12 HOME=1\n; PRINT_END is only a comment here\n"
+    assert js("endMacroInFile", tail, ["DEMON_END", "PRINT_END"]) == "DEMON_END"
+    assert js("endMacroInFile", "G1 X1\nM84\n", ["PRINT_END"]) is None
+
+
+@needs_node
+@pytest.mark.parametrize("name, kind", [("OrcaSlicer", "orca"), ("BambuStudio", "orca"), ("PrusaSlicer", "prusa"),
+                                        ("SuperSlicer", "prusa"), ("Cura_SteamEngine", "cura"), ("", None), (None, None)])
+def test_which_slicer_wrote_a_file(name, kind):
+    assert js("slicerKind", name) == kind
+
+
+@needs_node
+def test_the_end_gcode_to_paste_matches_the_docs():
+    assert js("slicerEndGcode", "orca", "DEMON_END") == "DEMON_END\nAUTO_EJECT HEIGHT=[max_layer_z] HOME=1"
+    assert js("slicerEndGcode", "cura", "PRINT_END") == "PRINT_END\nAUTO_EJECT HOME=1"
+    assert js("slicerEndGcode", "prusa", None) == "AUTO_EJECT HEIGHT=[max_layer_z] HOME=1"
+    docs = (WEB.parent / "docs" / "slicer-setup.md").read_text(encoding="utf-8")
+    assert "PRINT_END\nAUTO_EJECT HEIGHT=[max_layer_z] HOME=1" in docs
+    assert "PRINT_END\nAUTO_EJECT HOME=1" in docs                       # Cura

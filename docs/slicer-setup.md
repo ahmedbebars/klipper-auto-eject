@@ -13,6 +13,12 @@ Every slicer needs three things for auto-eject:
 The examples call your start macro `PRINT_START` and your end macro `PRINT_END`. Use the names
 your configuration uses (`START_PRINT`, `DEMON_START`, …).
 
+> **Easier:** the [web page](web-page.md)'s **Blade and setup** tab has a card, **In your slicer**,
+> with these lines ready to copy and your printer's own end macro already in them, found in its
+> newest file or its config.
+
+<p align="center"><img src="images/slicer-card.png" alt="The In your slicer card in the web page" width="360"></p>
+
 > **Guard.** `AUTO_EJECT_GUARD` goes first. It stops the print, or ejects first, if parts from an
 > interrupted print may still be on the bed ([recovery.md](recovery.md)).
 >

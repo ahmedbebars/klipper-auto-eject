@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **In your slicer**, a card in the web page's **Blade and setup** tab: where each setting is in
+  OrcaSlicer, PrusaSlicer/SuperSlicer or Cura, and the start and end G-code to paste with a
+  **Copy** button. The end G-code names the end macro the printer really uses: the one its newest
+  file runs, or else the one in its config (`PRINT_END`, `END_PRINT`, `DEMON_END`…); the slicer of
+  the newest file is picked by itself. **Check a file** opens it with **Show me what to paste in
+  the slicer** when a file is not labelled or does not run `AUTO_EJECT` last.
+- The printer farm shows what each printer has done, from Moonraker's print history: hours
+  printed, how many of the last 50 prints ended well, and today's prints; the top line adds up the
+  whole farm.
+
 ## [0.12.0] - 2026-10-20
 
 ### Changed

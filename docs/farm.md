@@ -22,6 +22,11 @@ Each card also shows the bed temperature and, if the printer has a camera in Moo
 picture. At the top: how many need you, print, are free or offline. The **Printer farm** tab in
 the menu shows the number that need you too.
 
+From each printer's print history in Moonraker, a card also shows the hours it has printed, how
+many of its last 50 prints ended well, and today's count. The top line adds up the whole farm:
+*Today: 16 ended well, 2 stopped · 4571 h printed in all*. A print stopped means it ended with an
+error or was cancelled.
+
 Printers with klipper-auto-eject show their parts, the eject and its problems; any other Klipper
 printer shows its print. A finished print on a printer without auto-eject counts as **Needs you**
 until you press **Bed is clear**.

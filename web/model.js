@@ -473,10 +473,62 @@
     return out;
   }
 
+  // The whole farm today: prints that ended well, the others, and the hours
+  // printed in all.
+  function farmToday(printers) {
+    const out = { ok: 0, bad: 0, hours: 0 };
+    for (const p of printers) {
+      const s = p.stats;
+      if (!s) continue;
+      out.ok += s.today_ok || 0;
+      out.bad += s.today_bad || 0;
+      out.hours += s.hours || 0;
+    }
+    out.hours = Math.round(out.hours);
+    return out;
+  }
+
+  // ---- the slicer's G-code, ready to paste
+  // End-of-print macros in the printer's config (configfile.config), the
+  // usual names first: PRINT_END, END_PRINT, DEMON_END...
+  const END_FIRST = ["PRINT_END", "END_PRINT", "DEMON_END"];
+  function endMacros(sections) {
+    const rank = (n) => (END_FIRST.indexOf(n) < 0 ? END_FIRST.length : END_FIRST.indexOf(n));
+    return Object.keys(sections || {}).map((k) => /^gcode_macro\s+(\S+)$/i.exec(k)).filter(Boolean)
+      .map((m) => m[1].toUpperCase())
+      .filter((n) => !n.startsWith("_") && !/^AUTO_EJECT/.test(n) && n.split("_").some((w) => w === "END" || w === "FINISH"))
+      .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  }
+  // The end macro a sliced file runs: the last of the printer's end macros
+  // called in it, or null.
+  function endMacroInFile(text, macros) {
+    const known = new Set((macros || []).map((m) => String(m).toUpperCase()));
+    let found = null;
+    for (const l of String(text).split(/\r?\n/)) {
+      const word = l.split(";")[0].trim().split(/\s+/)[0].toUpperCase();
+      if (word && known.has(word)) found = word;
+    }
+    return found;
+  }
+  // Which slicer wrote a file (Moonraker's metadata "slicer"): orca, prusa, cura or null.
+  function slicerKind(name) {
+    const s = String(name || "");
+    if (/orca|bambu/i.test(s)) return "orca";
+    if (/prusa|super/i.test(s)) return "prusa";
+    if (/cura/i.test(s)) return "cura";
+    return null;
+  }
+  // The end G-code to paste: the end macro, then AUTO_EJECT. Cura has no
+  // placeholder for the print height.
+  function slicerEndGcode(kind, macro) {
+    const eject = kind === "cura" ? "AUTO_EJECT HOME=1" : "AUTO_EJECT HEIGHT=[max_layer_z] HOME=1";
+    return (macro ? macro + "\n" : "") + eject;
+  }
+
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions,
+    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

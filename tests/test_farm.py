@@ -382,3 +382,38 @@ def test_api_add_rename_remove_act(api, monkeypatch):
 def test_api_snapshot_without_a_camera(api):
     f, base = api
     assert call(base + "/farm/local/snapshot")[0] == 404
+
+
+# ------------------------------------------------------------- statistics
+def test_history_stats_count_recent_and_today():
+    import time as _time
+    now = _time.mktime((2026, 10, 20, 15, 0, 0, 0, 0, -1))
+    today, yesterday = now - 3600, now - 20 * 3600
+    jobs = [
+        {"status": "in_progress", "start_time": now - 60},       # still printing: not counted
+        {"status": "completed", "end_time": today},
+        {"status": "cancelled", "end_time": today + 60},
+        {"status": "completed", "end_time": yesterday},
+        {"status": "error", "end_time": yesterday},
+        {"status": "klippy_shutdown", "start_time": yesterday},  # no end time: the start counts
+    ]
+    s = farm.history_stats({"total_print_time": 12 * 3600 + 1800, "total_jobs": 231.0}, jobs, now)
+    assert s == {"hours": 12.5, "jobs": 231, "recent": 5, "recent_ok": 2, "today_ok": 1, "today_bad": 1}
+    assert farm.history_stats(None, None, now) == {"hours": 0.0, "jobs": 0, "recent": 0, "recent_ok": 0, "today_ok": 0, "today_bad": 0}
+
+
+def test_a_card_carries_its_statistics(monkeypatch):
+    def fake(url, data=None, method=None, timeout=0):
+        if "/printer/objects/query" in url:
+            return {"status": status()}
+        if "/server/history/totals" in url:
+            return {"job_totals": {"total_print_time": 7200, "total_jobs": 3}}
+        if "/server/history/list" in url:
+            return {"jobs": [{"status": "completed", "end_time": 1}]}
+        raise OSError(url)
+    monkeypatch.setattr(farm, "http_json", fake)
+    monkeypatch.setattr(farm.Printer, "_page", lambda self: "http://%s/" % self.host)
+    monkeypatch.setattr(farm, "machine_macs", lambda host, port, timeout=2.0: [])
+    p = farm.Printer("10.1.1.2", 7125)
+    p.poll()
+    assert p.public()["stats"]["hours"] == 2.0 and p.public()["stats"]["recent_ok"] == 1
