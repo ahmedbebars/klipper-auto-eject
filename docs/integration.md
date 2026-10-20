@@ -81,6 +81,24 @@ AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
 The same: put `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1` in the slicer end G-code after the end
 macro. The web page's **Check a file** warns when a file runs `AUTO_EJECT` before another macro.
 
+## No end macro
+
+If the slicer's end G-code is a list of plain commands, `AUTO_EJECT` goes last, below the
+retract:
+
+```gcode
+G91
+G1 E-2 F2700
+G90
+M104 S0
+M140 S0
+M84
+AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
+```
+
+Cura has no `[max_layer_z]`: write `AUTO_EJECT HOME=1`, and the printer uses the height it
+tracked while printing.
+
 ## Moonraker job queue
 
 ```mermaid
