@@ -134,10 +134,12 @@ TITLES = {
     "en": {"stuck": "A part is still on the bed", "guard": "The print did not start",
            "thin": "Parts left on the bed", "left": "Take the parts off", "complete": "Print finished",
            "error": "Print stopped with an error", "cancelled": "Print cancelled", "shutdown": "Klipper stopped",
-           "bin": "Empty the parts box", "off": "Switched off", "test": "Auto-eject"},
+           "bin": "Empty the parts box", "off": "Switched off", "service": "Maintenance due",
+           "report": "The farm today", "test": "Auto-eject"},
     "ar": {"stuck": "قطعة ما زالت على السرير", "guard": "لم تبدأ الطباعة", "thin": "قطع متروكة على السرير",
            "left": "أزل القطع", "complete": "انتهت الطباعة", "error": "توقفت الطباعة بخطأ",
            "cancelled": "أُلغيت الطباعة", "shutdown": "توقف Klipper", "bin": "أفرغ صندوق القطع", "off": "أُطفئت",
+           "service": "حان وقت الصيانة", "report": "المزرعة اليوم",
            "test": "الإزالة التلقائية"},
 }
 TEST_BODY = {"en": "Notifications from your printer work.", "ar": "إشعارات طابعتك تعمل."}
@@ -209,8 +211,8 @@ def message_for(kind, text, sub, printer=None):
     body = TEST_BODY[lang] if kind == "test" else text
     title = TITLES[lang].get(kind, "Auto-eject")
     url = sub.get("url") or ""
-    if printer:                    # another printer of the farm
-        title = "%s · %s" % (printer, title)
+    if printer or kind == "report":   # another printer of the farm, or the whole farm
+        title = "%s · %s" % (printer, title) if printer else title
         url = url.split("#")[0] + "#/farm" if url else ""
     return {"title": title, "body": body, "tag": "auto-eject-%s-%s" % (printer or "here", kind), "url": url}
 

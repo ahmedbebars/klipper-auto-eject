@@ -144,6 +144,14 @@ def test_a_farm_printer_names_itself_and_opens_the_farm():
     assert note["tag"] != ap.message_for("stuck", "x", sub)["tag"]     # never replaces this printer's own
 
 
+def test_the_daily_report_opens_the_farm():
+    sub = {"lang": "ar", "url": "https://farm.example.ts.net/auto-eject/web/"}
+    note = ap.message_for("report", "Today 6 ended well", sub)
+    assert note["title"] == "المزرعة اليوم" and note["url"].endswith("#/farm")
+    due = ap.message_for("service", "202 hours", {"lang": "en", "url": "https://x/auto-eject/web/"}, printer="ender")
+    assert due["title"] == "ender · Maintenance due"
+
+
 def test_the_service_and_the_page_agree_on_what_notifies():
     from test_web import NODE, js
     if NODE is None:

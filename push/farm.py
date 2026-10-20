@@ -235,6 +235,9 @@ class Printer:
         self.auto_off_device = auto_off_device or ""
         self.idle_since = None
         self.ts_host = None           # the same printer's Tailscale address, for Open from away
+        self.service_every = 0        # hours of printing between two maintenances; 0 = no reminder
+        self.service_at = None        # its print hours at the last maintenance
+        self.service_warned = False
         self.id = pid or ("local" if local else printer_id(host, port))
         self.card = {"phase": "offline"}
         self.status = {}
@@ -255,7 +258,15 @@ class Printer:
             out["macs"] = self.macs
         if self.auto_off:
             out["auto_off"], out["auto_off_device"] = self.auto_off, self.auto_off_device
+        if self.service_every:
+            out["service_every"], out["service_at"] = self.service_every, self.service_at
         return out
+
+    def service_since(self):
+        """Print hours since the last maintenance, or None without a reminder or history."""
+        if not self.service_every or not self.stats or self.service_at is None:
+            return None
+        return max(0.0, round(self.stats["hours"] - self.service_at, 1))
 
     def poll(self, now=None):
         now = now or time.time()
@@ -351,6 +362,7 @@ class Printer:
         return dict(self.card, page_remote=None if self.local else self.remote_page(), id=self.id, name=self.name, host=self.host, local=self.local,
                     page=None if self.local else self.page, camera=bool(self.webcam), stats=self.stats,
                     power=self.power, auto_off=self.auto_off, auto_off_device=self.auto_off_device,
+                    service_every=self.service_every, service_since=self.service_since(),
                     updated=self.updated)
 
 
@@ -465,6 +477,7 @@ class Farm:
         self.loaded = False
         self.scan_state = {"running": False, "found": [], "finished": None}
         self.ts_checked = 0.0                # when the Tailscale twins were last looked for
+        self.settings = {}                   # the whole farm's: {"report": "20:00", "report_sent": "2026-10-20"}
         self.load()
 
     def load(self):
@@ -476,17 +489,21 @@ class Farm:
             records = self.moonraker.get("printers", namespace=NAMESPACE) or {}
             local = self.moonraker.get("local", namespace=NAMESPACE) or {}
             skipped = self.moonraker.get("skipped", namespace=NAMESPACE) or []
+            settings = self.moonraker.get("settings", namespace=NAMESPACE) or {}
         except Exception:
             return False
         with self.lock:
             for pid, r in records.items():
-                self.printers.setdefault(pid, Printer(r["host"], r.get("port", 7125), r.get("name", ""), pid=pid, macs=r.get("macs"),
-                                                      auto_off=r.get("auto_off", 0), auto_off_device=r.get("auto_off_device", "")))
+                p = self.printers.setdefault(pid, Printer(r["host"], r.get("port", 7125), r.get("name", ""), pid=pid, macs=r.get("macs"),
+                                                          auto_off=r.get("auto_off", 0), auto_off_device=r.get("auto_off_device", "")))
+                p.service_every, p.service_at = int(r.get("service_every") or 0), r.get("service_at")
             if local.get("name"):
                 self.local.name, self.local_named = local["name"], True
             self.local.auto_off = int(local.get("auto_off") or 0)
             self.local.auto_off_device = local.get("auto_off_device") or ""
+            self.local.service_every, self.local.service_at = int(local.get("service_every") or 0), local.get("service_at")
             self.skipped = list(skipped)
+            self.settings = dict(settings)
             self.loaded = True
         return True
 
@@ -508,6 +525,9 @@ class Farm:
             self.link_tailscale(printers)
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, len(printers))) as pool:
             list(pool.map(lambda p: self._poll_one(p, now, watcher_factory), printers))
+        report = self.report_due(now)
+        if report and self.on_events:
+            self.on_events(None, [("report", report)])
         if self.local_named is False and self.local.card.get("phase") != "offline":
             try:
                 self.local.name = http_json(self.local.base + "/printer/info").get("hostname") or self.local.name
@@ -519,6 +539,9 @@ class Farm:
         p.poll(now)
         if self.auto_off(p, now) and self.on_events:
             self.on_events(p.name, [("off", "Switched off after %d minutes with nothing to do" % p.auto_off)])
+        due = self.service_check(p)
+        if due and self.on_events:
+            self.on_events(None if p.local else p.name, [due])
         # this printer's own notifications come from the service itself
         if p.local or not self.on_events or watcher_factory is None or p.card.get("phase") == "offline":
             return
@@ -536,7 +559,8 @@ class Farm:
             self.on_events(p.name, events)
 
     def view(self):
-        return {"printers": [p.public() for p in self.all()], "scan": self.scan_state}
+        return {"printers": [p.public() for p in self.all()], "scan": self.scan_state,
+                "settings": {"report": self.settings.get("report") or ""}}
 
     def start_scan(self):
         with self.lock:
@@ -643,7 +667,88 @@ class Farm:
         out = {"name": (self.local.name if self.local_named else "") if name is None else name}
         if self.local.auto_off:
             out["auto_off"], out["auto_off_device"] = self.local.auto_off, self.local.auto_off_device
+        if self.local.service_every:
+            out["service_every"], out["service_at"] = self.local.service_every, self.local.service_at
         return out
+
+    def _save_one(self, p):
+        if p.local:
+            self.moonraker.put("local", self._local_record(), namespace=NAMESPACE)
+        else:
+            self._save()
+
+    def set_service(self, pid, every=None, done=False):
+        """A maintenance reminder every this many print hours (0 = none), and
+        done: the maintenance was just done, count from now."""
+        with self.lock:
+            p = self.find(pid)
+            if p is None:
+                return False
+            if not self.loaded:
+                raise RuntimeError("Moonraker is not answering yet")
+            hours = (p.stats or {}).get("hours", 0.0)
+            if every is not None:
+                p.service_every = max(0, min(100000, int(every or 0)))
+                if p.service_at is None or not p.service_every:
+                    p.service_at = hours if p.service_every else None
+            if done:
+                p.service_at = hours
+            p.service_warned = False
+            self._save_one(p)
+        return True
+
+    def service_check(self, p):
+        """Once, when the reminder comes due: (kind, text) or None."""
+        since = p.service_since()
+        if since is None or since < p.service_every:
+            return None
+        if p.service_warned:
+            return None
+        p.service_warned = True
+        return ("service", "%.0f hours of printing since the last maintenance (every %d h)" % (since, p.service_every))
+
+    def set_report(self, at):
+        """The daily report at this time ("HH:MM"), or "" for none."""
+        at = str(at or "").strip()
+        if at and not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", at):
+            raise ValueError("not a time: %s" % at)
+        if not self.loaded:
+            raise RuntimeError("Moonraker is not answering yet")
+        self.settings["report"] = at
+        self.moonraker.put("settings", self.settings, namespace=NAMESPACE)
+        return True
+
+    def report_text(self):
+        cards = [p.public() for p in self.all()]
+        ok = sum((c.get("stats") or {}).get("today_ok", 0) for c in cards)
+        bad = sum((c.get("stats") or {}).get("today_bad", 0) for c in cards)
+        hours = sum((c.get("stats") or {}).get("hours", 0) for c in cards)
+        now_printing = sum(1 for c in cards if c.get("phase") in ("printing", "ejecting"))
+        needs = [c["name"] for c in cards if c.get("phase") in ("needs", "stopped", "paused")]
+        due = [c["name"] for c in cards if c.get("service_since") is not None and c["service_since"] >= c["service_every"]]
+        text = "Today %d ended well, %d stopped. Now %d printing" % (ok, bad, now_printing)
+        if needs:
+            text += ", %d need you (%s)" % (len(needs), ", ".join(needs[:4]) + ("…" if len(needs) > 4 else ""))
+        text += ". %d h printed in all." % round(hours)
+        if due:
+            text += " Maintenance due: %s." % ", ".join(due)
+        return text
+
+    def report_due(self, now):
+        """The daily report's text once a day at the chosen time, else None."""
+        at = self.settings.get("report") or ""
+        if not at or not self.loaded:
+            return None
+        lt = time.localtime(now)
+        today = time.strftime("%Y-%m-%d", lt)
+        if self.settings.get("report_sent") == today or time.strftime("%H:%M", lt) < at:
+            return None
+        self.settings["report_sent"] = today
+        try:
+            self.moonraker.put("settings", self.settings, namespace=NAMESPACE)
+        except Exception:
+            pass
+        return self.report_text()
 
     def set_auto_off(self, pid, minutes, device=""):
         """Switch the printer off after this many minutes with nothing to do; 0 = never."""
@@ -828,6 +933,13 @@ def make_handler(farm):
                         return self._send(200, {"renamed": farm.rename(body["rename"], body.get("name", ""))})
                     if "auto_off" in body:
                         return self._send(200, {"saved": farm.set_auto_off(body.get("id"), body["auto_off"], body.get("device", ""))})
+                    if "service_every" in body or "service_done" in body:
+                        return self._send(200, {"saved": farm.set_service(body.get("id"), body.get("service_every"), bool(body.get("service_done")))})
+                if parts == ["farm", "settings"] and method == "POST":
+                    try:
+                        return self._send(200, {"saved": farm.set_report(body.get("report", ""))})
+                    except ValueError as e:
+                        return self._send(400, {"error": str(e)})
                 if len(parts) == 3 and parts[0] == "farm" and parts[2] == "files" and method == "GET":
                     files = farm.files(parts[1])
                     return self._send(200 if files is not None else 404, {"files": files})

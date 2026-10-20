@@ -629,3 +629,62 @@ def test_api_files_print_pause_upload(monkeypatch, tmp_path):
         assert list(tmp_path.iterdir()) == []                        # nothing left on the card
     finally:
         server.shutdown()
+
+
+# ------------------------------------------- maintenance and the daily report
+def test_a_maintenance_reminder_comes_once_and_restarts_when_done():
+    mr = FakeMoonraker()
+    f = farm.Farm(mr)
+    pid = f.add([{"host": "10.1.1.2", "port": 7125, "name": "ender"}])[0]
+    p = f.printers[pid]
+    p.stats = {"hours": 1000.0}
+    assert f.set_service(pid, every=200)                             # counts from now
+    assert p.service_since() == 0.0 and f.service_check(p) is None
+    p.stats = {"hours": 1199.0}
+    assert f.service_check(p) is None
+    p.stats = {"hours": 1201.5}
+    kind, text = f.service_check(p)
+    assert kind == "service" and text.startswith("202 hours of printing since the last maintenance")
+    assert f.service_check(p) is None                                # said once
+    assert p.public()["service_since"] == 201.5
+    f.set_service(pid, done=True)
+    assert p.service_since() == 0.0
+    g = farm.Farm(mr)                                                # kept
+    assert (g.printers[pid].service_every, g.printers[pid].service_at) == (200, 1201.5)
+    f.set_service(pid, every=0)
+    assert p.service_since() is None and p.public()["service_every"] == 0
+
+
+def test_the_daily_report_once_a_day_at_its_time():
+    import time as _time
+    mr = FakeMoonraker()
+    f = farm.Farm(mr)
+    pid = f.add([{"host": "10.1.1.2", "port": 7125, "name": "ender"}])[0]
+    f.printers[pid].card = {"phase": "needs", "reason": "done"}
+    f.printers[pid].stats = {"hours": 300.4, "today_ok": 4, "today_bad": 1}
+    f.local.card = {"phase": "printing"}
+    f.local.stats = {"hours": 100.0, "today_ok": 2, "today_bad": 0}
+    with pytest.raises(ValueError):
+        f.set_report("25:00")
+    assert f.report_due(_time.time()) is None                       # no report chosen
+    f.set_report("20:00")
+    morning = _time.mktime((2026, 10, 20, 9, 0, 0, 0, 0, -1))
+    evening = _time.mktime((2026, 10, 20, 20, 0, 30, 0, 0, -1))
+    assert f.report_due(morning) is None
+    text = f.report_due(evening)
+    assert text == "Today 6 ended well, 1 stopped. Now 1 printing, 1 need you (ender). 400 h printed in all."
+    assert f.report_due(evening + 600) is None                       # once a day
+    assert farm.Farm(mr).report_due(evening + 900) is None          # also after a restart
+    assert f.report_due(evening + 86400) is not None                 # the next day
+    assert f.view()["settings"] == {"report": "20:00"}
+
+
+def test_api_maintenance_and_report(api):
+    f, base = api
+    pid = next(iter(f.printers))
+    assert call(base + "/farm/printers", {"id": pid, "service_every": 500}) == (200, {"saved": True})
+    assert f.printers[pid].service_every == 500
+    assert call(base + "/farm/printers", {"id": pid, "service_done": True}) == (200, {"saved": True})
+    assert call(base + "/farm/settings", {"report": "21:30"}) == (200, {"saved": True})
+    assert call(base + "/farm/settings", {"report": "9pm"})[0] == 400
+    assert call(base + "/farm")[1]["settings"] == {"report": "21:30"}

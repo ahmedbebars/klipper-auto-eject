@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Maintenance reminders** in the farm: every 100 to 1000 hours of printing, per printer, from
+  Moonraker's print history. The card counts them (**Maintenance: 450 / 1000 h**), a notification
+  comes once when it is due, and **Maintenance done** starts again from zero.
+- **A daily report** of the farm to the phones, at a time you choose: today's prints that ended
+  well and stopped, the printers printing and needing you, the hours printed, and the maintenance
+  due. Tapping it opens the farm.
 - **Print from the farm, from anywhere**: a free printer's card has **Print**: pick one of its
   G-code files, or send it one from the phone or computer (**Send it**, **Send it and print**,
   with progress). Printing cards have **Pause**, **Resume** and **Cancel the print**. All of it goes

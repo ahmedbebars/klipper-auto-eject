@@ -634,9 +634,9 @@
   // two more to find when the network is searched.
   const FARM = [
     { id: "f1", name: "voron-01", host: "192.168.1.21", auto_eject: true, kind: "printing", file: "clips_x12_PLA_1h40m.gcode", time: 6000, at: 0.35, layers: 120,
-      stats: { hours: 842.5, jobs: 611, recent: 50, recent_ok: 49, today_ok: 6, today_bad: 0 } },
+      stats: { hours: 842.5, jobs: 611, recent: 50, recent_ok: 49, today_ok: 6, today_bad: 0 }, service_every: 500, service_at: 300 },
     { id: "f2", name: "voron-02", host: "192.168.1.22", auto_eject: true, kind: "leftover", file: "hooks_x8_PETG.gcode", left: ["hook_3"],
-      stats: { hours: 1210, jobs: 903, recent: 50, recent_ok: 46, today_ok: 4, today_bad: 1 } },
+      stats: { hours: 1210, jobs: 903, recent: 50, recent_ok: 46, today_ok: 4, today_bad: 1 }, service_every: 1000, service_at: 760 },
     { id: "f3", name: "ender3-s1", host: "192.168.1.30", auto_eject: false, kind: "done", file: "bracket_PETG_2h5m.gcode",
       power: [{ device: "printer", status: "on", locked: false }],
       stats: { hours: 356.2, jobs: 188, recent: 50, recent_ok: 44, today_ok: 2, today_bad: 0 } },
@@ -679,7 +679,9 @@
     const base = { id: f.id, name: f.name, host: f.host, local: false, auto_eject: f.auto_eject, camera: false,
       page: "http://" + f.host + (f.auto_eject ? "/auto-eject/" : "/"), parts: 0, leftover: [], jobs: f.jobs || 0, queue: "ready",
       stats: f.stats || null, power: f.power ? f.power.map((d) => Object.assign({}, d)) : null,
-      auto_off: f.auto_off || 0, auto_off_device: f.auto_off_device || "", bin: f.bin || 0, bin_cap: f.bin_cap || 0 };
+      auto_off: f.auto_off || 0, auto_off_device: f.auto_off_device || "", bin: f.bin || 0, bin_cap: f.bin_cap || 0,
+      service_every: f.service_every || 0,
+      service_since: f.service_every && f.stats ? Math.round((f.stats.hours - (f.service_at || 0)) * 10) / 10 : null };
     if (f.kind === "offline") return Object.assign(base, { phase: "offline" });
     if (f.kind === "off") return Object.assign(base, { phase: "off" });
     const card = Object.assign(base, { state: "standby", filename: f.file || "", message: "", bed: 23, bed_target: 0, nozzle: 24, progress: 0, eta: null });
@@ -706,7 +708,9 @@
     const ok = (v) => new Promise((resolve) => setTimeout(() => resolve(v), 120));
     const fail = (msg) => new Promise((resolve, reject) => setTimeout(() => reject(new Error(msg)), 120));
     if (!this.farmList) { this.farmList = FARM.map((f) => Object.assign({}, f)); this.farmScan = { running: false, found: [], finished: null }; }
-    if (path === "") return ok({ printers: [this.farmLocal()].concat(this.farmList.map((f) => this.farmCard(f))), scan: this.farmScan });
+    if (path === "") return ok({ printers: [this.farmLocal()].concat(this.farmList.map((f) => this.farmCard(f))), scan: this.farmScan,
+      settings: { report: this.farmReport || "" } });
+    if (path === "/settings") { this.farmReport = body.report || ""; return ok({ saved: true }); }
     if (path === "/scan") {
       this.farmScan = { running: true, found: [], finished: null };
       setTimeout(() => {
@@ -735,6 +739,12 @@
         return ok({ added });
       }
       if (body.remove) { this.farmList = this.farmList.filter((f) => f.id !== body.remove); return ok({ removed: true }); }
+      if (body.service_every !== undefined || body.service_done) {
+        const f = this.farmList.find((x) => x.id === body.id);
+        if (f && body.service_every !== undefined) { f.service_every = body.service_every; f.service_at = f.service_at === undefined ? (f.stats || {}).hours || 0 : f.service_at; }
+        if (f && body.service_done) f.service_at = (f.stats || {}).hours || 0;
+        return ok({ saved: !!f });
+      }
       if (body.auto_off !== undefined) {
         const f = this.farmList.find((x) => x.id === body.id);
         if (f) { f.auto_off = body.auto_off; f.auto_off_device = body.device || ""; }

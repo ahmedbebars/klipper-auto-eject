@@ -12,6 +12,7 @@ A message on your phone when the printer needs you, and, if you like, when every
 | the next print did not start because old parts are still on the bed | [the guard](recovery.md#the-guard-auto_eject_guard) |
 | the parts box is almost full, or full ([`bin_capacity`](configuration.md#the-parts-box)) | when full, the next print waits until you empty it |
 | a print stopped with an error, or was cancelled | |
+| a printer's maintenance is due, and the farm's daily report ([farm.md](farm.md#maintenance-reminders-and-the-daily-report)) | in the app, with the farm |
 | every print finishes (optional) | with `AUTO_EJECT` in the end G-code this comes once the bed is clear |
 
 Tapping a notification opens the auto-eject page. With a [printer farm](farm.md), the app also

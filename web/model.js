@@ -468,6 +468,13 @@
   }
   // Where Open goes: through Tailscale when this page is opened through it
   // (a phone away from the printers' network), if that printer has it.
+  // A printer's maintenance reminder: how far it is, null without one.
+  function farmService(p) {
+    if (!p.service_every || p.service_since === null || p.service_since === undefined) return null;
+    const share = p.service_since / p.service_every;
+    return { since: p.service_since, every: p.service_every, due: share >= 1, near: share >= 0.9 && share < 1 };
+  }
+
   // Away (through Tailscale) and that printer has no Tailscale: no link, its
   // local address would not open.
   function farmAway(hostname) {
@@ -546,7 +553,7 @@
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

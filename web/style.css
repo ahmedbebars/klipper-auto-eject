@@ -595,3 +595,6 @@ button.chip:hover { border-color: var(--accent); }
 .fc-acts .btn.power-on .ic { color: var(--ok); }
 .btn.disabled { opacity: .55; cursor: not-allowed; }
 .modal-back.printd .scan-list .row .ic:last-child { color: var(--accent); }
+.farm-foot { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-top: 16px; }
+.farm-foot .note { flex: 1 1 320px; margin: 0; }
+.farm-report { min-width: 200px; }

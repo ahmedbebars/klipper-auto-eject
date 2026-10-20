@@ -94,6 +94,19 @@ on again. A printer switched off shows **Switched off**, with **Turn on**.
 A printer with auto-eject also shows its parts box (**Box: 32 / 40**) once
 [`bin_capacity`](configuration.md#the-parts-box) is set; a full box makes it **Needs you**.
 
+### Maintenance reminders and the daily report
+
+- **Maintenance reminder:** in a printer's ✎, choose **Every 100 to 1000 hours of printing**. The
+  card shows **Maintenance: 450 / 1000 h** (red once due) and the phones get one notification when
+  it comes due. After the maintenance, press **Maintenance done** in ✎: it counts from zero again.
+  The hours come from that printer's print history in Moonraker.
+- **Daily report:** at the foot of the farm, **Daily report to the phones**: every day at the time
+  you choose, a notification sums up the farm: *Today 23 ended well, 2 stopped. Now 2 printing, 4
+  need you (…). 5226 h printed in all. Maintenance due: voron-01.* Tapping it opens the farm. It
+  goes to the phones that turned notifications on in the app ([notifications.md](notifications.md)).
+
+Both are off until you choose them.
+
 ## From your phone, anywhere
 
 Set up [remote access](remote-access.md) on the farm printer only:

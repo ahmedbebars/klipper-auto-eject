@@ -476,3 +476,11 @@ def test_open_goes_through_tailscale_when_away(hostname, url):
     # without Tailscale on that printer: no link away, its local address would not open
     away = js("farmAway", hostname)
     assert js("farmLink", {"page": "http://192.168.1.30/", "page_remote": None}, hostname) == (None if away else "http://192.168.1.30/")
+
+
+@needs_node
+def test_the_maintenance_chip():
+    assert js("farmService", {"service_every": 0, "service_since": None}) is None
+    assert js("farmService", {"service_every": 500, "service_since": 120}) == {"since": 120, "every": 500, "due": False, "near": False}
+    assert js("farmService", {"service_every": 500, "service_since": 460})["near"] is True
+    assert js("farmService", {"service_every": 500, "service_since": 543})["due"] is True

@@ -1677,6 +1677,17 @@
       .then((ok) => { if (ok) go(); });
   }
 
+  function reportSelect() {
+    const now = ((farm.data || {}).settings || {}).report || "";
+    const times = ["", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"];
+    if (now && !times.includes(now)) times.push(now);
+    const sel = h("select", { class: "select" }, times.map((v) => h("option", { value: v, selected: v === now, text: v ? t("farm.report_at", { t: v }) : t("farm.auto_off_never") })));
+    sel.addEventListener("change", () => farmCall("/settings", { report: sel.value })
+      .then(() => { toast(sel.value ? t("farm.report_on", { t: sel.value }) : t("farm.report_off"), "ok"); loadFarm(); })
+      .catch((e) => toast(cleanError(e.message), "bad")));
+    return sel;
+  }
+
   function farmCam(id) { return FARM_API + "/" + encodeURIComponent(id) + "/snapshot?t=" + Date.now(); }
 
   function farmCard(p) {
@@ -1704,6 +1715,9 @@
       p.phase !== "offline" ? h("div", { class: "chips" },
         bed ? h("span", { class: "chip" }, icon("thermo"), h("span", { text: t("c.bed") }), h("b", { class: "ltr", text: bed })) : null,
         p.jobs ? h("span", { class: "chip" }, icon("queue"), h("span", { text: t("facts.queue") + ":" }), h("b", { text: num(p.jobs, 0) })) : null,
+        M.farmService(p) ? h("span", { class: "chip" + (M.farmService(p).due ? " bad" : M.farmService(p).near ? " warn" : ""),
+          title: t(M.farmService(p).due ? "farm.service_due" : "farm.service_chip_title") }, icon("wand"),
+          h("span", { text: t("farm.service_chip") + ":" }), h("b", { class: "ltr", text: num(p.service_since, 0) + " / " + num(p.service_every, 0) + " h" })) : null,
         p.bin_cap ? h("span", { class: "chip" + (p.bin >= p.bin_cap ? " bad" : p.bin >= Math.ceil(p.bin_cap * 0.8) ? " warn" : "") }, icon("tray"),
           h("span", { text: t("bin.chip") + ":" }), h("b", { text: num(p.bin || 0, 0) + " / " + num(p.bin_cap, 0) })) : null) : null,
       p.phase !== "offline" ? farmStatsLine(p) : null,
@@ -1740,14 +1754,17 @@
       list.length < 2 ? h("section", { class: "card", style: { marginTop: "16px" } },
         h("p", { class: "note" }, icon("search"), h("span", { text: t("farm.first") })),
         h("div", { class: "toolbar", style: { marginTop: "12px" } }, h("button", { type: "button", class: "btn primary", onclick: openScan }, icon("search"), t("farm.search")))) : null,
-      h("p", { class: "note", style: { marginTop: "16px" } }, icon("info"), h("span", { text: t("farm.notify_note") })));
+      h("div", { class: "farm-foot" },
+        h("p", { class: "note" }, icon("info"), h("span", { text: t("farm.notify_note") })),
+        h("label", { class: "field farm-report" }, h("span", { text: t("farm.report") }), reportSelect())));
     return { el };
   }
   viewFarm.sig = function () {
     if (!farmShown()) return String(farm.available);
-    return JSON.stringify(farm.data.printers.map((p) => [p.id, p.name, p.phase, p.reason, p.filename, Math.round((p.progress || 0) * 100),
+    const report = ((farm.data.settings || {}).report || "") + "|";
+    return report + JSON.stringify(farm.data.printers.map((p) => [p.id, p.name, p.phase, p.reason, p.filename, Math.round((p.progress || 0) * 100),
       p.eta === null || p.eta === undefined ? null : Math.round(p.eta / 60), p.layer, Math.round(p.bed || 0), p.bed_target, p.jobs, p.queue,
-      p.parts, p.leftover, p.camera, p.message, p.page, p.page_remote, p.auto_eject, p.stats, p.bin, p.bin_cap, p.power, p.auto_off, p.auto_off_device]));
+      p.parts, p.leftover, p.camera, p.message, p.page, p.page_remote, p.auto_eject, p.service_every, p.service_since, p.stats, p.bin, p.bin_cap, p.power, p.auto_off, p.auto_off_device]));
   };
 
   function closeModal(cls) {
@@ -1924,9 +1941,16 @@
       h("option", { value: m, selected: m === (p.auto_off || 0), text: m ? t("farm.auto_off_min", { n: num(m, 0) }) : t("farm.auto_off_never") }))) : null;
     const offDevice = devices.length > 1 ? h("select", { class: "select ltr" }, devices.map((d) =>
       h("option", { value: d.device, selected: d.device === p.auto_off_device, text: d.device }))) : null;
+    const hasStats = !!(p.stats && (p.stats.hours || p.stats.recent));
+    const serviceEvery = hasStats ? h("select", { class: "select" }, [0, 100, 200, 300, 500, 1000].map((n) =>
+      h("option", { value: n, selected: n === (p.service_every || 0), text: n ? t("farm.service_every", { n: num(n, 0) }) : t("farm.auto_off_never") }))) : null;
+    const serviceDone = () => farmCall("/printers", { id: p.id, service_done: true })
+      .then(() => { toast(t("farm.service_saved", { name: p.name }), "ok"); close(); loadFarm(); }).catch((e) => toast(cleanError(e.message), "bad"));
     const save = () => farmCall("/printers", { rename: p.id, name: name.value })
       .then(() => offAfter ? farmCall("/printers", { id: p.id, auto_off: parseInt(offAfter.value, 10) || 0,
         device: offDevice ? offDevice.value : devices[0].device }) : null)
+      .then(() => serviceEvery && (parseInt(serviceEvery.value, 10) || 0) !== (p.service_every || 0)
+        ? farmCall("/printers", { id: p.id, service_every: parseInt(serviceEvery.value, 10) || 0 }) : null)
       .then(() => { close(); loadFarm(); }).catch((e) => toast(cleanError(e.message), "bad"));
     name.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); });
     const remove = () => confirm(t("farm.remove"), t("farm.remove_confirm", { name: p.name }), t("farm.remove"), "danger").then((ok) => {
@@ -1938,7 +1962,12 @@
       offAfter ? h("div", { style: { marginTop: "14px", display: "grid", gap: "8px" } },
         h("label", { class: "field" }, h("span", { text: t("farm.auto_off") }), offAfter),
         offDevice ? h("label", { class: "field" }, h("span", { text: t("farm.auto_off_device") }), offDevice) : null,
-        h("p", { class: "note" }, icon("info"), h("span", { text: t("farm.auto_off_note") }))) : null), [
+        h("p", { class: "note" }, icon("info"), h("span", { text: t("farm.auto_off_note") }))) : null,
+      serviceEvery ? h("div", { style: { marginTop: "14px", display: "grid", gap: "8px" } },
+        h("label", { class: "field" }, h("span", { text: t("farm.service") }), serviceEvery),
+        M.farmService(p) ? h("div", { class: "toolbar" },
+          h("span", { class: "muted", text: t("farm.service_since", { n: num(p.service_since, 0) }) }),
+          h("button", { type: "button", class: "btn sm", onclick: serviceDone }, icon("ok"), t("farm.service_done"))) : null) : null), [
       p.local ? null : h("button", { type: "button", class: "btn danger", onclick: remove }, icon("trash"), t("farm.remove")),
       h("button", { type: "button", class: "btn", onclick: close, text: t("c.cancel") }),
       h("button", { type: "button", class: "btn primary", onclick: save, text: t("farm.save") })
