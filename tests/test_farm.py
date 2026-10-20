@@ -540,8 +540,9 @@ class FakeMoonrakerHTTP:
             def do_POST(self):
                 body = self.rfile.read(int(self.headers["Content-Length"]))
                 got.append((self.path, self.headers["Content-Type"], body))
-                out = json.dumps({"result": {"item": {"path": "x.gcode", "root": "gcodes"},
-                                             "print_started": b'name="print"' in body}}).encode()
+                # as Moonraker answers an upload: not inside {"result": ...}
+                out = json.dumps({"item": {"path": "x.gcode", "root": "gcodes"}, "action": "create_file",
+                                  "print_started": b'name="print"' in body, "print_queued": False}).encode()
                 self.send_response(201)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(out)))

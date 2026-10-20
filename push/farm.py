@@ -100,7 +100,8 @@ def upload_file(base, name, fileobj, size, start=False, timeout=600):
         conn.close()
     if resp.status >= 300:
         raise RuntimeError((data.get("error") or {}).get("message") or "HTTP %d" % resp.status)
-    return data.get("result")
+    # unlike its other answers, Moonraker sends the upload's without {"result": ...}
+    return data.get("result", data)
 
 
 def http_json(url, data=None, method=None, timeout=3.0):
