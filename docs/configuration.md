@@ -170,7 +170,7 @@ See [probes.md](probes.md) for how offset and eddy-current probes are handled.
 | `guard_action` | `"error"` | What `AUTO_EJECT_GUARD` does when old parts may be on the bed: `"error"` or `"eject"` |
 | `home_method` | `"auto"` | `AUTO_EJECT HOME=1`: `"auto"`, `"probe"` or `"g28"` |
 | `home_clearance` | `20.0` | Minimum distance in mm between any part and the probe, the nozzle or the blade while Z is homed |
-| `home_edge_margin` | `15.0` | Distance in mm kept from the bed edges when choosing that spot |
+| `home_edge_margin` | `15.0` | Distance in mm kept from the ends of the X and Y axes when choosing that spot. With a `[bed_mesh]`, the spot is also kept inside the mesh area, so Z is found on the print sheet, not on clips, screws or holes past its edge |
 
 Details in [recovery.md](recovery.md).
 

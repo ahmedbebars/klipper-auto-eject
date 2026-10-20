@@ -181,6 +181,49 @@ def test_home_probes_far_from_parts_and_fixes_z(p):
     assert p.frame_shift == pytest.approx(0.0, abs=1e-3)   # Z is true again
 
 
+def probe_spot(lines):
+    w = [words(l) for l in lines if l.startswith("G1") and "X" in words(l)][0]
+    return w["X"], w["Y"]
+
+
+# Nine cookie cutters on a Voron 450 (part centres from a real print). With
+# the middle of the bed taken, the best free spot was at the front edge,
+# off the print sheet where the plate has holes.
+VORON_PARTS = [("p%d" % i, rect(x - 40, y - 35, x + 40, y + 35)) for i, (x, y) in enumerate([
+    (216.7, 129.6), (254.1, 223.1), (284.2, 312.1), (318.1, 126.8), (199.8, 303.3),
+    (326.8, 208.9), (120.3, 293.3), (127.8, 139.6), (168.3, 216.4)])]
+
+
+def test_home_spot_stays_inside_the_bed_mesh(p):
+    p.set_section("bed_mesh", {"mesh_min": [66.5, 55.42], "mesh_max": [386.5, 385.42]})
+    p.set_objects(VORON_PARTS)
+    p.execute("_AUTO_EJECT_CAPTURE")
+    restart(p)
+    x, y = probe_spot(p.execute("_AUTO_EJECT_HOME"))
+    assert 66.5 <= x <= 386.5 and 55.42 <= y <= 385.42
+
+
+def test_home_spot_without_a_mesh_may_use_the_whole_bed(p):
+    p.set_objects(VORON_PARTS)
+    p.execute("_AUTO_EJECT_CAPTURE")
+    restart(p)
+    x, y = probe_spot(p.execute("_AUTO_EJECT_HOME"))
+    assert y < 55                                  # what happened on the Voron
+
+
+def test_home_spot_on_a_round_bed(p):
+    p.set_machine(axis_min=(-150, -150, -8), axis_max=(150, 150, 400), position=(0, 0, 18),
+                  save_variables={}, probe={"x_offset": 0.0, "y_offset": 0.0, "z_offset": -0.3})
+    p.set_section("force_move", {"enable_force_move": True})
+    p.set_section("stepper_z", {"endstop_pin": "probe:z_virtual_endstop"})
+    p.set_section("bed_mesh", {"mesh_radius": 100.0, "mesh_origin": [0.0, 0.0]})
+    p.set_objects([("cup", rect(-20, -20, 20, 20))])
+    p.execute("_AUTO_EJECT_CAPTURE")
+    restart(p)
+    x, y = probe_spot(p.execute("_AUTO_EJECT_HOME"))
+    assert (x * x + y * y) ** 0.5 <= 100.0
+
+
 def test_home_without_free_spot_refuses(p):
     p.set_objects([("plate", rect(0, 0, 450, 450))])
     p.execute("_AUTO_EJECT_CAPTURE")

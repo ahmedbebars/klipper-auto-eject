@@ -286,7 +286,7 @@ window.AE_LANG("ar", "العربية", "rtl", {
   "set.guard_action": "ماذا يفعل AUTO_EJECT_GUARD إذا كانت قطع من طباعة سابقة قد تكون على السرير.",
   "set.home_method": "كيف يجد AUTO_EJECT HOME=1 محور Z.",
   "set.home_clearance": "أقل مسافة بين نقطة قياس Z وأي قطعة (مم).",
-  "set.home_edge_margin": "المسافة المتروكة من حواف السرير عند اختيار تلك النقطة (مم).",
+  "set.home_edge_margin": "المسافة المتروكة من نهايات محوري X وY عند اختيار تلك النقطة (مم). مع وجود [bed_mesh] تبقى النقطة داخل منطقة الشبكة، أي على سطح الطباعة.",
   "set.probe_type": "نوع المجس: auto يكتشفه، أو contact أو eddy.",
   "set.verify_probe_gcode": "الأمر المستخدم عند كل نقطة فحص.",
   "set.home_z_gcode": "الأمر الذي يستخدمه AUTO_EJECT HOME=1 لإيجاد Z.",

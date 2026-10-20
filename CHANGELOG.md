@@ -26,6 +26,10 @@ All notable changes to this project are documented here. The format is based on
   finishes (`M400`) before the macros that take Klipper a moment to work out: the push plan, the
   check with the probe and homing Z around the parts. The tests check that none of these starts
   while a move is pending.
+- `AUTO_EJECT HOME=1` could find Z past the edge of the print sheet: on a Voron 450 with the middle
+  of the bed full, it probed the bare plate at the front, among its holes, and every height after
+  that was 0.6 mm off. With a `[bed_mesh]` the spot now stays inside the mesh area (`mesh_min` /
+  `mesh_max`, or `mesh_radius` on a round bed), where the probe is known to work.
 
 ### Documentation
 - A project website built from `docs/` with MkDocs Material (`mkdocs.yml`, `website/`): a home

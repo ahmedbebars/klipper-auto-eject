@@ -20,7 +20,8 @@ few millimetres above the bed. If a part were under the nozzle, the nozzle would
 the probe triggered. So:
 
 - **Smart homing** picks a spot where the probe, the nozzle **and** the blade are all at least
-  `home_clearance` (20 mm) from every stored part.
+  `home_clearance` (20 mm) from every stored part. With a `[bed_mesh]` the spot stays inside the
+  mesh area, where the probe is known to work.
 - **Verification** only probes points where the nozzle is at least `nozzle_clearance` (5 mm) away
   from every part that has not been confirmed gone yet. Parts are checked in an order that makes
   each one reachable: once a part is confirmed gone, the nozzle may pass over its spot.
