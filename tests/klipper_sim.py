@@ -29,7 +29,10 @@ def load_config(*files):
     parser = configparser.RawConfigParser(
         strict=False, inline_comment_prefixes=(";", "#"))
     for f in files:
-        parser.read(CONFIG_DIR / f, encoding="utf-8")
+        # Klipper cuts every line at its first '#', even inside a template
+        text = (CONFIG_DIR / f).read_text(encoding="utf-8")
+        lines = [line.split("#", 1)[0] for line in text.splitlines()]
+        parser.read_string("\n".join(lines), str(f))
     return parser
 
 
