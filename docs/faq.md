@@ -60,6 +60,14 @@ The outlines of the parts on the bed are saved while printing. After the restart
 `AUTO_EJECT_GUARD` in the start G-code, a new print never starts on top of old parts
 ([recovery.md](recovery.md)).
 
+**Do I have to tell the printer the bed is clear before every print?**
+No. After a normal eject the probe checks the bed, and once it is clear the printer forgets the
+parts by itself. Tell it only when **you** took the parts off instead of the printer: after
+cancelling a print, after an eject that stopped with a part still on the bed, or after a thin
+print it left for you. Click **I took the parts off** on the web page, or run
+`AUTO_EJECT_CLEAR`. If you forget, `AUTO_EJECT_GUARD` stops the next print before it starts
+and tells you, so nothing is printed on top of old parts.
+
 **How do I stop it?**
 The **emergency stop** button in Mainsail or Fluidd stops everything at once. Afterwards, clear
 the bed by hand and run `AUTO_EJECT_CLEAR`.
