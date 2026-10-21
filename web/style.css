@@ -555,7 +555,9 @@ button.row.active { background: var(--accent-soft); }
 .fc-state span { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
 .fc-file { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fcard .progress i { background: var(--state); }
-.fc-cam { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; background: var(--surface-2); display: block; }
+.fc-cam { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; background: var(--surface-2); display: block; cursor: zoom-in; }
+.modal.cam-modal { width: min(1100px, 100%); }
+.cam-big { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border-radius: 0 0 15px 15px; margin-top: 12px; }
 .fcard .chips { margin-top: 0; }
 .fc-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .fc-acts .btn { flex: 1 1 auto; justify-content: center; }

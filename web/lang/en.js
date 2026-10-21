@@ -310,6 +310,7 @@ window.AE_LANG("en", "English", "ltr", {
   "farm.sent": "Sent to {name}",
   "farm.open": "Open",
   "farm.edit": "Name or remove",
+  "farm.cam_open": "Tap to watch it large and live",
   "farm.name": "Name",
   "farm.save": "Save",
   "farm.remove": "Remove from the farm",

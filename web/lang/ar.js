@@ -306,6 +306,7 @@ window.AE_LANG("ar", "العربية", "rtl", {
   "farm.sent": "أُرسل إلى {name}",
   "farm.open": "افتح",
   "farm.edit": "الاسم أو الحذف",
+  "farm.cam_open": "اضغط لمشاهدتها كبيرة ومباشرة",
   "farm.name": "الاسم",
   "farm.save": "احفظ",
   "farm.remove": "احذف من المزرعة",

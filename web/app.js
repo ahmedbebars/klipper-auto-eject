@@ -98,7 +98,8 @@
     motor: "M4 7h11v10H4z M15 10h3v4h-3 M18 12h3 M7 7V4 M12 7V4 M7 20v-3 M12 20v-3",
     chip: "M7 7h10v10H7z M10 10h4v4h-4z M9 3v4 M15 3v4 M9 17v4 M15 17v4 M3 9h4 M3 15h4 M17 9h4 M17 15h4",
     fan: "M12 12m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0 M12 10.5C11 6 12 3 15 3s3 4-1.5 7.5 M13.5 12c4.5-1 7.5 0 7.5 3s-4 3-7.5-1.5 M12 13.5c1 4.5 0 7.5-3 7.5s-3-4 1.5-7.5 M10.5 12C6 13 3 12 3 9s4-3 7.5 1.5",
-    server: "M4 4h16v6H4z M4 14h16v6H4z M8 7h.01 M8 17h.01"
+    server: "M4 4h16v6H4z M4 14h16v6H4z M8 7h.01 M8 17h.01",
+    close: "M6 6l12 12 M18 6L6 18"
   };
   function icon(name, cls) {
     return s("svg", { class: "ic" + (cls ? " " + cls : ""), viewBox: "0 0 24 24", "aria-hidden": "true" }, s("path", { d: ICONS[name] || "" }));
@@ -1856,6 +1857,64 @@
 
   function farmCam(id) { return FARM_API + "/" + encodeURIComponent(id) + "/snapshot?t=" + Date.now(); }
 
+  // The farm's cameras: each one on the screen loads its next picture as soon
+  // as the last has arrived, at most one a second, so a slow link slows only
+  // itself and the ones scrolled away cost nothing.
+  const farmCamAt = {};
+  function farmCamTick() {
+    if (document.hidden) return;
+    const now = Date.now();
+    document.querySelectorAll('[data-live="farmcam"]').forEach((img) => {
+      const id = img.dataset.id;
+      if (farmCamAt[id] === "busy" || now < (farmCamAt[id] || 0) || !onScreen(img)) return;
+      farmCamAt[id] = "busy";
+      // the next picture loads first, so the shown one never blinks
+      const u = farmCam(id), next = new Image();
+      next.onload = () => {
+        document.querySelectorAll('[data-live="farmcam"]').forEach((el) => { if (el.dataset.id === id) el.src = u; });
+        farm.cam[id] = u;
+        farmCamAt[id] = Date.now() + 1000;
+      };
+      next.onerror = () => { farmCamAt[id] = Date.now() + 5000; };
+      next.src = u;
+    });
+  }
+  function onScreen(el) {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
+  }
+
+  // One camera large and as live as the link allows: this printer's own
+  // stream when it has one, else pictures one after another.
+  function camViewer(p) {
+    const own = p.local ? app.webcams.find((w) => w.enabled !== false) : null;
+    const stream = own && camUrl(own) !== own.snapshot_url ? camUrl(own) : "";
+    const img = h("img", { class: "cam-big", alt: p.name, src: stream || farm.cam[p.id] || farmCam(p.id) });
+    let open = true, timer = null;
+    const close = () => { open = false; clearTimeout(timer); img.src = ""; root.remove(); };
+    const root = h("div", { class: "modal-back", onclick: (e) => { if (e.target === root) close(); } },
+      h("div", { class: "modal cam-modal", role: "dialog", "aria-modal": "true", "aria-label": p.name },
+        h("header", null, h("h3", { dir: "auto", text: p.name }),
+          h("button", { type: "button", class: "icon-btn", title: t("c.close"), "aria-label": t("c.close"), onclick: close }, icon("close"))),
+        img));
+    const step = () => {
+      if (!open) return;
+      const t0 = Date.now(), u = farmCam(p.id), next = new Image();
+      next.onload = () => {
+        if (!open) return;
+        img.src = u;
+        farm.cam[p.id] = u;
+        timer = setTimeout(step, Math.max(0, 100 - (Date.now() - t0)));
+      };
+      next.onerror = () => { if (open) timer = setTimeout(step, 2000); };
+      next.src = u;
+    };
+    $("#modal-root").appendChild(root);
+    root.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+    root.querySelector("button").focus();
+    if (!stream) step();
+  }
+
   // Another printer's picture of a file, through the farm (it reaches them all).
   const farmNoPic = new Set();
   function farmThumbSrc(p, file, modified, want) {
@@ -1890,7 +1949,8 @@
       h("div", { class: "fc-state" }, h("b", { text: t("farm.phase." + p.phase) }), h("span", { dir: "auto", text: farmLine(p) })),
       file ? h("div", { class: "fc-job" }, farmThumb(p, file),
         h("div", { class: "grow" }, h("div", { class: "fc-file ltr", title: file, text: file }), prog)) : prog,
-      p.camera && p.phase !== "offline" ? h("img", { class: "fc-cam", alt: t("remote.camera"), "data-live": "farmcam", "data-id": p.id, src: farm.cam[p.id] || farmCam(p.id) }) : null,
+      p.camera && p.phase !== "offline" ? h("img", { class: "fc-cam", alt: t("remote.camera"), title: t("farm.cam_open"), "data-live": "farmcam", "data-id": p.id,
+        src: farm.cam[p.id] || farmCam(p.id), onclick: () => camViewer(p) }) : null,
       p.phase !== "offline" ? h("div", { class: "chips" },
         bed ? h("span", { class: "chip" }, icon("thermo"), h("span", { text: t("c.bed") }), h("b", { class: "ltr", text: bed })) : null,
         p.jobs ? h("span", { class: "chip" }, icon("queue"), h("span", { text: t("facts.queue") + ":" }), h("b", { text: num(p.jobs, 0) })) : null,
@@ -2726,16 +2786,7 @@
     if (document.hidden || farm.available === false) return;
     if (route() === "farm" || farm.scanOpen || ++farm.tick % 5 === 0) loadFarm();
   }, 3000);
-  setInterval(() => {
-    if (document.hidden) return;
-    document.querySelectorAll('[data-live="farmcam"]').forEach((img) => {
-      // the next picture loads first, so the shown one never blinks
-      const u = farmCam(img.dataset.id);
-      const next = new Image();
-      next.onload = () => { img.src = u; farm.cam[img.dataset.id] = u; };
-      next.src = u;
-    });
-  }, 4000);
+  setInterval(farmCamTick, 250);
   if ("serviceWorker" in navigator && window.isSecureContext && !DEMO) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
     // a tapped notification names the tab to show
