@@ -22,6 +22,7 @@
   <a href="docs/README.md">Documentation</a> ·
   <a href="docs/troubleshooting.md">Troubleshooting</a> ·
   <a href="https://github.com/ahmedbebars/klipper-auto-eject/discussions">Discussions</a> ·
+  <a href="docs/uninstall.md">Removing it</a> ·
   <a href="docs/ar/README.md"><b>العربية</b></a>
 </p>
 
@@ -94,6 +95,17 @@ to check that it worked. In short:
 7. **Slicer:** turn on *Label objects* and add `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1` to the
    end G-code, below your end macro ([slicer-setup.md](docs/slicer-setup.md)).
 8. **Print in a row:** turn on Moonraker's job queue and queue as many prints as you like.
+
+### Removing it
+
+One line takes it all back off, and your printer works as before
+([what it removes and what it leaves](docs/uninstall.md)):
+
+```bash
+~/klipper-auto-eject/install.sh --uninstall
+```
+
+Then restart Klipper with `FIRMWARE_RESTART`, never while printing.
 
 ## The web page
 

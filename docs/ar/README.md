@@ -24,6 +24,7 @@
   <a href="../README.md">التوثيق (بالإنجليزية)</a> ·
   <a href="../troubleshooting.md">حل المشكلات (بالإنجليزية)</a> ·
   <a href="https://github.com/ahmedbebars/klipper-auto-eject/discussions">النقاشات</a> ·
+  <a href="uninstall.md">إزالة المشروع</a> ·
   <a href="../../README.md"><b>English</b></a>
 </p>
 
@@ -95,6 +96,16 @@
 7. **برنامج التقطيع:** فعّل *Label objects*، وأضف `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1` إلى
    كود النهاية، تحت ماكرو النهاية ([slicer-setup.md](../slicer-setup.md)، بالإنجليزية).
 8. **اطبع مهام متتالية:** فعّل قائمة المهام في Moonraker (job queue)، وأضف إليها ما تشاء من الطبعات.
+
+### إزالة المشروع
+
+سطر واحد يزيل كل شيء، فتعمل طابعتك كما كانت ([ما الذي يزيله وما الذي يبقى](uninstall.md)):
+
+```bash
+~/klipper-auto-eject/install.sh --uninstall
+```
+
+ثم أعد تشغيل Klipper بالأمر `FIRMWARE_RESTART`، وليس أثناء الطباعة أبدًا.
 
 ## صفحة الويب
 
