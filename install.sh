@@ -90,7 +90,7 @@ MOONRAKER_CONF="${CONFIG_DIR}/moonraker.conf"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 # When run from a checkout, use that checkout instead of cloning a new one.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)" || SCRIPT_DIR=""
 FROM_CHECKOUT=0
 if [[ -n "${SCRIPT_DIR}" && -f "${SCRIPT_DIR}/config/auto_eject.cfg" ]]; then
     REPO_DIR="${SCRIPT_DIR}"
