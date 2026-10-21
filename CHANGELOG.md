@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-21
+
 ### Added
 - A cleaner **Settings** page: the sections at the side with how many you have set in each,
   **Only my changes**, every control in one column, and only your own values marked.
@@ -439,7 +441,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.10.5...v0.11.0
