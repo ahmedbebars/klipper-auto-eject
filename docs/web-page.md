@@ -41,6 +41,8 @@ The **Hardware** tab shows what Klipper and Moonraker report about the machine, 
 is open (Klipper once a second) and never changing anything. Each part shows only when the machine
 has it. The line at the top says **All hardware normal**, or what needs a look.
 
+<p align="center"><img src="images/hardware.png" alt="The Hardware tab: the boards and their links, the motors with their StallGuard line, the heaters" width="900"></p>
+
 | Section | What it shows | What it warns about |
 |---|---|---|
 | **Boards** | Each MCU (main board, toolhead board, the host process): its chip, USB, CAN or serial, its load, the round trip, resent and corrupt bytes, firmware, and its temperature when a `temperature_mcu` sensor is on it. CAN boards add the bus state and error counts. | Bytes resent or corrupt while the page is open (a cable, a connector or interference), a CAN bus that is not healthy |

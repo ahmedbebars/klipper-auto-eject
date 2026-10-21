@@ -100,8 +100,8 @@ to check that it worked. In short:
 
 An optional **Auto-eject** page in the Mainsail sidebar: a live map of the bed with the parts
 and the push lanes, buttons to eject or test, the print queue, a check that tells you *before*
-printing whether a file can be cleared automatically, the blade setup and every setting. In
-English or Arabic, light or dark, and on a phone.
+printing whether a file can be cleared automatically, the blade setup, every setting, and the
+machine's hardware. In English or Arabic, light or dark, and on a phone.
 
 ```bash
 ~/klipper-auto-eject/install.sh --web
@@ -127,6 +127,16 @@ even while it is closed ([docs/notifications.md](docs/notifications.md)).
 `install.sh --farm` on one printer puts every Klipper printer of your network on one page, the
 ones that need you first. **Search the network** finds them and adds them; the other printers
 need nothing installed ([docs/farm.md](docs/farm.md)).
+
+### The machine's hardware
+
+<p align="center"><img src="docs/images/hardware.png" alt="The Hardware tab: the boards and their links, the motors with their StallGuard line, the heaters" width="900"></p>
+
+A **Hardware** tab shows everything Klipper and Moonraker tell about the machine, live: each board
+and how clean its link is (USB or CAN), every motor and its driver's warnings, the heaters, the fans,
+the computer, the sensors and the camera, with one line that says whether all is normal. With
+`install.sh --push` the serious ones reach your phone with the page closed: a fan that stopped, a
+hot motor, a cable starting to fail ([docs/web-page.md](docs/web-page.md#hardware)).
 
 ## The blade
 
