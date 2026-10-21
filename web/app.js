@@ -1615,7 +1615,7 @@
 
   /* =========================================================== settings */
 
-  const settingsUi = { filter: "", edits: {}, sending: {}, n: 0 };
+  const settingsUi = { filter: "", edits: {}, sending: {}, n: 0, changedOnly: false };
 
   function viewSettings() {
     const m = settings();
@@ -1631,25 +1631,43 @@
     if (extra.length) sections.push({ title: t("settings.other"), items: extra });
     const q = settingsUi.filter.toLowerCase();
     const persist = "save_variables" in app.status || DEMO;
-    const cards = [];
-    for (const sec of sections) {
-      const rows = sec.items.filter((it) => it.key in m.values).filter((it) => !q || it.key.includes(q) || describeSetting(it).toLowerCase().includes(q))
-        .map((it) => settingRow(it, m));
-      if (rows.length) cards.push(h("section", { class: "card set-section" }, h("h2", { text: sec.title }), rows));
-    }
+    const mine = (it) => m.source[it.key] && m.source[it.key] !== "default";
+    const cards = [], nav = [];
+    let changedAll = 0;
+    sections.forEach((sec, i) => {
+      const items = sec.items.filter((it) => it.key in m.values);
+      const changed = items.filter(mine).length;
+      changedAll += changed;
+      const rows = items.filter((it) => !q || it.key.includes(q) || describeSetting(it).toLowerCase().includes(q))
+        .filter((it) => !settingsUi.changedOnly || mine(it)).map((it) => settingRow(it, m));
+      if (!rows.length) return;
+      const id = "set-sec-" + i;
+      cards.push(h("section", { class: "card set-section", id }, h("h2", { text: sec.title }), rows));
+      // the sections at the side: where each is, and how many are your own values
+      nav.push(h("button", { type: "button", class: "set-nav-item", onclick: () => { const s = document.getElementById(id); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); } },
+        h("span", { class: "grow", text: sec.title }), changed ? h("span", { class: "badge accent", text: num(changed, 0) }) : null));
+    });
     const el = h("div", null,
-      head("settings.title", "settings.intro",
-        h("div", { class: "search", style: { minWidth: "240px" } }, icon("search"),
-          h("input", { class: "input", type: "search", placeholder: t("settings.search"), value: settingsUi.filter, "data-keep": "s-search",
-            oninput: (e) => { settingsUi.filter = e.target.value; refresh("settings"); } }))),
+      head("settings.title", "settings.intro"),
       app.template === false ? h("div", { class: "banner" }, icon("info"), h("div", { text: t("settings.unavailable") })) : null,
       !persist ? h("div", { class: "banner" }, icon("info"), h("div", { text: t("settings.no_persist") })) : null,
-      cards.length ? h("div", { class: "stack" }, cards) : h("div", { class: "card empty", text: t("settings.none") }));
+      h("div", { class: "set-tools" },
+        h("div", { class: "search" }, icon("search"),
+          h("input", { class: "input", type: "search", placeholder: t("settings.search"), value: settingsUi.filter, "data-keep": "s-search",
+            oninput: (e) => { settingsUi.filter = e.target.value; refresh("settings"); } })),
+        h("label", { class: "switch" },
+          h("input", { type: "checkbox", checked: settingsUi.changedOnly, onchange: (e) => { settingsUi.changedOnly = e.target.checked; refresh("settings"); } }),
+          h("span", { text: t("settings.changed_only") })),
+        h("span", { class: "muted set-count", text: t("settings.changed_n", { n: num(changedAll, 0) }) })),
+      h("div", { class: "set-layout" },
+        nav.length ? h("nav", { class: "set-nav", "aria-label": t("settings.sections") }, nav) : null,
+        cards.length ? h("div", { class: "stack" }, cards)
+          : h("div", { class: "card empty", text: t(settingsUi.changedOnly && !q ? "settings.none_changed" : "settings.none") })));
     return { el };
   }
   viewSettings.sig = function () {
     const m = settings();
-    return JSON.stringify([m && m.values, m && m.source, !!app.template, app.template === false, settingsUi.filter, settingsUi.edits, settingsUi.sending, settingsUi.n]);
+    return JSON.stringify([m && m.values, m && m.source, !!app.template, app.template === false, settingsUi.filter, settingsUi.edits, settingsUi.sending, settingsUi.n, settingsUi.changedOnly]);
   };
 
   function describeSetting(it) {
@@ -1698,16 +1716,17 @@
         typeof value === "number" && unit ? h("span", { class: "with-unit" }, input, h("span", { class: "unit", text: unit })) : input,
         changed && !sending ? h("button", { type: "button", class: "btn primary sm", disabled: !valid, onclick: () => save(key, settingsUi.edits[key]) }, t("settings.save")) : null);
     }
+    // only your own values are marked: a default needs no badge
     const badge = src === "saved" ? h("span", { class: "badge accent", text: t("settings.src.saved") })
-      : src === "file" ? h("span", { class: "badge blue", text: t("settings.src.file") }) : h("span", { class: "badge", text: t("settings.src.default") });
-    return h("div", { class: "set-row" + (changed ? " changed" : "") },
-      h("div", null,
+      : src === "file" ? h("span", { class: "badge blue", text: t("settings.src.file") }) : null;
+    return h("div", { class: "set-row" + (changed ? " changed" : "") + (src === "saved" || src === "file" ? " custom" : "") },
+      h("div", { class: "set-text" },
         h("div", { class: "k" }, h("code", { class: "ltr", text: key }), badge),
         h("div", { class: "d", text: describeSetting(it).replace(/:\s*$/, ".") }),
         chosen(it, value) ? h("div", { class: "d chosen" }, h("code", { class: "ltr", text: String(value) }), " ", chosen(it, value)) : null,
         sending ? h("div", { class: "d sending" }, icon("clock"), h("span", { text: t(sending.later ? "settings.after_eject" : "settings.sending") })) : null),
       h("div", { class: "ctl" }, control,
-        src === "saved" && !sending ? h("button", { type: "button", class: "btn ghost sm", title: t("settings.reset"), onclick: () => reset(key) }, icon("reset"), t("settings.reset")) : null));
+        src === "saved" && !sending ? h("button", { type: "button", class: "icon-btn", title: t("settings.reset_title"), "aria-label": t("settings.reset_title"), onclick: () => reset(key) }, icon("reset")) : null));
   }
 
   // what the selected choice does, from the settings file (English only)
@@ -2438,12 +2457,13 @@
       return { el: h("div", null, head("hw.title", "hw.intro"), h("section", { class: "card empty" }, icon("chip"), h("p", { text: t("hw.waiting") }))) };
     }
     const list = motorList(), P = hwParts();
-    const sect = (id, ic, title, extra) => h("section", { class: "card hw-sec" }, h("h2", null, icon(ic), t(title)), h("div", { "data-live": id }), extra || null);
+    const sect = (id, ic, title, extra) => h("section", { class: "card hw-sec", id: "hw-" + id }, h("h2", null, icon(ic), t(title)), h("div", { "data-live": id }), extra || null);
     const el = h("div", null, head("hw.title", "hw.intro"),
       h("div", { class: "banner", "data-live": "hsum", hidden: true }),
-      h("h3", { class: "hw-head" }, icon("chip"), t("hw.boards")),
+      h("div", { class: "hw-kpis", "data-live": "kpis" }),
+      h("h3", { class: "hw-head", id: "hw-boards" }, icon("chip"), t("hw.boards")),
       h("div", { class: "hw-grid", "data-live": "boards" }),
-      list.length ? h("h3", { class: "hw-head" }, icon("motor"), t("motors.title")) : null,
+      list.length ? h("h3", { class: "hw-head", id: "hw-motors" }, icon("motor"), t("motors.title")) : null,
       list.length ? h("div", { class: "motor-grid" }, list.map((m) => h("section", { class: "card mcard", "data-motor": m.stepper },
         h("div", { class: "mc-top" },
           h("div", { class: "mc-ic" }, icon("motor")),
@@ -2461,7 +2481,7 @@
           h("dt", { text: t("motors.current") }), h("dd", { "data-f": "current", text: "…" }),
           h("dt", { text: t("motors.temp") }), h("dd", { "data-f": "temp", text: "…" })),
         h("div", { class: "chips", "data-f": "flags" })))) : null,
-      P.heaters.length ? h("h3", { class: "hw-head" }, icon("thermo"), t("hw.heaters")) : null,
+      P.heaters.length ? h("h3", { class: "hw-head", id: "hw-heaters" }, icon("thermo"), t("hw.heaters")) : null,
       P.heaters.length ? h("div", { class: "hw-grid", "data-live": "heaters" }) : null,
       h("div", { class: "cols hw-cols" },
         h("div", { class: "stack" },
@@ -2473,9 +2493,11 @@
           sect("events", "alert", "hw.events"))),
       h("p", { class: "note", style: { marginTop: "14px" } }, icon(app.push.id && app.push.hardware ? "ok" : "phone"),
         h("span", { text: t(app.push.id && app.push.hardware ? "hw.push_on" : app.push.key ? "hw.push_off" : "hw.push_none") })),
-      h("p", { class: "note", style: { marginTop: "8px" } }, icon("info"), h("span", { text: t("hw.explain_boards") })),
-      list.length ? h("p", { class: "note", style: { marginTop: "8px" } }, icon("info"), h("span", { text: t("motors.explain") })) : null,
-      list.length ? h("p", { class: "note", style: { marginTop: "8px" } }, icon("thermo"), h("span", { text: t("motors.sensor_tip") })) : null);
+      // what the figures mean, folded away until asked for
+      h("details", { class: "hw-about" }, h("summary", null, icon("info"), h("span", { text: t("hw.about") })),
+        h("p", { class: "note" }, icon("info"), h("span", { text: t("hw.explain_boards") })),
+        list.length ? h("p", { class: "note" }, icon("info"), h("span", { text: t("motors.explain") })) : null,
+        list.length ? h("p", { class: "note" }, icon("thermo"), h("span", { text: t("motors.sensor_tip") })) : null));
     return { el, update: () => paintHardware(el, list, P) };
   }
   viewHardware.sig = function () {
@@ -2489,8 +2511,11 @@
     const note = (level, text) => { if (!worst || LEVEL_RANK[level] > LEVEL_RANK[worst[0]]) worst = [level, text]; };
     const st = hw.status || {};
     const live = (id) => el.querySelector('[data-live="' + id + '"]');
-    const kv = (rows) => h("dl", { class: "mc-kv" }, rows.filter(Boolean).map(([k, v, cls]) => [h("dt", { text: k }), h("dd", { class: cls || "", text: v })]));
     const chip = (level, text, ic) => h("span", { class: "chip " + (level === "info" ? "" : level) }, icon(ic || (level === "ok" ? "ok" : level === "info" ? "info" : "alert")), h("span", { text }));
+    const stats = (rows, cls0) => h("div", { class: "mini-stats" + (cls0 ? " " + cls0 : "") }, rows.filter(Boolean).map(([k, v, cls, wide]) =>
+      h("div", { class: "ms" + (cls ? " " + cls : "") + (wide ? " wide" : "") }, h("span", { text: k }), h("b", { text: v }))));
+    // for the tiles at the top
+    const kpi = { boards: 0, boardsWarn: 0, motorsWarn: 0, cpu: null, cpuT: null };
 
     // ----- boards
     const boards = live("boards");
@@ -2507,19 +2532,20 @@
       if (base.lastI > base.invalid) chips.push(chip("warn", t("hw.chip_invalid")));
       if (cs && cs.bus_state && cs.bus_state !== "active") chips.push(chip(cs.bus_state === "warn" ? "warn" : "bad", t("hw.can_state." + cs.bus_state)));
       for (const c of chips) note(c.classList.contains("bad") ? "bad" : "warn", boardName(b) + ": " + c.textContent);
+      kpi.boards++;
+      if (chips.length) kpi.boardsWarn++;
       return h("section", { class: "card hcard" },
         h("div", { class: "mc-top" }, h("div", { class: "mc-ic" }, icon(b.conn === "host" ? "server" : "chip")),
           h("div", { class: "grow" }, h("div", { class: "mc-name" }, h("b", { text: boardName(b) })),
             h("div", { class: "mc-sub ltr", text: [info.chip, b.main || b.conn === "host" ? "" : b.name].filter(Boolean).join(" · ") || b.obj })),
           b.conn ? h("span", { class: "badge", text: t("hw.conn." + b.conn) }) : null),
-        kv([
+        stats([
           [t("hw.mcu_load"), typeof ls.mcu_awake === "number" ? iso(num(ls.mcu_awake * 100, 1) + " %") : "—"],
           [t("hw.mcu_rtt"), typeof ls.srtt === "number" ? iso(num(ls.srtt * 1000, 1) + " ms") : "—"],
-          [t("hw.mcu_resent"), resent],
-          [t("hw.mcu_invalid"), typeof ls.bytes_invalid === "number" ? num(ls.bytes_invalid, 0) : "—"],
-          cs ? [t("hw.can_bus"), t("hw.can_state." + (cs.bus_state || "active")) + " · " + t("hw.can_errors", { rx: num(cs.rx_error || 0, 0), tx: num(cs.tx_error || 0, 0), r: num(cs.tx_retries || 0, 0) })] : null,
           temp !== null && temp !== undefined ? [t("hw.mcu_temp"), iso(num(temp, 0) + " °C"), temp >= 75 ? "warn" : ""] : null,
-          info.version ? [t("hw.mcu_fw"), info.version] : null]),
+          [t("hw.mcu_bad_bytes"), resent + " · " + (typeof ls.bytes_invalid === "number" ? num(ls.bytes_invalid, 0) : "—")],
+          cs ? [t("hw.can_bus"), t("hw.can_state." + (cs.bus_state || "active")) + " · " + t("hw.can_errors", { rx: num(cs.rx_error || 0, 0), tx: num(cs.tx_error || 0, 0), r: num(cs.tx_retries || 0, 0) }), "", true] : null,
+          info.version ? [t("hw.mcu_fw"), info.version, "", true] : null]),
         chips.length ? h("div", { class: "chips" }, chips) : h("div", { class: "chips" }, chip("ok", t("hw.link_ok"))));
     }));
 
@@ -2543,6 +2569,8 @@
       f("temp").textContent = temps.length ? temps.join(" · ") : t("motors.temp_none");
       f("temp").className = mt !== null && mt >= 80 ? "bad" : mt !== null && mt >= 65 ? "warn" : "";
       if (mt !== null && mt >= 65) note(mt >= 80 ? "bad" : "warn", t("motors.sum_hot", { m: motorName(m), v: num(mt, 0) }));
+      const motorWarn = (mt !== null && mt >= 65) || M.driverFlags(d).some((x) => x.level !== "info");
+      if (motorWarn) kpi.motorsWarn++;
       // StallGuard: higher is easier; no alarm from it (it also drops at low speed)
       const G = M.stallguard(hw.hist[m.stepper]);
       const txt = f("loadtxt");
@@ -2631,17 +2659,20 @@
       const disk = hw.disk;
       const thr = M.throttleFlags(p.throttled_state);
       for (const c of M.hostChecks(p, disk)) note(c.level, hostText(c));
+      kpi.cpu = typeof (p.system_cpu_usage || {}).cpu === "number" ? p.system_cpu_usage.cpu : null;
+      kpi.cpuT = typeof cpuT === "number" ? cpuT : null;
+      kpi.hostLevel = M.hostChecks(p, disk).concat(thr).reduce((w, c) => ((LEVEL_RANK[c.level] || 0) > (LEVEL_RANK[w] || 0) ? c.level : w), "ok");
       for (const f of thr) note(f.level, t("hw.throttle") + ": " + throttleText(f.flag));
       const nets = Object.entries(p.network || {}).filter(([k]) => k !== "lo");
       const ss = st.system_stats || {};
       host.replaceChildren(...[
-        kv([
+        stats([
           [t("hw.cpu"), typeof (p.system_cpu_usage || {}).cpu === "number" ? t("hw.cpu_val", { p: iso(num(p.system_cpu_usage.cpu, 0) + " %"), c: num(cpu.cpu_count || 0, 0) }) : "—"],
           [t("hw.cpu_temp"), typeof cpuT === "number" ? iso(num(cpuT, 0) + " °C") : "—", cpuT >= 85 ? "bad" : cpuT >= 75 ? "warn" : ""],
           [t("hw.memory"), mem.total ? t("hw.mem_val", { used: iso(bytesText((mem.total - mem.available) * 1024)), total: iso(bytesText(mem.total * 1024)) }) : "—"],
           [t("hw.disk"), disk ? t("hw.disk_val", { free: iso(bytesText(disk.free)), total: iso(bytesText(disk.total)) }) : "—"],
           [t("hw.klipper_load"), typeof ss.sysload === "number" ? num(ss.sysload, 2) : "—"],
-          [t("hw.uptime"), typeof p.system_uptime === "number" ? duration(p.system_uptime) : "—"]]),
+          [t("hw.uptime"), typeof p.system_uptime === "number" ? duration(p.system_uptime) : "—"]], "roomy"),
         thr.length ? h("div", { class: "chips" }, thr.map((f) => chip(f.level, throttleText(f.flag)))) : null,
         nets.length ? h("h4", { class: "hw-sub", text: t("hw.network") }) : null,
         nets.length ? h("div", { class: "list" }, nets.map(([iface, n]) => {
@@ -2697,6 +2728,30 @@
         hw.jobs === null ? h("p", { class: "muted", text: "…" }) : failed.length ? h("div", { class: "list" }, failed.map((j) => h("div", { class: "row hw-row" },
           h("div", { class: "grow" }, h("div", { class: "name ltr", text: j.filename }),
             h("div", { class: "sub", text: fmtDate(j.start_time, true) + " · " + t("hw.job." + j.status) }))))) : h("p", { class: "muted", text: t("hw.failed_none") }));
+    }
+
+    const kpis = live("kpis");
+    if (kpis) {
+      const go = (id) => () => { const target = document.getElementById(id); if (target) target.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      const tile = (id, ic, label, value, subText, level) => h("button", { type: "button", class: "kpi " + (level || ""), onclick: go(id) },
+        h("span", { class: "kpi-top" }, icon(ic), h("span", { text: label })),
+        h("b", { class: "ltr", text: value }),
+        h("span", { class: "kpi-sub", text: subText }));
+      const tiles = [tile("hw-boards", "chip", t("hw.boards"), num(kpi.boards, 0),
+        kpi.boardsWarn ? t("hw.kpi_warn", { n: num(kpi.boardsWarn, 0) }) : t("hw.kpi_links_ok"), kpi.boardsWarn ? "warn" : "ok")];
+      if (list.length) tiles.push(tile("hw-motors", "motor", t("motors.title"), num(list.length, 0),
+        kpi.motorsWarn ? t("hw.kpi_warn", { n: num(kpi.motorsWarn, 0) }) : t("hw.kpi_motors_ok"), kpi.motorsWarn ? "warn" : "ok"));
+      for (const x of P.heaters.slice(0, 2)) {
+        const hs = st[x.obj] || {}, w = hw.heat[x.obj] || {};
+        tiles.push(tile("hw-heaters", "thermo", heaterName(x),
+          (typeof hs.temperature === "number" ? num(hs.temperature, 0) : "—") + (hs.target ? " / " + num(hs.target, 0) : "") + " °C",
+          hs.target ? t("hw.kpi_heater_on", { p: num((hs.power || 0) * 100, 0) }) : t("hw.heat_state.off"), w.level || (hs.target ? "ok" : "")));
+      }
+      tiles.push(tile("hw-host", "server", t("hw.host"), kpi.cpuT !== null ? num(kpi.cpuT, 0) + " °C" : "—",
+        kpi.cpu !== null ? t("hw.kpi_cpu", { p: num(kpi.cpu, 0) }) : "", kpi.hostLevel || "ok"));
+      if (hw.cam) tiles.push(tile("hw-camera", "camera", t("hw.camera"), hw.cam.online ? (hw.cam.fps ? num(hw.cam.fps, 0) + " fps" : t("hw.cam_answer")) : t("hw.cam_down"),
+        hw.cam.online && hw.cam.res ? hw.cam.res.width + "×" + hw.cam.res.height : "", hw.cam.online ? "ok" : "bad"));
+      kpis.replaceChildren(...tiles);
     }
 
     const sum = live("hsum");

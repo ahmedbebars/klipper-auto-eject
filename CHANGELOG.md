@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- A cleaner **Settings** page: the sections at the side with how many you have set in each,
+  **Only my changes**, every control in one column, and only your own values marked.
+- **Hardware** opens with a tile for each part (boards, motors, each heater, the computer, the
+  camera) that says how it is and takes you to it; board and computer figures in small boxes; the
+  explanations folded under **About these figures**.
+- The farm's cameras show a new picture as soon as the last has arrived (at most one a second)
+  instead of every 4 s, and a tap opens one large and live.
 - The print queue's **Add files** picks a file by its picture, with a search, as on **Check a
   file**. While the bed cools, **Overview** says the time it pushes at the latest (`cool_timeout`).
 - A setting changed while the bed is being cleared now says it waits for the end of the eject:
