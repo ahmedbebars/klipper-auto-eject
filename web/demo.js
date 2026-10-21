@@ -236,6 +236,20 @@
       bed.temperature = Math.min(bed.target, bed.temperature + 1.5);
       this.touch("heater_bed");
     }
+    // the hotend heats fast and cools back to where it started
+    const hot = this.status.extruder;
+    if (hot.target > 0 && hot.temperature < hot.target) {
+      hot.temperature = Math.min(hot.target, hot.temperature + 4);
+      this.touch("extruder");
+    } else if (hot.target === 0 && hot.temperature > 60) {
+      hot.temperature = Math.max(60, hot.temperature - 0.8);
+      this.touch("extruder");
+    }
+    // full power while warming, a little to hold
+    for (const h of [bed, hot]) {
+      const power = h.target > 0 ? (h.temperature < h.target - 2 ? 1 : 0.3) : 0;
+      if (power !== h.power) { h.power = power; this.touch(h === bed ? "heater_bed" : "extruder"); }
+    }
     if (this.dirty.size) {
       const diff = {};
       for (const n of this.dirty) diff[n] = JSON.parse(JSON.stringify(this.status[n]));
@@ -627,7 +641,7 @@
     mcu: { chip: "stm32h723xx" }, "mcu toolhead": { chip: "stm32g0b1xx" }, "canbus_stats toolhead": {}, system_stats: {},
     "heater_fan hotend_fan": {}, "controller_fan electronics": {}, fan: {},
     "temperature_sensor board": {}, "temperature_sensor toolhead": {}, "temperature_sensor computer": {}, "temperature_sensor chamber": {},
-    "filament_switch_sensor runout": {}
+    "filament_switch_sensor runout": {}, motion_report: {}
   };
   Demo.prototype.hwStatus = function (k) {
     const st = this.status;
@@ -648,6 +662,7 @@
       case "temperature_sensor computer": return { temperature: wob(busy ? 53 : 47) };
       case "temperature_sensor chamber": return { temperature: wob(busy ? 33 : 26), measured_min_temp: 24.1, measured_max_temp: 35.8 };
       case "filament_switch_sensor runout": return { filament_detected: true, enabled: true };
+      case "motion_report": return { live_extruder_velocity: st.print_stats.state === "printing" && st.extruder.target > 0 && st.extruder.temperature > st.extruder.target - 5 ? Math.max(0, 2.6 + Math.sin(t * 0.9) * 1.8 + Math.sin(t * 0.23) * 1.2) : 0 };
     }
     return {};
   };
@@ -726,7 +741,6 @@
                                                      settings: { probe: { x_offset: 0, y_offset: 0, z_offset: -0.4 } } };
           else if (DEMO_MOTORS[k] || k === "stepper_enable" || /^temperature_sensor motor_/.test(k)) out[k] = this.motorStatus(k);
           else if (DEMO_HW[k]) out[k] = this.hwStatus(k);
-          else if (k === "extruder" || k === "heater_bed") out[k] = Object.assign({ power: 0 }, JSON.parse(JSON.stringify(st[k])));
           else if (st[k]) out[k] = JSON.parse(JSON.stringify(st[k]));
         }
         return ok({ status: out, eventtime: Date.now() / 1000 });

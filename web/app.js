@@ -2136,7 +2136,7 @@
   // second, the computer every two, the rest now and then. Read only.
   const hw = {
     status: {}, at: 0, proc: null, sys: null, disk: null, jobs: null, cam: null,
-    hist: {}, temps: {}, events: [], seen: {}, base: {}, heat: {}, fanOff: {}, camFails: 0,
+    hist: {}, temps: {}, flow: {}, fil: {}, quiet: {}, events: [], seen: {}, base: {}, heat: {}, fanOff: {}, camFails: 0,
     procAt: 0, slowAt: 0, camAt: 0, mcuInfo: {}, busy: false
   };
   const KEEP = 600;                // ten minutes, one reading a second
@@ -2189,6 +2189,7 @@
   function pollKlipper(now) {
     const P = hwParts(), list = motorList();
     const objects = { stepper_enable: null, system_stats: null };
+    if (list.some((m) => m.extruder)) { objects.motion_report = ["live_extruder_velocity"]; objects.toolhead = ["extruder"]; }
     for (const m of list) {
       objects[m.obj] = null;
       const sn = M.motorSensor(m, app.objects);
@@ -2209,8 +2210,21 @@
         const d = (st[m.obj] || {}).drv_status || {};
         const hist = hw.hist[m.stepper] || (hw.hist[m.stepper] = []);
         // a reading only while it turns: Klipper leaves a zero out, and a slow motor gives none
-        hist.push(m.reportsLoad && on[m.stepper] !== false && !d.stst && typeof d.sg_result === "number" ? d.sg_result : null);
+        const moving = on[m.stepper] !== false && !d.stst;
+        hist.push(m.reportsLoad && moving && typeof d.sg_result === "number" ? d.sg_result : null);
         if (hist.length > KEEP) hist.splice(0, hist.length - KEEP);
+        // turning, again and again, without a reading: too slow for StallGuard
+        hw.quiet[m.stepper] = moving && hist[hist.length - 1] === null ? (hw.quiet[m.stepper] || 0) + 1 : hist[hist.length - 1] === null ? hw.quiet[m.stepper] || 0 : 0;
+        // the extruder: its flow, from the filament's speed
+        if (m.extruder) {
+          const active = (st.toolhead || {}).extruder || "extruder";
+          const v = active === m.stepper ? Math.abs((st.motion_report || {}).live_extruder_velocity || 0) : 0;
+          const f = hw.flow[m.stepper] || (hw.flow[m.stepper] = []);
+          // the flow of 1 mm/s of this filament: the filament's speed back from the flow shown
+          hw.fil[m.stepper] = M.flowRate(1, M.cfgSection(app.config, m.stepper).filament_diameter);
+          f.push(v * hw.fil[m.stepper]);
+          if (f.length > KEEP) f.splice(0, f.length - KEEP);
+        }
         for (const f of M.driverFlags(d)) {
           if (f.level !== "info") hwEvent(m.stepper + f.flag, f.level, motorName(m) + ": " + t("motors.flag." + f.flag), now);
         }
@@ -2340,9 +2354,9 @@
             h("div", { class: "mc-sub ltr", text: m.stepper + " · " + m.driver.toUpperCase() })),
           h("span", { class: "badge", "data-f": "state" })),
         h("div", { class: "mc-load" },
-          h("div", { class: "mc-row" }, h("span", { text: t("motors.load") }), h("b", { class: "ltr", "data-f": "loadtxt", text: "…" })),
-          m.reportsLoad ? h("div", { class: "meter" }, h("i", { "data-f": "bar" })) : null,
-          m.reportsLoad ? s("svg", { class: "spark", viewBox: "0 0 300 56", preserveAspectRatio: "none", "data-f": "spark", "aria-hidden": "true" }) : null,
+          h("div", { class: "mc-row" }, h("span", { text: t(m.extruder ? "motors.flow" : "motors.load") }), h("b", { class: "ltr", "data-f": "loadtxt", text: "…" })),
+          m.reportsLoad || m.extruder ? h("div", { class: "meter" }, h("i", { "data-f": "bar" })) : null,
+          m.reportsLoad || m.extruder ? s("svg", { class: "spark", viewBox: "0 0 300 56", preserveAspectRatio: "none", "data-f": "spark", "aria-hidden": "true" }) : null,
           h("div", { class: "mc-note", "data-f": "loadnote" })),
         h("dl", { class: "mc-kv" },
           h("dt", { text: t("motors.current") }), h("dd", { "data-f": "current", text: "…" }),
@@ -2433,7 +2447,23 @@
       // StallGuard: higher is easier; no alarm from it (it also drops at low speed)
       const G = M.stallguard(hw.hist[m.stepper]);
       const txt = f("loadtxt");
-      if (!m.reportsLoad) {
+      if (m.extruder) {
+        // an extruder turns too slowly for StallGuard: its flow tells more
+        const fl = hw.flow[m.stepper] || [];
+        const peak = Math.max(0, ...fl);
+        const recent = fl.slice(-5).sort((a, b) => a - b);
+        const now = recent.length ? recent[Math.floor(recent.length / 2)] : 0;
+        txt.textContent = num(now, 1) + " mm³/s";
+        f("bar").style.width = num(Math.max(1, Math.min(100, 100 * now / Math.max(1, peak))), 1) + "%";
+        f("loadnote").textContent = now > 0.05 || peak > 0.05
+          ? t("motors.flow_note", { fil: iso(num(now / (hw.fil[m.stepper] || 1), 1) + " mm/s"), peak: iso(num(peak, 1) + " mm³/s") })
+          : t("motors.flow_idle");
+        drawSpark(f("spark"), fl, 0, Math.max(1, peak));
+      } else if (m.reportsLoad && G.wait && (hw.quiet[m.stepper] || 0) >= 30) {
+        txt.textContent = "—";
+        f("loadnote").textContent = t("motors.too_slow");
+        drawSpark(f("spark"), [], 0, 1);
+      } else if (!m.reportsLoad) {
         txt.textContent = "—";
         f("loadnote").textContent = t("motors.no_load", { d: m.driver.toUpperCase() });
       } else if (G.wait) {

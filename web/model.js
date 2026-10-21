@@ -718,6 +718,12 @@
     return out;
   }
 
+  // The flow through the hotend in mm³/s from the filament's speed (mm/s).
+  function flowRate(velocity, diameter) {
+    const d = Number(diameter) > 0 ? Number(diameter) : 1.75;
+    return Math.abs(Number(velocity) || 0) * Math.PI * d * d / 4;
+  }
+
   // A fan with a tachometer that should turn and does not.
   function fanStopped(fan) {
     return !!fan && typeof fan.rpm === "number" && (fan.speed || 0) >= 0.25 && fan.rpm < 1;
@@ -773,7 +779,7 @@
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
     noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
-    hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

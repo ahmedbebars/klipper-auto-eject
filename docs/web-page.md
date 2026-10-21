@@ -68,6 +68,9 @@ The motors section shows every stepper that has a TMC driver (TMC2130, 2208, 220
 2660, 5160): X, Y, every Z motor and every extruder. Each motor shows:
 
 - whether it is **moving**, **holding** or **off**, and its current (running and holding);
+- for an extruder, its **flow** instead: the filament through the hotend in mm³/s, its last ten
+  minutes and the highest so far, to compare with what the hotend can melt (an extruder turns too
+  slowly for StallGuard);
 - its **StallGuard** reading, with the last ten minutes as a line: how easily the motor turns, higher
   is easier. It drops when the motor works hard and also at low speed, so it is no alarm on its own;
   near 0 while the motor runs fast, the motor is close to skipping steps (a layer shift). Only the

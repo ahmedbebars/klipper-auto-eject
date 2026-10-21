@@ -633,3 +633,11 @@ def test_the_computers_warnings():
     got = js("hostChecks", {"cpu_temp": 88, "system_memory": {"total": 2000, "available": 100}}, {"total": 3e10, "free": 5e8})
     assert [(c["key"], c["level"]) for c in got] == [("cpu_hot", "bad"), ("memory_low", "warn"), ("disk_low", "warn")]
     assert js("grew", 9, 12) == 3 and js("grew", 9, 2) == 0 and js("grew", None, 5) == 0
+
+
+@needs_node
+def test_the_flow_through_the_hotend():
+    assert round(js("flowRate", 1.0, 1.75), 3) == 2.405          # 1 mm/s of 1.75 mm filament
+    assert round(js("flowRate", -5.47, "1.75"), 1) == 13.2         # a retraction counts its speed, the config gives text
+    assert round(js("flowRate", 2.0, None), 2) == 4.81             # no diameter: 1.75
+    assert round(js("flowRate", 1.0, 2.85), 2) == 6.38

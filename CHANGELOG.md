@@ -14,7 +14,8 @@ All notable changes to this project are documented here. The format is based on
   one cannot hold its target at full power. **Fans**: speed and turns per minute, with a warning when
   one with a speed sensor stops. **Computer**: processor use and temperature, memory, storage,
   network errors, low voltage on a Raspberry Pi. **Sensors**, the **camera**, and the prints that
-  stopped with an error. **With the page closed**, the notification service watches the serious
+  stopped with an error. The extruder shows its **flow** (mm³/s) and the highest so far, as it
+  turns too slowly for StallGuard. **With the page closed**, the notification service watches the serious
   ones (a fan with a speed sensor that stopped, driver warnings, a hot motor, a board link resending
   data, an unhealthy CAN bus, a heater that cannot hold its target, the computer too hot or short of
   voltage, memory or storage) and sends each once to the phones, opening the Hardware tab; each
