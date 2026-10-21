@@ -68,8 +68,9 @@ class Printer:
         self.g28_drops_z = False  # homing override that un-homes Z on G28 X Y
         self.calls = []
         # Klipper works out a macro when it is called, without pausing. A
-        # move queued before it is sent late if that takes long ("Timer too
-        # close"), so the slow macros must be called with nothing moving.
+        # move or a fan change queued before it is sent late if that takes
+        # long ("Timer too close"), so the slow macros must be called with
+        # nothing waiting to be sent.
         self.moving = False
         self.called_while_moving = []
         self.bed_cooling = 5.0   # degrees per second while dwelling (G4)
@@ -209,8 +210,8 @@ class Printer:
             return
         self.executed.append(line)
         th = self.status["toolhead"]
-        if cmd in ("G0", "G1"):
-            self.moving = True
+        if cmd in ("G0", "G1", "M106", "M107", "SET_FAN_SPEED", "SET_PIN", "SET_SERVO", "SET_LED"):
+            self.moving = True       # sent to the board at a set time, after the moves before
         elif cmd in ("M400", "G4", "G28", "PROBE", "TEMPERATURE_WAIT"):
             self.moving = False      # these wait until every move is done
         if cmd == "TEMPERATURE_WAIT":

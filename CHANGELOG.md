@@ -49,6 +49,11 @@ All notable changes to this project are documented here. The format is based on
   `--push` updates the nginx file for large files).
 
 ### Fixed
+- `AUTO_EJECT HOME=1` could stop the printer with **"Timer too close"**. After a nozzle probe waits
+  for the nozzle to cool, the part fan was switched off and the spot to home Z at was worked out
+  before that fan command went out; on a slower printer computer that took up to 1.5 s (Klipper
+  allows 0.25). The fan command is now sent first, and the search is 5 to 20 times faster: under
+  0.1 s for 30 parts on a BTT CB2.
 - In the farm, **Open** did not work from a phone away from the printers' network: it opened the
   printer's local address. When the page is opened through Tailscale, it now opens the printer's
   Tailscale address, found by its network card, if that printer has Tailscale; without it, Open

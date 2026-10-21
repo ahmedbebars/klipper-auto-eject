@@ -77,3 +77,17 @@ def test_retry():
     p.execute("AUTO_EJECT", HEIGHT=15)
     assert p.calls.count("_AUTO_EJECT_RUN") == 2
     assert slow_calls_while_moving(p) == []
+
+
+@pytest.mark.parametrize("fan", [0.0, 0.6], ids=["no fan", "fan while it cools"])
+def test_a_hot_nozzle_probe_cools_with_the_fan_then_homes(fan):
+    # A real printer stopped here: the part fan was switched off after the
+    # nozzle cooled, and the spot to home Z at was worked out before the fan
+    # command went out.
+    p = make(homed="", cool_fan_speed=fan)
+    p.status["extruder"].update(temperature=215.0, target=0.0)
+    lines = p.execute("AUTO_EJECT", HOME=1, HEIGHT=15)
+    assert "TEMPERATURE_WAIT SENSOR=extruder MAXIMUM=150.0" in lines
+    assert ("M107" in lines) == (fan > 0)
+    assert "_AUTO_EJECT_HOME_Z" in p.calls and "_AUTO_EJECT_VERIFY" in p.calls
+    assert slow_calls_while_moving(p) == []
