@@ -126,4 +126,4 @@
 ([صفحة الويب](web-page.md)).
 
 **كيف ألغي التثبيت؟**
-الأمر `~/klipper-auto-eject/install.sh --uninstall` يزيل كل ما أضافه ([التثبيت](installation.md)).
+الأمر `~/klipper-auto-eject/install.sh --uninstall` يزيل كل ما أضافه ([الإزالة خطوة بخطوة](uninstall.md)).

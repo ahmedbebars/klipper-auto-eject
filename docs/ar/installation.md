@@ -151,6 +151,8 @@ is_system_service: False
 
 ## إلغاء التثبيت
 
+قبلها وبعدها خطوة بخطوة: [إزالة المشروع](uninstall.md).
+
 ```bash
 ~/klipper-auto-eject/install.sh --uninstall
 rm -rf ~/klipper-auto-eject                      # optional

@@ -126,4 +126,4 @@ a backup of each. With `--web` it also adds a small web server file and a sideba
 
 **How do I remove it?**
 `~/klipper-auto-eject/install.sh --uninstall` takes everything back out
-([installation.md](installation.md#uninstalling)).
+([removing it, step by step](uninstall.md)).

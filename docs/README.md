@@ -21,6 +21,7 @@ it worked.
 |---|---|
 | [Hardware](hardware.md) | Printing, mounting and measuring the blade; bed surfaces |
 | [Installation](installation.md) | The install script, installing by hand, updating, removing |
+| [Removing it](uninstall.md) | One line takes it back off the printer, and what it leaves |
 | [Guided setup](setup-wizard.md) | Every screen of `AUTO_EJECT_SETUP`, with pictures |
 | [Slicer setup](slicer-setup.md) | Object labels and start/end G-code for OrcaSlicer, PrusaSlicer, SuperSlicer and Cura |
 | [Web page](web-page.md) | The Auto-eject page in Mainsail: installing it and what it shows |

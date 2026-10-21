@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **Removing it**, a page in English and Arabic ([docs/uninstall.md](docs/uninstall.md)): what to
+  take out of the slicer first, the one line, what it removes, the restart, and what it leaves.
+  Linked from the READMEs, the FAQ, the installation page and the website.
+
 ## [0.14.0] - 2026-10-21
 
 ### Added

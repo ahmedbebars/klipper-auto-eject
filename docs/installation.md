@@ -134,6 +134,8 @@ to change them.
 
 ## Uninstalling
 
+Before and after, step by step: [uninstall.md](uninstall.md).
+
 ```bash
 ~/klipper-auto-eject/install.sh --uninstall
 rm -rf ~/klipper-auto-eject                      # optional

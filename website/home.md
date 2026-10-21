@@ -215,6 +215,7 @@ cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./kli
 
 [Start step by step](getting-started.md){ .md-button .md-button--primary }
 [Questions and answers](faq.md){ .md-button }
+[Removing it](uninstall.md){ .md-button }
 [بالعربية](ar/index.md){ .md-button }
 
 ## Open source { .ae-section }

@@ -86,7 +86,8 @@ to check that it worked. In short:
    ```
    It asks a few yes/no questions (the web page? your phone? notifications? more than one
    printer?), adds what `printer.cfg` needs, and restarts Klipper for you if it is not printing
-   ([installation.md](docs/installation.md)).
+   ([installation.md](docs/installation.md)). To take it back off later, it is one line too
+   ([removing it](docs/uninstall.md)).
 5. **Run the guided setup:** type `AUTO_EJECT_SETUP` in the console and press the buttons.
    With Voron Tap the printer measures the blade by itself ([with pictures](docs/setup-wizard.md)).
 6. **Watch a test:** print two or three test cubes, leave them on the bed, and run `AUTO_EJECT`.
@@ -225,7 +226,7 @@ All commands and options: [docs/commands.md](docs/commands.md).
 | [FAQ](docs/faq.md) | [Installation](docs/installation.md) | [Integration](docs/integration.md) | [Strategies](docs/strategies.md) |
 | [Glossary](docs/glossary.md) | [Guided setup](docs/setup-wizard.md) | [Recovery](docs/recovery.md) | [Probes](docs/probes.md) |
 | [Safety](docs/safety.md) | [Slicer setup](docs/slicer-setup.md) | [Web page](docs/web-page.md) | [Troubleshooting](docs/troubleshooting.md) |
-| [العربية](docs/ar/README.md) | | | |
+| [العربية](docs/ar/README.md) | [Removing it](docs/uninstall.md) | | |
 | | | [Remote access](docs/remote-access.md) | |
 | | | [Notifications](docs/notifications.md) | |
 | | | [Printer farm](docs/farm.md) | |

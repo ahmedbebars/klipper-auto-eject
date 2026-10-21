@@ -114,6 +114,7 @@ nav:
   - Set up:
       - The blade: hardware.md
       - Installation: installation.md
+      - Removing it: uninstall.md
       - Guided setup: setup-wizard.md
       - Slicer setup: slicer-setup.md
       - Web page: web-page.md
@@ -134,6 +135,7 @@ nav:
       - ar/index.md
       - البداية خطوة بخطوة: ar/getting-started.md
       - التثبيت: ar/installation.md
+      - الإزالة: ar/uninstall.md
       - صفحة الويب: ar/web-page.md
       - من الهاتف: ar/remote-access.md
       - الإشعارات: ar/notifications.md
