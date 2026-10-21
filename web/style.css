@@ -665,3 +665,18 @@ html[dir="rtl"] .file-row .name, html[dir="rtl"] .fc-job .fc-file { text-align: 
 .mc-kv dd.bad { color: var(--bad); }
 .mcard .chips { margin-top: 0; }
 .chip.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+
+/* --------------------------------------------------------------- hardware */
+.hw-head { display: flex; align-items: center; gap: 8px; margin: 22px 0 0; font-size: 15px; color: var(--muted); font-weight: 600; }
+.hw-head .ic { width: 18px; height: 18px; }
+.hw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; margin-top: 12px; }
+.hw-grid > .card.hcard { margin-top: 0; display: grid; gap: 12px; align-content: start; }
+.hw-head + .motor-grid { margin-top: 12px; }
+.hw-cols { margin-top: 22px; }
+.hw-sec h2 { margin-bottom: 12px; }
+.hw-sub { margin: 16px 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.hw-row { gap: 12px; }
+.hw-pct { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.hw-pct .meter { flex: 1; }
+.hw-pct b { min-width: 42px; text-align: end; font-size: 13px; }
+.spark-guide { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; opacity: 0.7; }

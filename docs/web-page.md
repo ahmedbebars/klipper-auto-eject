@@ -26,7 +26,7 @@ bed and starts the next job by itself.
 | **Check a file** | Every file shows its picture, print time, filament, height and material. Pick one and the page reads it: are the parts labelled, does the end G-code run `AUTO_EJECT`, is the print tall enough, can the blade get behind every part? It draws the plan on the bed map before you print. When the slicer needs a change, **Show me what to paste in the slicer** opens the lines to paste. |
 | **Blade and setup** | The measured blade (height above the nozzle tip, distance ahead of it, width) in a side view, the probe type, buttons for the guided setup, the blade measurement and a dry run, and downloads for the test parts (calibration block, blade gauge, test cube). The setup dialogs open right in the page. **In your slicer**: for OrcaSlicer, PrusaSlicer/SuperSlicer or Cura, where each setting is and the lines to paste, with a **Copy** button. The end G-code names the end macro this printer really uses, found in its newest file or its config (`PRINT_END`, `END_PRINT`, `DEMON_END`…). |
 | **Settings** | Every setting from `auto_eject_settings.cfg`, grouped like the file, with its explanation, a switch, a list or a number box, and where the value comes from (default, your file, or saved here). Changes are saved with `AUTO_EJECT_SET` and kept after a restart. |
-| **Motors** | Every motor with a TMC driver, live: its current, its StallGuard reading and its driver's warnings. Shown when Klipper has TMC drivers. See [Motors](#motors). |
+| **Hardware** | Everything Klipper and Moonraker tell about the machine, live: boards and their links, motors, heaters, fans, the computer, sensors and the camera, with a line that says whether all is normal. See [Hardware](#hardware). |
 | **Activity** | The auto-eject messages from the console, newest first. |
 | **How it works** | The illustrated guide. |
 
@@ -35,11 +35,27 @@ bed and starts the next job by itself.
 The page is in English and Arabic (right to left), in light and dark, and works on a phone.
 It picks the browser's language and theme; both can be switched at the top.
 
-### Motors
+### Hardware
 
-The **Motors** tab shows every stepper that has a TMC driver (TMC2130, 2208, 2209, 2224, 2240,
-2660, 5160): X, Y, every Z motor and every extruder. It reads them once a second while the tab is
-open and never changes anything. Each motor shows:
+The **Hardware** tab shows what Klipper and Moonraker report about the machine, read while the tab
+is open (Klipper once a second) and never changing anything. Each part shows only when the machine
+has it. The line at the top says **All hardware normal**, or what needs a look.
+
+| Section | What it shows | What it warns about |
+|---|---|---|
+| **Boards** | Each MCU (main board, toolhead board, the host process): its chip, USB, CAN or serial, its load, the round trip, resent and corrupt bytes, firmware, and its temperature when a `temperature_mcu` sensor is on it. CAN boards add the bus state and error counts. | Bytes resent or corrupt while the page is open (a cable, a connector or interference), a CAN bus that is not healthy |
+| **Motors** | Below | Driver warnings, a hot motor |
+| **Heaters** | Temperature and target, the heater's power, and the last ten minutes | A heater that reached its target and then cannot hold it at full power, or runs far above it |
+| **Fans** | Every fan's speed; turns per minute when it has a speed sensor; temperature fans' temperature | A fan that should turn and does not (needs a speed sensor) |
+| **Computer** | Processor use and temperature, memory, storage, system load, uptime, and every network interface with its errors and drops (a CAN interface with its bitrate) | A hot processor, little memory or storage left, low supply voltage on a Raspberry Pi, new errors on a CAN interface |
+| **Sensors** | Every temperature sensor with its lowest and highest, and the filament sensors | No filament during a print |
+| **Camera** | Working or not; resolution and frames a second with ustreamer | A camera that stops answering |
+| **Problems** | Every warning while the page was open, and the prints that stopped with an error | |
+
+#### Motors
+
+The motors section shows every stepper that has a TMC driver (TMC2130, 2208, 2209, 2224, 2240,
+2660, 5160): X, Y, every Z motor and every extruder. Each motor shows:
 
 - whether it is **moving**, **holding** or **off**, and its current (running and holding);
 - its **StallGuard** reading, with the last ten minutes as a line: how easily the motor turns, higher
@@ -50,9 +66,7 @@ open and never changes anything. Each motor shows:
   open coil (only a hint: drivers show it at standstill or at high speed with the coil connected);
 - the motor's own temperature, when it has a sensor (below).
 
-On CoreXY and CoreXZ the two belt motors are marked **motor A** (stepper_x) and **motor B**. The
-line at the top sums it up from the driver warnings and the motor temperatures: all motors normal,
-or which one has a warning or is hot.
+On CoreXY and CoreXZ the two belt motors are marked **motor A** (stepper_x) and **motor B**.
 
 **A motor's own temperature.** Tape a 100K thermistor to the motor's body, connect it to a free
 thermistor input, and add it with the motor's name:

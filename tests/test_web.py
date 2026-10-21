@@ -334,7 +334,7 @@ def test_page_is_an_app_only_where_browsers_allow_it():
 
 def test_every_section_has_a_short_label_for_the_phone_tab_bar():
     en = (WEB / "lang" / "en.js").read_text(encoding="utf-8")
-    for view in ("overview", "farm", "queue", "check", "setup", "settings", "motors", "activity", "guide"):
+    for view in ("overview", "farm", "queue", "check", "setup", "settings", "hardware", "activity", "guide"):
         assert '"navs.%s"' % view in en, view
 
 
@@ -569,3 +569,67 @@ def test_a_motors_own_temperature_sensor():
     assert js("motorSensor", y, OBJECTS) is None
     assert js("motorSensor", e, OBJECTS) == "temperature_fan motor_e"
     assert js("motorSensor", x, ["temperature_sensor stepper_x"]) == "temperature_sensor stepper_x"
+
+
+# --------------------------------------------------------------- the hardware
+HW_OBJECTS = ["gcode", "mcu", "canbus_stats toolboard", "mcu toolboard", "mcu host", "filament_switch_sensor runout",
+              "filament_motion_sensor motion", "heaters", "heater_fan hotend_fan", "fan", "heater_bed",
+              "temperature_sensor toolboard", "controller_fan electronics", "temperature_fan board_fan",
+              "temperature_host host_fan", "temperature_fan host_fan", "extruder", "temperature_sensor chamber"]
+HW_CONFIG = {"mcu": {"serial": "/dev/serial/by-id/usb-Klipper_stm32h723xx_X-if00"}, "mcu toolboard": {"canbus_uuid": "0123456789ab"},
+             "mcu host": {"serial": "/tmp/klipper_host_mcu"},
+             "temperature_sensor toolboard": {"sensor_type": "temperature_mcu", "sensor_mcu": "toolboard"},
+             "temperature_fan board_fan": {"sensor_type": "temperature_mcu", "sensor_mcu": "mcu"},
+             "temperature_fan host_fan": {"sensor_type": "temperature_host"},
+             "temperature_sensor chamber": {"sensor_type": "Generic 3950"}}
+
+
+@needs_node
+def test_the_machines_parts_sorted_into_the_page():
+    p = js("hwParts", HW_OBJECTS, HW_CONFIG)
+    assert [(m["name"], m["conn"], m["sensor"]) for m in p["mcus"]] == [
+        ("mcu", "usb", "temperature_fan board_fan"), ("toolboard", "can", "temperature_sensor toolboard"), ("host", "host", None)]
+    assert [c["name"] for c in p["can"]] == ["toolboard"]
+    assert sorted(x["kind"] for x in p["heaters"]) == ["extruder", "heater_bed"]
+    assert [f["kind"] for f in p["fans"]] == ["heater_fan", "fan", "controller_fan", "temperature_fan", "temperature_fan"]
+    # the host sensor inside a temperature fan is not listed twice
+    assert [x["obj"] for x in p["sensors"]] == ["temperature_sensor toolboard", "temperature_sensor chamber"]
+    assert p["hostSensor"] == "temperature_fan host_fan"
+    assert len(p["filament"]) == 2
+    # a serial board, and settings in another case than the objects
+    q = js("hwParts", ["mcu", "mcu pico"], {"MCU": {"serial": "/dev/ttyAMA0"}, "mcu PICO": {"serial": "/dev/serial/by-id/usb-Klipper_rp2040-if00"}})
+    assert [m["conn"] for m in q["mcus"]] == ["uart", "usb"]
+
+
+@needs_node
+def test_a_fan_that_should_turn_and_does_not():
+    assert js("fanStopped", {"speed": 1.0, "rpm": 0}) is True
+    assert js("fanStopped", {"speed": 1.0, "rpm": 6800}) is False
+    assert js("fanStopped", {"speed": 0.1, "rpm": 0}) is False       # too slow to tell
+    assert js("fanStopped", {"speed": 1.0, "rpm": None}) is False    # no speed sensor
+
+
+@needs_node
+def test_a_heater_that_cannot_hold_its_target():
+    w = js("heaterWatch", None, {"temperature": 25, "target": 220, "power": 1.0}, 0)
+    assert w["level"] is None                                        # warming up at full power is normal
+    w = js("heaterWatch", w["state"], {"temperature": 219.5, "target": 220, "power": 0.4}, 100)
+    assert w["state"]["reached"] is True and w["level"] is None
+    w = js("heaterWatch", w["state"], {"temperature": 212, "target": 220, "power": 1.0}, 200)
+    assert w["level"] is None                                        # not yet 30 s
+    w = js("heaterWatch", w["state"], {"temperature": 211, "target": 220, "power": 1.0}, 235)
+    assert (w["level"], w["reason"]) == ("warn", "cant_hold")
+    w = js("heaterWatch", w["state"], {"temperature": 25, "target": 0, "power": 0}, 240)
+    assert w["level"] is None and w["state"]["reached"] is False     # a new target starts again
+    assert js("heaterWatch", None, {"temperature": 250, "target": 220, "power": 0}, 0)["reason"] == "above"
+
+
+@needs_node
+def test_the_computers_warnings():
+    assert js("throttleFlags", {"bits": 327685, "flags": ["Under-Voltage Detected", "Previously Under-Volted"]}) == [
+        {"flag": "Under-Voltage Detected", "level": "bad"}, {"flag": "Previously Under-Volted", "level": "warn"}]
+    assert js("throttleFlags", None) == []
+    assert js("hostChecks", {"cpu_temp": 44, "system_memory": {"total": 2000, "available": 1500}}, {"total": 3e10, "free": 2e10}) == []
+    got = js("hostChecks", {"cpu_temp": 88, "system_memory": {"total": 2000, "available": 100}}, {"total": 3e10, "free": 5e8})
+    assert [(c["key"], c["level"]) for c in got] == [("cpu_hot", "bad"), ("memory_low", "warn"), ("disk_low", "warn")]
+    assert js("grew", 9, 12) == 3 and js("grew", 9, 2) == 0 and js("grew", None, 5) == 0

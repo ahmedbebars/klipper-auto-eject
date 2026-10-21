@@ -665,10 +665,115 @@
     return null;
   }
 
+  // ----- the hardware page: what Klipper and Moonraker tell about the machine
+
+  // A config section by name, any case: Klipper's objects keep the case of
+  // printer.cfg, its settings are lower case.
+  function cfgSection(config, name) {
+    const want = String(name).toLowerCase();
+    for (const k of Object.keys(config || {})) if (k.toLowerCase() === want) return config[k] || {};
+    return {};
+  }
+
+  // Every part of the machine Klipper reports, sorted into the page's
+  // sections. A board's own temperature is the temperature_sensor (or
+  // temperature_fan) with sensor_type temperature_mcu on that board.
+  function hwParts(objects, config) {
+    const out = { mcus: [], can: [], heaters: [], fans: [], sensors: [], filament: [], hostSensor: null };
+    const objs = (objects || []).map(String);
+    const has = (o) => objs.indexOf(o) >= 0;
+    for (const o of objs) {
+      const sp = o.indexOf(" ");
+      const kind = sp < 0 ? o : o.slice(0, sp);
+      const name = sp < 0 ? "" : o.slice(sp + 1);
+      const cfg = cfgSection(config, o);
+      if (kind === "mcu") {
+        const serial = String(cfg.serial || "");
+        const conn = cfg.canbus_uuid ? "can" : /klipper_host_mcu/.test(serial) ? "host" : /\/dev\/serial\/by-id\/usb-|ttyACM/.test(serial) ? "usb" : serial ? "uart" : "";
+        out.mcus.push({ obj: o, name: name || "mcu", main: !name, conn, sensor: null });
+      } else if (kind === "canbus_stats") out.can.push({ obj: o, name });
+      else if (/^extruder\d*$/.test(kind) || kind === "heater_bed" || kind === "heater_generic") {
+        out.heaters.push({ obj: o, name: name || kind, kind });
+      } else if (["fan", "heater_fan", "controller_fan", "fan_generic", "temperature_fan"].indexOf(kind) >= 0) {
+        out.fans.push({ obj: o, name: name || kind, kind });
+      } else if (kind === "temperature_sensor" || (kind === "temperature_host" && !has("temperature_fan " + name))) {
+        out.sensors.push({ obj: o, name, kind });
+      } else if (kind === "filament_switch_sensor" || kind === "filament_motion_sensor") {
+        out.filament.push({ obj: o, name, kind });
+      }
+    }
+    // the boards' and the computer's own temperatures
+    for (const s of out.sensors.concat(out.fans.filter((f) => f.kind === "temperature_fan"))) {
+      const cfg = cfgSection(config, s.obj);
+      const type = String(cfg.sensor_type || (s.kind === "temperature_host" ? "temperature_host" : "")).toLowerCase();
+      if (type === "temperature_mcu") {
+        const mcu = String(cfg.sensor_mcu || "mcu").toLowerCase();
+        const m = out.mcus.find((x) => x.name.toLowerCase() === mcu);
+        if (m && !m.sensor) { m.sensor = s.obj; s.board = true; }
+      } else if (type === "temperature_host" && !out.hostSensor) {
+        out.hostSensor = s.obj; s.board = true;
+      }
+    }
+    out.mcus.sort((a, b) => (b.main ? 1 : 0) - (a.main ? 1 : 0) || (a.conn === "host") - (b.conn === "host") || a.name.localeCompare(b.name));
+    return out;
+  }
+
+  // A fan with a tachometer that should turn and does not.
+  function fanStopped(fan) {
+    return !!fan && typeof fan.rpm === "number" && (fan.speed || 0) >= 0.25 && fan.rpm < 1;
+  }
+
+  // A heater that reached its target and then cannot hold it at full power
+  // for 30 s (a weak heater, a draught, a loose cartridge), or that runs far
+  // above it. Warming up at full power is normal: only after it got there.
+  function heaterWatch(state, h, now) {
+    const st = Object.assign({ target: null, reached: false, since: null }, state || {});
+    const target = h.target || 0, temp = h.temperature, power = h.power || 0;
+    if (target !== st.target) { st.target = target; st.reached = false; st.since = null; }
+    let level = null, reason = null;
+    if (target > 0 && typeof temp === "number") {
+      if (Math.abs(temp - target) <= 2) st.reached = true;
+      if (st.reached && temp < target - 5 && power >= 0.95) {
+        if (st.since === null) st.since = now;
+        if (now - st.since >= 30) { level = "warn"; reason = "cant_hold"; }
+      } else st.since = null;
+      if (temp > target + 15) { level = "bad"; reason = "above"; }
+    } else st.since = null;
+    return { state: st, level, reason };
+  }
+
+  // The Raspberry Pi's throttling flags from Moonraker: now (bad) or since boot (warn).
+  function throttleFlags(ts) {
+    return ((ts && ts.flags) || []).map((f) => ({ flag: f, level: /^Previously/i.test(f) ? "warn" : "bad" }));
+  }
+
+  // What the computer's figures call for: hot, out of memory, disk nearly full.
+  function hostChecks(proc, disk) {
+    const out = [];
+    const t = proc && proc.cpu_temp;
+    if (typeof t === "number") {
+      if (t >= 85) out.push({ key: "cpu_hot", level: "bad", v: t });
+      else if (t >= 75) out.push({ key: "cpu_hot", level: "warn", v: t });
+    }
+    const mem = proc && proc.system_memory;
+    if (mem && mem.total > 0 && mem.available / mem.total < 0.08) out.push({ key: "memory_low", level: "warn", v: Math.round(100 * mem.available / mem.total) });
+    if (disk && disk.total > 0 && disk.free < Math.min(1e9, disk.total * 0.05)) out.push({ key: "disk_low", level: "warn", v: disk.free });
+    return out;
+  }
+
+  // How much a counter grew since the page first saw it (it starts again
+  // from 0 when Klipper restarts).
+  function grew(base, now) {
+    if (typeof now !== "number") return 0;
+    if (typeof base !== "number" || now < base) return 0;
+    return now - base;
+  }
+
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
+    hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

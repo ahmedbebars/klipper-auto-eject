@@ -622,6 +622,36 @@
     return out;
   };
 
+  // The rest of the demo printer's hardware for the Hardware tab.
+  const DEMO_HW = {
+    mcu: { chip: "stm32h723xx" }, "mcu toolhead": { chip: "stm32g0b1xx" }, "canbus_stats toolhead": {}, system_stats: {},
+    "heater_fan hotend_fan": {}, "controller_fan electronics": {}, fan: {},
+    "temperature_sensor board": {}, "temperature_sensor toolhead": {}, "temperature_sensor computer": {}, "temperature_sensor chamber": {},
+    "filament_switch_sensor runout": {}
+  };
+  Demo.prototype.hwStatus = function (k) {
+    const st = this.status;
+    const busy = st.print_stats.state === "printing" || st["gcode_macro _AUTO_EJECT_STATE"].busy;
+    const t = Date.now() / 1000, wob = (n) => Math.round((n + Math.sin(t / 25 + n) * 0.6) * 10) / 10;
+    const mcu = (chip, awake, sent) => ({ mcu_version: "v0.13.0-demo", mcu_constants: { MCU: chip },
+      last_stats: { mcu_awake: awake, srtt: 0.0011, bytes_retransmit: sent, bytes_invalid: 0, freq: 1 } });
+    switch (k) {
+      case "mcu": return mcu("stm32h723xx", busy ? 0.008 : 0.002, 9);
+      case "mcu toolhead": return mcu("stm32g0b1xx", busy ? 0.004 : 0.001, 0);
+      case "canbus_stats toolhead": return { rx_error: 0, tx_error: 0, tx_retries: 0, bus_state: "active" };
+      case "system_stats": return { sysload: busy ? 0.6 : 0.2, cputime: 120, memavail: 1430000 };
+      case "fan": return { speed: busy ? 0.35 : 0, rpm: null };
+      case "heater_fan hotend_fan": { const on = st.extruder.temperature > 50; return { speed: on ? 1 : 0, rpm: on ? Math.round(6800 + Math.sin(t) * 120) : 0 }; }
+      case "controller_fan electronics": return { speed: busy ? 0.6 : 0, rpm: null };
+      case "temperature_sensor board": return { temperature: wob(busy ? 41 : 34) };
+      case "temperature_sensor toolhead": return { temperature: wob(busy ? 44 : 31) };
+      case "temperature_sensor computer": return { temperature: wob(busy ? 53 : 47) };
+      case "temperature_sensor chamber": return { temperature: wob(busy ? 33 : 26), measured_min_temp: 24.1, measured_max_temp: 35.8 };
+      case "filament_switch_sensor runout": return { filament_detected: true, enabled: true };
+    }
+    return {};
+  };
+
   /* --------------------------------------------------------------- files */
 
   Demo.prototype.gcodeText = function (name) {
@@ -683,14 +713,20 @@
       case "printer.info": return ok({ state: st.webhooks.state, hostname: "demo-printer", software_version: "demo" });
       case "printer.objects.list":
         return ok({ objects: Object.keys(st).concat(["gcode_macro AUTO_EJECT", "gcode_macro AUTO_EJECT_SET", "gcode_macro AUTO_EJECT_SETUP", "configfile", "probe"],
-          Object.keys(DEMO_MOTORS), ["stepper_enable", "temperature_sensor motor_a", "temperature_sensor motor_b"]) });
+          Object.keys(DEMO_MOTORS), Object.keys(DEMO_HW), ["stepper_enable", "temperature_sensor motor_a", "temperature_sensor motor_b"]).filter((o, i, a) => a.indexOf(o) === i) });
       case "printer.objects.query": {
         const out = {};
         for (const k of Object.keys(params.objects || {})) {
           if (k === "configfile") out.configfile = { config: { printer: { kinematics: "corexy" }, probe: { x_offset: "0", y_offset: "0" }, respond: {}, exclude_object: {}, save_variables: {},
+                                                               mcu: { serial: "/dev/serial/by-id/usb-Klipper_stm32h723xx_demo-if00" }, "mcu toolhead": { canbus_uuid: "0123456789ab" },
+                                                               "temperature_sensor board": { sensor_type: "temperature_mcu" },
+                                                               "temperature_sensor toolhead": { sensor_type: "temperature_mcu", sensor_mcu: "toolhead" },
+                                                               "temperature_sensor computer": { sensor_type: "temperature_host" },
                                                                "gcode_macro PRINT_START": {}, "gcode_macro PRINT_END": {} },
                                                      settings: { probe: { x_offset: 0, y_offset: 0, z_offset: -0.4 } } };
           else if (DEMO_MOTORS[k] || k === "stepper_enable" || /^temperature_sensor motor_/.test(k)) out[k] = this.motorStatus(k);
+          else if (DEMO_HW[k]) out[k] = this.hwStatus(k);
+          else if (k === "extruder" || k === "heater_bed") out[k] = Object.assign({ power: 0 }, JSON.parse(JSON.stringify(st[k])));
           else if (st[k]) out[k] = JSON.parse(JSON.stringify(st[k]));
         }
         return ok({ status: out, eventtime: Date.now() / 1000 });
@@ -723,6 +759,24 @@
         return ok(this.fileMeta(params.filename));
       }
       case "server.gcode_store": return ok({ gcode_store: this.log.slice(-(params.count || 100)) });
+      case "machine.proc_stats": {
+        const busy = st.print_stats.state === "printing";
+        const t = Date.now() / 1000;
+        return ok({ cpu_temp: 47 + (busy ? 6 : 0) + Math.sin(t / 30), system_uptime: 86400 * 3 + (t % 86400), websocket_connections: 3,
+          system_cpu_usage: { cpu: Math.round((busy ? 22 : 8) + Math.sin(t / 5) * 4) }, system_memory: { total: 2017104, available: 1430000, used: 587104 },
+          throttled_state: null,
+          network: { wlan0: { rx_bytes: 120e6 + t % 1e6, tx_bytes: 40e6, rx_errs: 0, tx_errs: 0, rx_drop: 12, tx_drop: 0 },
+                     can0: { rx_bytes: 700123 + (t % 1e5), tx_bytes: 90000, rx_errs: 0, tx_errs: 0, rx_drop: 0, tx_drop: 0 } } });
+      }
+      case "machine.system_info":
+        return ok({ system_info: { cpu_info: { cpu_count: 4, processor: "aarch64", total_memory: 2017104, memory_units: "kB" },
+          canbus: { can0: { tx_queue_len: 128, bitrate: 1000000, driver: "gs_usb" } } } });
+      case "server.files.get_directory": return ok({ dirs: [], files: [], disk_usage: { total: 30271217664, used: 8239288320, free: 20468293632 } });
+      case "server.history.list":
+        return ok({ count: 3, jobs: [
+          { job_id: "3", filename: "keychains_x12.gcode", status: "completed", start_time: Date.now() / 1000 - 7200 },
+          { job_id: "2", filename: "wall_bracket.gcode", status: "klippy_shutdown", start_time: Date.now() / 1000 - 86400 * 2 },
+          { job_id: "1", filename: "stencil_logo.gcode", status: "completed", start_time: Date.now() / 1000 - 86400 * 3 }] });
       case "server.webcams.list": return ok({ webcams: [] });
       case "printer.gcode.script":
         return this.runGcode(params.script).then(() => "ok", (e) => {

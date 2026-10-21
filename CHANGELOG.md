@@ -7,7 +7,14 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
-- **A Motors tab** in the web page: every motor with a TMC driver (X, Y, every Z motor and every
+- **A Hardware tab** in the web page: everything Klipper and Moonraker tell about the machine, live,
+  with a line at the top that says whether all is normal. **Boards**: each MCU's chip, link (USB,
+  CAN, serial), load, round trip, resent and corrupt bytes, firmware and temperature, and the CAN
+  bus state. **Heaters**: temperature, target, power and the last ten minutes, with a warning when
+  one cannot hold its target at full power. **Fans**: speed and turns per minute, with a warning when
+  one with a speed sensor stops. **Computer**: processor use and temperature, memory, storage,
+  network errors, low voltage on a Raspberry Pi. **Sensors**, the **camera**, and the prints that
+  stopped with an error. Every motor with a TMC driver (X, Y, every Z motor and every
   extruder), live once a second: moving, holding or off; its current; its StallGuard reading with
   the last ten minutes as a line (TMC2130, 2240, 2660 and 5160 report it); its driver's warnings
   (overheating, shorts, a dropped supply, an open coil); and the motor's own temperature from a
