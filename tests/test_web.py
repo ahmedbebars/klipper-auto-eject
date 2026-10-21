@@ -641,3 +641,14 @@ def test_the_flow_through_the_hotend():
     assert round(js("flowRate", -5.47, "1.75"), 1) == 13.2         # a retraction counts its speed, the config gives text
     assert round(js("flowRate", 2.0, None), 2) == 4.81             # no diameter: 1.75
     assert round(js("flowRate", 1.0, 2.85), 2) == 6.38
+
+
+@needs_node
+def test_when_the_cooling_pushes_anyway():
+    st = {"cooling": True, "cool_start": 1000.0}
+    assert js("coolLeft", st, {"cool_mode": "temperature", "cool_timeout": 1800}, 1600.0) == 1200
+    assert js("coolLeft", st, {"cool_mode": "time", "cool_time": 600, "cool_timeout": 1800}, 1500.0) == 100
+    assert js("coolLeft", st, {"cool_mode": "temperature", "cool_timeout": 1800}, 5000.0) == 0    # due now
+    assert js("coolLeft", {"cooling": False, "cool_start": 1000.0}, {"cool_timeout": 1800}, 1600.0) is None
+    assert js("coolLeft", st, {"cool_mode": "temperature", "cool_timeout": 0}, 1600.0) is None   # no limit
+    assert js("coolLeft", st, {"cool_timeout": 1800}, None) is None                            # no print time yet

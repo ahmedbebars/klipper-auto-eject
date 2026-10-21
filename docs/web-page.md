@@ -20,12 +20,12 @@ bed and starts the next job by itself.
 
 | Section | What it does |
 |---|---|
-| **Overview** | Status (ready, printing, cooling, clearing the bed, needs you) with progress. The bed map shows the stored parts, the lanes the blade will push along, the drop edge and the toolhead moving live. Buttons: **Eject now** (or **Home safely and eject** after a restart), **Dry run**, **I took the parts off** and, when the queue is paused, **Bed is clear, continue the queue**. Every button that moves the printer asks first. A camera is shown if one is set up in Moonraker. The **Box** chip counts the parts in the box under the drop edge; press it once you have emptied the box. |
+| **Overview** | Status (ready, printing, cooling, clearing the bed, needs you) with progress; while the bed cools, the time it pushes at the latest (`cool_timeout`). The bed map shows the stored parts, the lanes the blade will push along, the drop edge and the toolhead moving live. Buttons: **Eject now** (or **Home safely and eject** after a restart), **Dry run**, **I took the parts off** and, when the queue is paused, **Bed is clear, continue the queue**. Every button that moves the printer asks first. A camera is shown if one is set up in Moonraker. The **Box** chip counts the parts in the box under the drop edge; press it once you have emptied the box. |
 | **Printer farm** | Shown when the `klipper-auto-eject` service runs (`install.sh --farm`). Every Klipper printer on the network, the ones that need you first, with buttons to say the bed is clear, start the queue or stop. **Search the network** finds and adds them. See [farm.md](farm.md). |
-| **Print queue** | Shown when Moonraker has a `[job_queue]`. Add files (with a number of copies), remove them, start or pause the queue. Each file shows its picture and says whether it will be pushed off or is too thin and stays on the bed. Says whether the queue moves on by itself (`automatic_transition`). |
+| **Print queue** | Shown when Moonraker has a `[job_queue]`. Add files by their pictures (search them by name, pick one, set a number of copies), remove them, start or pause the queue. Each file shows its picture and says whether it will be pushed off or is too thin and stays on the bed. Says whether the queue moves on by itself (`automatic_transition`). |
 | **Check a file** | Every file shows its picture, print time, filament, height and material. Pick one and the page reads it: are the parts labelled, does the end G-code run `AUTO_EJECT`, is the print tall enough, can the blade get behind every part? It draws the plan on the bed map before you print. When the slicer needs a change, **Show me what to paste in the slicer** opens the lines to paste. |
 | **Blade and setup** | The measured blade (height above the nozzle tip, distance ahead of it, width) in a side view, the probe type, buttons for the guided setup, the blade measurement and a dry run, and downloads for the test parts (calibration block, blade gauge, test cube). The setup dialogs open right in the page. **In your slicer**: for OrcaSlicer, PrusaSlicer/SuperSlicer or Cura, where each setting is and the lines to paste, with a **Copy** button. The end G-code names the end macro this printer really uses, found in its newest file or its config (`PRINT_END`, `END_PRINT`, `DEMON_END`…). |
-| **Settings** | Every setting from `auto_eject_settings.cfg`, grouped like the file, with its explanation, a switch, a list or a number box, and where the value comes from (default, your file, or saved here). Changes are saved with `AUTO_EJECT_SET` and kept after a restart. |
+| **Settings** | Every setting from `auto_eject_settings.cfg`, grouped like the file, with its explanation, a switch, a list or a number box, and where the value comes from (default, your file, or saved here). Changes are saved with `AUTO_EJECT_SET` and kept after a restart. Klipper takes no command while the bed is being cleared, so a change made then waits for the end of the eject, and the page says so. |
 | **Hardware** | Everything Klipper and Moonraker tell about the machine, live: boards and their links, motors, heaters, fans, the computer, sensors and the camera, with a line that says whether all is normal. See [Hardware](#hardware). |
 | **Activity** | The auto-eject messages from the console, newest first. |
 | **How it works** | The illustrated guide. |
@@ -216,6 +216,10 @@ The value is checked against the setting's type (a number for numbers, on/off fo
 saved in `[save_variables]`, like the guided setup's values. It takes the place of the value in
 `auto_eject_settings.cfg` until you reset it. Text values cannot contain spaces, quotes, `#` or
 `;`; edit the file for those.
+
+Klipper runs one command at a time, and an eject is one long command, cooling included. A
+setting changed while the bed is being cleared is made only when the eject has finished: to push
+sooner, change `cool_temp` or `cool_timeout` before the print ends.
 
 ## Trying it on a computer
 

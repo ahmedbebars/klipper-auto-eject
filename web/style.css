@@ -436,6 +436,11 @@ button.row { width: 100%; text-align: start; background: none; border-left: 0; b
 button.row:hover { background: var(--surface-2); }
 button.row.active { background: var(--accent-soft); }
 .files { max-height: 62vh; overflow-y: auto; }
+.files.pick { max-height: 46vh; }
+.pick-chosen { align-self: center; font-size: 13px; overflow-wrap: anywhere; }
+.pick-chosen .name { font-weight: 600; }
+.set-row .d.sending { display: flex; align-items: center; gap: 6px; color: var(--warn); font-weight: 500; }
+.set-row .d.sending .ic { width: 14px; height: 14px; flex: none; }
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .toolbar .grow { flex: 1; min-width: 180px; }
 .field { display: grid; gap: 5px; }

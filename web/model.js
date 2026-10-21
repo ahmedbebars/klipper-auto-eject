@@ -724,6 +724,16 @@
     return Math.abs(Number(velocity) || 0) * Math.PI * d * d / 4;
   }
 
+  // Seconds until the eject pushes anyway while it waits for the bed to cool
+  // (cool_timeout), or until cool_time is up; null when it is not waiting.
+  // The macros keep the start in Klipper's print time.
+  function coolLeft(state, set, estimated) {
+    if (!state || !state.cooling || typeof estimated !== "number") return null;
+    const limit = Number((set || {}).cool_mode === "time" ? set.cool_time : (set || {}).cool_timeout);
+    if (!(limit > 0)) return null;
+    return Math.max(0, (Number(state.cool_start) || 0) + limit - estimated);
+  }
+
   // A fan with a tachometer that should turn and does not.
   function fanStopped(fan) {
     return !!fan && typeof fan.rpm === "number" && (fan.speed || 0) >= 0.25 && fan.rpm < 1;
@@ -779,7 +789,7 @@
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
     noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
-    hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- The print queue's **Add files** picks a file by its picture, with a search, as on **Check a
+  file**. While the bed cools, **Overview** says the time it pushes at the latest (`cool_timeout`).
+- A setting changed while the bed is being cleared now says it waits for the end of the eject:
+  Klipper takes no command until then. Before, nothing showed, and each click sent it again.
 - **A Hardware tab** in the web page: everything Klipper and Moonraker tell about the machine, live,
   with a line at the top that says whether all is normal. **Boards**: each MCU's chip, link (USB,
   CAN, serial), load, round trip, resent and corrupt bytes, firmware and temperature, and the CAN

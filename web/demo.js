@@ -10,6 +10,7 @@
 (function (root) {
   const M = root.AEModel;
   const BED = { min: [0, 0, -5, 0], max: [350, 350, 330, 0] };
+  const T0 = Date.now() / 1000;     // Klipper's print time counts from its start
   const PARK = [175, 340, 40];
 
   // Settings the demo printer's own settings file changes.
@@ -311,6 +312,7 @@
       await this.sleep(ms / steps);
       const f = i / steps;
       th.position = [from[0] + (to[0] - from[0]) * f, from[1] + (to[1] - from[1]) * f, from[2] + (to[2] - from[2]) * f, 0];
+      th.estimated_print_time = Math.round((Date.now() / 1000 - T0) * 10) / 10;
       this.touch("toolhead");
     }
   };
@@ -365,6 +367,7 @@
         this.status.fan.speed = s.cool_fan_speed;
         this.touch("heater_bed"); this.touch("extruder"); this.touch("fan");
         this.say("// AUTO_EJECT: waiting for the bed to reach " + s.cool_temp + " C, fan over the parts");
+        this.state({ cooling: true, cool_start: Date.now() / 1000 - T0 });
         const gap = (st.height || 0) + s.cool_tour_gap;
         await this.moveTo(null, null, gap, 500);
         let guard = 0;
@@ -377,6 +380,7 @@
         }
         this.status.fan.speed = 0;
         this.touch("fan");
+        this.state({ cooling: false });
       }
       await this.moveTo(null, null, zsafe, 400);
       for (const p of plan.pushes) {
@@ -591,7 +595,10 @@
         this.say("// AUTO_EJECT: job queue started");
         this.nextJobSoon();
         return;
-      case "AUTO_EJECT_SET": return this.set(params);
+      case "AUTO_EJECT_SET":
+        // as in Klipper, a command sent during the eject waits for its end
+        while (this.status["gcode_macro _AUTO_EJECT_STATE"].busy) await this.sleep(200);
+        return this.set(params);
       case "AUTO_EJECT_SETUP": return this.setup(String(params.STEP || "start").toLowerCase(), params.VALUE);
       case "AUTO_EJECT_CALIBRATE": return this.setup("calibrate");
       case "RESPOND":

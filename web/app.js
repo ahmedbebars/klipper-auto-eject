@@ -679,7 +679,12 @@
     if (loading) return { ph, title: t("status.loading"), sub: t("status.sub.loading") };
     if (ph === "offline") sub = t("status.sub.offline");
     else if (ph === "shutdown") sub = app.klippyMsg || "";
-    else if (ph === "cooling") sub = t("status.sub.cooling", { now: num((app.status.heater_bed || {}).temperature || 0), target: num(set.cool_temp, 0) });
+    else if (ph === "cooling") {
+      const vars = { now: num((app.status.heater_bed || {}).temperature || 0), target: num(set.cool_temp, 0) };
+      // it pushes anyway after cool_timeout: say when
+      const left = M.coolLeft(st, set, (app.status.toolhead || {}).estimated_print_time);
+      sub = left === null ? t("status.sub.cooling", vars) : t("status.sub.cooling_by", Object.assign(vars, { at: iso(fmtClock(Date.now() / 1000 + left)) }));
+    }
     else if (ph === "working") sub = st.swept ? t("status.sub.checking") : t("status.sub.working");
     else if (ph === "printing" || ph === "paused") {
       const info = ps.info || {};
@@ -981,6 +986,8 @@
 
   /* ============================================================== queue */
 
+  const queueUi = { file: "", filter: "" };
+
   function viewQueue() {
     if (!app.hasQueue) return { el: h("div", null, head("queue.title"), h("div", { class: "card empty" }, icon("queue"), h("p", { text: t("queue.unavailable") }))) };
     if (app.files === null) loadFiles();
@@ -1007,8 +1014,21 @@
           onclick: () => client.call("server.job_queue.delete_job", { job_ids: [j.job_id] }).then(() => toast(t("queue.removed"))).catch((e) => toast(e.message, "bad")) }, icon("trash")));
     });
 
-    const fileOpts = (app.files || []).map((f) => h("option", { value: f.path, text: f.path }));
-    const pick = h("select", { class: "select ltr", "data-keep": "q-file", style: { width: "100%" } }, h("option", { value: "", text: "— " + t("queue.pick") + " —" }), fileOpts);
+    // the files, with their pictures, as on "Check a file"
+    const qf = queueUi.filter.toLowerCase();
+    const files = (app.files || []).filter((f) => !qf || f.path.toLowerCase().includes(qf));
+    const watch = lazyRows(meta, (el, m) => fillFileRow(el, m, thumbSrc(el.dataset.file, m, 96)));
+    const pickList = app.files === null ? h("div", { class: "empty" }, h("span", { class: "spinner" }))
+      : files.length ? h("div", { class: "list files pick" }, files.slice(0, 300).map((f) => {
+          const m = app.meta[f.path];
+          const row = fileRow(f, m, m ? thumbSrc(f.path, m, 96) : null, () => { queueUi.file = f.path; refresh("queue"); }, f.path === queueUi.file ? "active" : "");
+          if (!m) watch(row);
+          return row;
+        }))
+      : h("div", { class: "empty" }, icon("file"), h("p", { text: t("check.no_files") }));
+    const search = h("div", { class: "search" }, icon("search"),
+      h("input", { class: "input", type: "search", placeholder: t("check.search"), value: queueUi.filter, "data-keep": "q-search",
+        oninput: (e) => { queueUi.filter = e.target.value; refresh("queue"); } }));
     const copies = h("input", { class: "input", type: "number", min: 1, max: 50, value: 1, "data-keep": "q-copies", style: { width: "90px" } });
 
     const ps = app.status.print_stats || {};
@@ -1036,11 +1056,13 @@
         h("div", { class: "stack" },
           h("section", { class: "card" },
             h("h2", null, icon("plus"), t("queue.add")),
-            h("div", { class: "form-row" },
-              h("label", { class: "field grow" }, h("span", { text: t("queue.pick") }), pick),
+            search,
+            h("div", { style: { marginTop: "10px" } }, pickList),
+            h("div", { class: "form-row", style: { marginTop: "12px" } },
+              h("div", { class: "grow pick-chosen" }, queueUi.file ? h("span", { class: "name ltr", text: queueUi.file }) : h("span", { class: "muted", text: t("queue.pick_hint") })),
               h("label", { class: "field" }, h("span", { text: t("queue.copies") }), copies),
-              h("button", { type: "button", class: "btn primary", onclick: () => {
-                const f = pick.value;
+              h("button", { type: "button", class: "btn primary", disabled: !queueUi.file, onclick: () => {
+                const f = queueUi.file;
                 const n = Math.max(1, Math.min(50, parseInt(copies.value, 10) || 1));
                 if (!f) return;
                 client.call("server.job_queue.post_job", { filenames: Array(n).fill(f), reset: false })
@@ -1053,7 +1075,7 @@
   }
   viewQueue.sig = function () {
     const ps = app.status.print_stats || {};
-    return JSON.stringify([app.hasQueue, app.queue, ps.state, ps.filename, Math.round(((app.status.display_status || {}).progress || 0) * 100), app.autoTransition, (app.files || []).length, Object.keys(app.meta).length, sv().min_part_height, sv().thin_parts_action]);
+    return JSON.stringify([app.hasQueue, app.queue, ps.state, ps.filename, Math.round(((app.status.display_status || {}).progress || 0) * 100), app.autoTransition, (app.files || []).length, Object.keys(app.meta).length, sv().min_part_height, sv().thin_parts_action, queueUi.file, queueUi.filter]);
   };
 
   function head(titleKey, introKey, extra) {
@@ -1149,6 +1171,9 @@
   }
   // a number or date kept in one piece inside right-to-left text
   function iso(text) { return "\u2068" + text + "\u2069"; }
+  function fmtClock(sec) {
+    return new Date(sec * 1000).toLocaleTimeString(lang === "ar" ? "ar-EG-u-nu-latn" : undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  }
   function fmtDate(sec, withTime) {
     const d = new Date(sec * 1000), loc = lang === "ar" ? "ar-EG-u-nu-latn" : undefined;
     return withTime ? d.toLocaleString(loc) : d.toLocaleDateString(loc);
@@ -1589,7 +1614,7 @@
 
   /* =========================================================== settings */
 
-  const settingsUi = { filter: "", edits: {} };
+  const settingsUi = { filter: "", edits: {}, sending: {}, n: 0 };
 
   function viewSettings() {
     const m = settings();
@@ -1623,7 +1648,7 @@
   }
   viewSettings.sig = function () {
     const m = settings();
-    return JSON.stringify([m && m.values, m && m.source, !!app.template, app.template === false, settingsUi.filter, settingsUi.edits]);
+    return JSON.stringify([m && m.values, m && m.source, !!app.template, app.template === false, settingsUi.filter, settingsUi.edits, settingsUi.sending, settingsUi.n]);
   };
 
   function describeSetting(it) {
@@ -1646,22 +1671,23 @@
     const edit = settingsUi.edits[key];
     const changed = edit !== undefined && String(edit) !== String(value);
     const setEdit = (v) => { settingsUi.edits[key] = v; refresh("settings"); };
+    const sending = settingsUi.sending[key];
     let control;
     if (typeof value === "boolean") {
       const cur = edit !== undefined ? edit === true || edit === "true" : value;
       control = h("label", { class: "switch" },
-        h("input", { type: "checkbox", checked: cur, "aria-label": key, onchange: (e) => save(key, e.target.checked) }),
+        h("input", { type: "checkbox", checked: cur, disabled: !!sending, "aria-label": key, onchange: (e) => save(key, e.target.checked) }),
         h("span", { text: cur ? t("settings.on") : t("settings.off") }));
     } else if (it.choices && it.choices.length >= 2 && typeof value === "string") {
       const cur = edit !== undefined ? edit : value;
-      control = h("select", { class: "select", "aria-label": key, onchange: (e) => save(key, e.target.value) },
+      control = h("select", { class: "select", disabled: !!sending, "aria-label": key, onchange: (e) => save(key, e.target.value) },
         it.choices.map((c) => h("option", { value: c.value, selected: c.value === cur, title: c.desc,
           text: lang !== "en" && has("opt." + key + "." + c.value) ? t("opt." + key + "." + c.value) : c.value })));
     } else {
       const cur = edit !== undefined ? edit : String(value);
       const valid = M.validSettingText(cur) && (typeof value !== "number" || /^-?\d+(\.\d+)?$/.test(String(cur).trim()));
       const input = h("input", {
-        class: "input" + (typeof value === "number" ? "" : " wide") + (valid ? "" : " bad"), value: cur, "data-keep": "set-" + key,
+        class: "input" + (typeof value === "number" ? "" : " wide") + (valid ? "" : " bad"), value: cur, "data-keep": "set-" + key, disabled: !!sending,
         inputmode: typeof value === "number" ? "decimal" : null, "aria-label": key, spellcheck: "false",
         oninput: (e) => { settingsUi.edits[key] = e.target.value; refreshSoon(); },
         onkeydown: (e) => { if (e.key === "Enter" && valid) save(key, e.target.value); if (e.key === "Escape") { delete settingsUi.edits[key]; refresh("settings"); } }
@@ -1669,7 +1695,7 @@
       const unit = UNITS[key] || it.unit;
       control = h("div", { class: "ctl" },
         typeof value === "number" && unit ? h("span", { class: "with-unit" }, input, h("span", { class: "unit", text: unit })) : input,
-        changed ? h("button", { type: "button", class: "btn primary sm", disabled: !valid, onclick: () => save(key, settingsUi.edits[key]) }, t("settings.save")) : null);
+        changed && !sending ? h("button", { type: "button", class: "btn primary sm", disabled: !valid, onclick: () => save(key, settingsUi.edits[key]) }, t("settings.save")) : null);
     }
     const badge = src === "saved" ? h("span", { class: "badge accent", text: t("settings.src.saved") })
       : src === "file" ? h("span", { class: "badge blue", text: t("settings.src.file") }) : h("span", { class: "badge", text: t("settings.src.default") });
@@ -1677,9 +1703,10 @@
       h("div", null,
         h("div", { class: "k" }, h("code", { class: "ltr", text: key }), badge),
         h("div", { class: "d", text: describeSetting(it).replace(/:\s*$/, ".") }),
-        chosen(it, value) ? h("div", { class: "d chosen" }, h("code", { class: "ltr", text: String(value) }), " ", chosen(it, value)) : null),
+        chosen(it, value) ? h("div", { class: "d chosen" }, h("code", { class: "ltr", text: String(value) }), " ", chosen(it, value)) : null,
+        sending ? h("div", { class: "d sending" }, icon("clock"), h("span", { text: t(sending.later ? "settings.after_eject" : "settings.sending") })) : null),
       h("div", { class: "ctl" }, control,
-        src === "saved" ? h("button", { type: "button", class: "btn ghost sm", title: t("settings.reset"), onclick: () => reset(key) }, icon("reset"), t("settings.reset")) : null));
+        src === "saved" && !sending ? h("button", { type: "button", class: "btn ghost sm", title: t("settings.reset"), onclick: () => reset(key) }, icon("reset"), t("settings.reset")) : null));
   }
 
   // what the selected choice does, from the settings file (English only)
@@ -1695,17 +1722,29 @@
   function save(key, value) {
     const arg = M.settingArg(value);
     if (!M.validSettingText(arg)) { toast(t("settings.bad"), "bad"); return; }
-    client.gcode("AUTO_EJECT_SET KEY=" + key + " VALUE=" + arg).then(() => {
-      delete settingsUi.edits[key];
-      toast(t("settings.saved", { k: key }), "ok");
-      refresh("settings");
-    }).catch((e) => { toast(cleanError(e.message), "bad"); delete settingsUi.edits[key]; refresh("settings"); });
+    send(key, "AUTO_EJECT_SET KEY=" + key + " VALUE=" + arg, value, "settings.saved");
   }
   function reset(key) {
-    client.gcode("AUTO_EJECT_SET KEY=" + key + " RESET=1").then(() => {
-      delete settingsUi.edits[key];
-      toast(t("settings.reset_done", { k: key }), "ok");
-    }).catch((e) => toast(cleanError(e.message), "bad"));
+    send(key, "AUTO_EJECT_SET KEY=" + key + " RESET=1", null, "settings.reset_done");
+  }
+  // One change at a time for each setting: another click would only queue
+  // the same command again. While the bed is being cleared Klipper takes no
+  // command until the eject has finished, so a change made then waits.
+  function send(key, script, value, doneKey) {
+    if (settingsUi.sending[key]) return;
+    const later = !!aeState().busy;
+    const ask = later ? confirm(t("settings.busy_title"), t("settings.busy_body"), t("settings.busy_ok")) : Promise.resolve(true);
+    ask.then((ok) => {
+      // a switch or a list already shows the new value: draw it again
+      if (!ok) { settingsUi.n++; refresh("settings"); return; }
+      settingsUi.sending[key] = { later };
+      if (value === null) delete settingsUi.edits[key];
+      else settingsUi.edits[key] = value;
+      refresh("settings");
+      client.gcode(script).then(() => toast(t(doneKey, { k: key }), "ok"),
+        (e) => toast(later && /closed|connected/.test(e.message) ? t("settings.busy_lost", { k: key }) : cleanError(e.message), "bad"))
+        .then(() => { delete settingsUi.sending[key]; delete settingsUi.edits[key]; refresh("settings"); });
+    });
   }
 
   /* =============================================================== farm */
