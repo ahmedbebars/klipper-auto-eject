@@ -212,10 +212,10 @@
         this.open = true;
         setInterval(() => this.tick(), 200);
         setTimeout(() => this.emit("open"), 300);
-        // ?demo=eject starts clearing the bed by itself
-        if (new URLSearchParams(location.search).get("demo") === "eject") {
-          setTimeout(() => this.runGcode("AUTO_EJECT").catch(() => {}), 1500);
-        }
+        // ?demo=eject starts clearing the bed by itself, ?demo=print the next print
+        const mode = new URLSearchParams(location.search).get("demo");
+        if (mode === "eject") setTimeout(() => this.runGcode("AUTO_EJECT").catch(() => {}), 1500);
+        if (mode === "print") setTimeout(() => this.runGcode("AUTO_EJECT_CLEAR").catch(() => {}), 500);
       });
   };
 

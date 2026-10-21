@@ -234,6 +234,7 @@ Then open `http://localhost:8000/web/?demo`. Useful additions to the address:
 | | |
 |---|---|
 | `?demo=eject` | The demo starts clearing the bed by itself |
+| `?demo=print` | The demo starts the next print by itself |
 | `&lang=ar`, `&lang=en` | Language |
 | `&theme=dark`, `&theme=light` | Theme |
 | `?printer=http://printer.local:7125` | Talk to a real printer from the computer. Its `moonraker.conf` needs the computer's address in `cors_domains`. |
