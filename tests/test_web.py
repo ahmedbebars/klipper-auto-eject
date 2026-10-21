@@ -545,17 +545,20 @@ def test_driver_warnings_worst_first():
 
 
 @needs_node
-def test_the_load_against_the_motors_own_easy_running():
-    easy = [120 + (i % 7) for i in range(60)]
-    assert js("motorLoad", easy[:10])["level"] == "wait"                 # too few readings yet
-    ok = js("motorLoad", easy)
-    assert ok["level"] == "ok" and ok["load"] < 0.1
-    hard = js("motorLoad", easy + [40] * 10)
-    assert hard["level"] == "warn" and 0.6 < hard["load"] < 0.75
-    stall = js("motorLoad", easy + [8] * 10)
-    assert stall["level"] == "bad" and stall["load"] > 0.9
-    # moments without a reading (slow or still) are not counted as load
-    assert js("motorLoad", easy + [None] * 10)["level"] == "ok"
+def test_the_stallguard_reading_in_short():
+    assert js("stallguard", [120, None, 118])["wait"] is True             # too few readings yet
+    g = js("stallguard", [120, 118, None, 40, 125, 130, 122, None, 119, 7, 121, 124])
+    assert g["wait"] is False and g["now"] == 121 and g["low"] == 7 and g["high"] == 130
+    assert g["n"] == 10                                                  # moments without a reading are left out
+    assert js("stallguard", None)["wait"] is True
+
+
+def test_stallguard_raises_no_alarm():
+    # it also drops at low speed: only driver warnings and motor temperatures sum the tab up
+    app = (WEB / "app.js").read_text(encoding="utf-8")
+    assert "sum_load" not in app
+    for name in ("en", "ar"):
+        assert "motors.sum_load" not in (WEB / "lang" / (name + ".js")).read_text(encoding="utf-8")
 
 
 @needs_node

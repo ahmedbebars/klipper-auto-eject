@@ -638,20 +638,17 @@
     return out.sort((a, b) => LEVEL_RANK[a.level] - LEVEL_RANK[b.level] || a.flag.localeCompare(b.flag));
   }
 
-  // The load from recent StallGuard readings (lower reading = harder work):
-  // the median of the last ones against this motor's own easy running (the
-  // 90th percentile of all its readings), so every motor and driver is
-  // judged against itself. null readings are moments without one.
-  function motorLoad(readings, recent) {
+  // The StallGuard readings in short: now (the median of the last few, as
+  // single readings jump), the lowest so far and the highest, for the line.
+  // It is not a load in percent: the reading also drops at low speed, so
+  // only the driver's warnings and the motor's temperature raise an alarm.
+  // null readings are moments without one (slow or still).
+  function stallguard(readings, recent) {
     const all = (readings || []).filter((v) => typeof v === "number" && isFinite(v));
-    if (all.length < 20) return { level: "wait", load: null, reading: all.length ? all[all.length - 1] : null };
+    if (all.length < 5) return { wait: true, n: all.length };
     const sorted = all.slice().sort((a, b) => a - b);
-    const ref = Math.max(1, sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))]);
     const last = all.slice(-(recent || 10)).sort((a, b) => a - b);
-    const med = last[Math.floor(last.length / 2)];
-    const load = Math.max(0, Math.min(1, 1 - med / ref));
-    const peak = Math.max(0, Math.min(1, 1 - sorted[Math.floor(sorted.length * 0.02)] / ref));
-    return { level: med <= ref * 0.15 ? "bad" : med <= ref * 0.35 ? "warn" : "ok", load, peak, reading: all[all.length - 1], ref };
+    return { wait: false, n: all.length, now: last[Math.floor(last.length / 2)], low: sorted[0], high: sorted[sorted.length - 1] };
   }
 
   // Temperature sensors on the motors themselves: temperature_sensor or
@@ -671,7 +668,7 @@
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, motorLoad, motorSensor, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

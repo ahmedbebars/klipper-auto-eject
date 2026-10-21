@@ -2186,7 +2186,7 @@
             h("div", { class: "mc-sub ltr", text: m.stepper + " · " + m.driver.toUpperCase() })),
           h("span", { class: "badge", "data-f": "state" })),
         h("div", { class: "mc-load" },
-          h("div", { class: "mc-row" }, h("span", { text: t("motors.load") }), h("b", { "data-f": "loadtxt", text: "…" })),
+          h("div", { class: "mc-row" }, h("span", { text: t("motors.load") }), h("b", { class: "ltr", "data-f": "loadtxt", text: "…" })),
           m.reportsLoad ? h("div", { class: "meter" }, h("i", { "data-f": "bar" })) : null,
           m.reportsLoad ? s("svg", { class: "spark", viewBox: "0 0 300 56", preserveAspectRatio: "none", "data-f": "spark", "aria-hidden": "true" }) : null,
           h("div", { class: "mc-note", "data-f": "loadnote" })),
@@ -2227,24 +2227,21 @@
       f("temp").textContent = temps.length ? temps.join(" · ") : t("motors.temp_none");
       f("temp").className = mt !== null && mt >= 80 ? "bad" : mt !== null && mt >= 65 ? "warn" : "";
       if (mt !== null && mt >= 65) note(mt >= 80 ? "bad" : "warn", t("motors.sum_hot", { m: motorName(m), v: num(mt, 0) }));
-      // the load
-      const L = M.motorLoad(motors.hist[m.stepper]);
+      // StallGuard: higher is easier; no alarm from it (it also drops at low speed)
+      const G = M.stallguard(motors.hist[m.stepper]);
       const txt = f("loadtxt");
       if (!m.reportsLoad) {
-        txt.textContent = "—"; txt.className = "ltr";
+        txt.textContent = "—";
         f("loadnote").textContent = t("motors.no_load", { d: m.driver.toUpperCase() });
-      } else if (L.level === "wait") {
-        txt.textContent = "…"; txt.className = "ltr";
+      } else if (G.wait) {
+        txt.textContent = "…";
         f("loadnote").textContent = t("motors.load_wait");
         drawSpark(f("spark"), [], 1);
       } else {
-        txt.textContent = num(L.load * 100, 0) + " %";
-        txt.className = "ltr " + L.level;
-        f("bar").style.width = num(Math.max(2, L.load * 100), 1) + "%";
-        f("bar").className = L.level;
-        f("loadnote").textContent = t("motors.load_note", { sg: iso("StallGuard " + (L.reading === null ? "—" : num(L.reading, 0))), peak: iso(num(L.peak * 100, 0) + " %") });
-        drawSpark(f("spark"), motors.hist[m.stepper], L.ref);
-        if (L.level !== "ok") note(L.level, t("motors.sum_load_" + L.level, { m: motorName(m) }));
+        txt.textContent = num(G.now, 0);
+        f("bar").style.width = num(Math.max(2, Math.min(100, 100 * G.now / Math.max(1, G.high))), 1) + "%";
+        f("loadnote").textContent = t("motors.load_note", { low: num(G.low, 0) });
+        drawSpark(f("spark"), motors.hist[m.stepper], G.high);
       }
       // the driver's warnings
       const flags = M.driverFlags(d);
@@ -2268,22 +2265,19 @@
       : h("p", { class: "muted", text: t("motors.events_none") }));
   }
 
-  // The load over the last ten minutes, with lines where it gets hard (65 %) and close to skipping (85 %).
-  function drawSpark(svg, hist, ref) {
+  // The StallGuard readings of the last ten minutes, newest on the right; higher is easier.
+  function drawSpark(svg, hist, high) {
     if (!svg) return;
-    const W = 300, H = 56, y = (load) => (H - 3 - load * (H - 6)).toFixed(1);
+    const W = 300, H = 56, y = (v) => (H - 3 - Math.max(0, Math.min(1, v / Math.max(1, high))) * (H - 6)).toFixed(1);
     const segs = [];
     let seg = [];
     const start = MOTOR_KEEP - hist.length;
     hist.forEach((v, i) => {
       if (v === null) { if (seg.length > 1) segs.push(seg); seg = []; return; }
-      seg.push(((start + i) / (MOTOR_KEEP - 1) * W).toFixed(1) + "," + y(Math.max(0, Math.min(1, 1 - v / ref))));
+      seg.push(((start + i) / (MOTOR_KEEP - 1) * W).toFixed(1) + "," + y(v));
     });
     if (seg.length > 1) segs.push(seg);
-    svg.replaceChildren(
-      s("line", { x1: 0, x2: W, y1: y(0.65), y2: y(0.65), class: "spark-warn" }),
-      s("line", { x1: 0, x2: W, y1: y(0.85), y2: y(0.85), class: "spark-bad" }),
-      ...segs.map((p) => s("polyline", { points: p.join(" "), class: "spark-line" })));
+    svg.replaceChildren(...segs.map((p) => s("polyline", { points: p.join(" "), class: "spark-line" })));
   }
 
   /* =========================================================== activity */

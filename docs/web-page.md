@@ -26,7 +26,7 @@ bed and starts the next job by itself.
 | **Check a file** | Every file shows its picture, print time, filament, height and material. Pick one and the page reads it: are the parts labelled, does the end G-code run `AUTO_EJECT`, is the print tall enough, can the blade get behind every part? It draws the plan on the bed map before you print. When the slicer needs a change, **Show me what to paste in the slicer** opens the lines to paste. |
 | **Blade and setup** | The measured blade (height above the nozzle tip, distance ahead of it, width) in a side view, the probe type, buttons for the guided setup, the blade measurement and a dry run, and downloads for the test parts (calibration block, blade gauge, test cube). The setup dialogs open right in the page. **In your slicer**: for OrcaSlicer, PrusaSlicer/SuperSlicer or Cura, where each setting is and the lines to paste, with a **Copy** button. The end G-code names the end macro this printer really uses, found in its newest file or its config (`PRINT_END`, `END_PRINT`, `DEMON_END`…). |
 | **Settings** | Every setting from `auto_eject_settings.cfg`, grouped like the file, with its explanation, a switch, a list or a number box, and where the value comes from (default, your file, or saved here). Changes are saved with `AUTO_EJECT_SET` and kept after a restart. |
-| **Motors** | Every motor with a TMC driver, live: its current, how hard it works (load) and its driver's warnings. Shown when Klipper has TMC drivers. See [Motors](#motors). |
+| **Motors** | Every motor with a TMC driver, live: its current, its StallGuard reading and its driver's warnings. Shown when Klipper has TMC drivers. See [Motors](#motors). |
 | **Activity** | The auto-eject messages from the console, newest first. |
 | **How it works** | The illustrated guide. |
 
@@ -42,15 +42,17 @@ The **Motors** tab shows every stepper that has a TMC driver (TMC2130, 2208, 220
 open and never changes anything. Each motor shows:
 
 - whether it is **moving**, **holding** or **off**, and its current (running and holding);
-- its **load**: how hard it works compared with its own easy running, from the driver's StallGuard
-  reading, with the last ten minutes as a line. Near 100 % a motor can skip steps, and the layers
-  shift. Only the TMC2130, 2240, 2660 and 5160 report it; the TMC2208, 2209 and 2224 do not;
+- its **StallGuard** reading, with the last ten minutes as a line: how easily the motor turns, higher
+  is easier. It drops when the motor works hard and also at low speed, so it is no alarm on its own;
+  near 0 while the motor runs fast, the motor is close to skipping steps (a layer shift). Only the
+  TMC2130, 2240, 2660 and 5160 report it here; the TMC2208, 2209 and 2224 do not;
 - its driver's warnings: overheating, a short to ground or to the supply, a dropped supply, and an
   open coil (only a hint: drivers show it at standstill or at high speed with the coil connected);
 - the motor's own temperature, when it has a sensor (below).
 
 On CoreXY and CoreXZ the two belt motors are marked **motor A** (stepper_x) and **motor B**. The
-line at the top sums it up: all motors normal, or which one works too hard or has a warning.
+line at the top sums it up from the driver warnings and the motor temperatures: all motors normal,
+or which one has a warning or is hot.
 
 **A motor's own temperature.** Tape a 100K thermistor to the motor's body, connect it to a free
 thermistor input, and add it with the motor's name:
