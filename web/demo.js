@@ -588,6 +588,40 @@
     }
   };
 
+  /* -------------------------------------------------------------- motors */
+
+  // The demo printer's motors for the Motors tab: CoreXY belt motors on
+  // TMC5160 drivers (they report their load), Z and the extruder on TMC2209.
+  const DEMO_MOTORS = {
+    "tmc5160 stepper_x": { run: 0.8, base: 135 }, "tmc5160 stepper_y": { run: 0.8, base: 128 },
+    "tmc2209 stepper_z": { run: 0.6 }, "tmc2209 stepper_z1": { run: 0.6 }, "tmc2209 extruder": { run: 0.65 }
+  };
+  Demo.prototype.motorStatus = function (k) {
+    const st = this.status;
+    const printing = st.print_stats.state === "printing" || st["gcode_macro _AUTO_EJECT_STATE"].busy;
+    const t = Date.now() / 1000;
+    if (k === "stepper_enable") {
+      const on = printing || st.toolhead.homed_axes !== "";
+      return { steppers: { stepper_x: on, stepper_y: on, stepper_z: on, stepper_z1: on, extruder: printing } };
+    }
+    if (/^temperature_sensor motor_/.test(k)) {
+      const warm = 26 + (printing ? 20 : 8) + (k.endsWith("_a") ? 3 : 0);
+      return { temperature: Math.round((warm + Math.sin(t / 40) * 0.8) * 10) / 10 };
+    }
+    const m = DEMO_MOTORS[k];
+    const out = { run_current: m.run, hold_current: m.run, drv_status: { cs_actual: Math.round(m.run * 20) } };
+    const moving = printing && (!k.includes("stepper_z") || Math.sin(t / 7) > 0.9);
+    if (!moving) { out.drv_status.stst = 1; return out; }
+    if (m.base) {
+      // now and then a slow move gives no reading, and a fast corner works the motor hard
+      const r = Math.sin(t * 1.7 + m.base) + Math.sin(t * 0.31);
+      if (r < -1.2) return out;
+      const dip = Math.sin(t / 23 + m.base) > 0.96 ? 0.55 : 0;
+      out.drv_status.sg_result = Math.max(4, Math.round(m.base * (1 - dip) + Math.sin(t * 2.3 + m.base) * 18));
+    }
+    return out;
+  };
+
   /* --------------------------------------------------------------- files */
 
   Demo.prototype.gcodeText = function (name) {
@@ -648,13 +682,15 @@
       case "server.info": return ok({ klippy_connected: true, klippy_state: st.webhooks.state, components: ["job_queue", "webcam", "file_manager"], moonraker_version: "demo" });
       case "printer.info": return ok({ state: st.webhooks.state, hostname: "demo-printer", software_version: "demo" });
       case "printer.objects.list":
-        return ok({ objects: Object.keys(st).concat(["gcode_macro AUTO_EJECT", "gcode_macro AUTO_EJECT_SET", "gcode_macro AUTO_EJECT_SETUP", "configfile", "probe"]) });
+        return ok({ objects: Object.keys(st).concat(["gcode_macro AUTO_EJECT", "gcode_macro AUTO_EJECT_SET", "gcode_macro AUTO_EJECT_SETUP", "configfile", "probe"],
+          Object.keys(DEMO_MOTORS), ["stepper_enable", "temperature_sensor motor_a", "temperature_sensor motor_b"]) });
       case "printer.objects.query": {
         const out = {};
         for (const k of Object.keys(params.objects || {})) {
-          if (k === "configfile") out.configfile = { config: { printer: {}, probe: { x_offset: "0", y_offset: "0" }, respond: {}, exclude_object: {}, save_variables: {},
+          if (k === "configfile") out.configfile = { config: { printer: { kinematics: "corexy" }, probe: { x_offset: "0", y_offset: "0" }, respond: {}, exclude_object: {}, save_variables: {},
                                                                "gcode_macro PRINT_START": {}, "gcode_macro PRINT_END": {} },
                                                      settings: { probe: { x_offset: 0, y_offset: 0, z_offset: -0.4 } } };
+          else if (DEMO_MOTORS[k] || k === "stepper_enable" || /^temperature_sensor motor_/.test(k)) out[k] = this.motorStatus(k);
           else if (st[k]) out[k] = JSON.parse(JSON.stringify(st[k]));
         }
         return ok({ status: out, eventtime: Date.now() / 1000 });

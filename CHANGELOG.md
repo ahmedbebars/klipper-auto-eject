@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **A Motors tab** in the web page: every motor with a TMC driver (X, Y, every Z motor and every
+  extruder), live once a second: moving, holding or off; its current; its load from the driver's
+  StallGuard reading, against the motor's own easy running, with the last ten minutes as a line
+  (TMC2130, 2240, 2660 and 5160 report it); its driver's warnings (overheating, shorts, a dropped
+  supply, an open coil); and the motor's own temperature from a thermistor named after it
+  (`temperature_sensor motor_x`, `motor_a` on CoreXY…). A line at the top says whether all motors
+  are normal. Read only; shown only when Klipper has TMC drivers.
 - **Pictures of the prints**: the files in **Check a file**, the print queue, the farm cards and
   the farm's **Print** dialog show the picture the slicer put in the G-code (OrcaSlicer,
   PrusaSlicer, SuperSlicer, Cura with **Create Thumbnail**), with the print time, filament, height

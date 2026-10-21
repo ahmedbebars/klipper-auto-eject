@@ -334,7 +334,7 @@ def test_page_is_an_app_only_where_browsers_allow_it():
 
 def test_every_section_has_a_short_label_for_the_phone_tab_bar():
     en = (WEB / "lang" / "en.js").read_text(encoding="utf-8")
-    for view in ("overview", "farm", "queue", "check", "setup", "settings", "activity", "guide"):
+    for view in ("overview", "farm", "queue", "check", "setup", "settings", "motors", "activity", "guide"):
         assert '"navs.%s"' % view in en, view
 
 
@@ -516,3 +516,53 @@ def test_what_a_files_metadata_tells():
              "material": "", "slicer": ""}
     assert js("fileFacts", {}) == empty and js("fileFacts", None) == empty
     assert js("fileFacts", {"estimated_time": 0, "filament_type": "?"}) == empty
+
+
+# ----------------------------------------------------------------- the motors
+OBJECTS = ["tmc2209 extruder", "tmc5160 stepper_y", "tmc5160 stepper_x", "tmc2209 stepper_z2", "tmc2209 stepper_z",
+           "tmc2209 stepper_z1", "temperature_sensor motor_a", "temperature_fan motor_e", "heater_bed", "tmc2240 extruder1"]
+
+
+@needs_node
+def test_every_motor_with_a_tmc_driver_in_axis_order():
+    got = js("tmcSteppers", OBJECTS, "corexy")
+    assert [(m["title"], m["motor"], m["driver"], m["reportsLoad"]) for m in got] == [
+        ("X", "A", "tmc5160", True), ("Y", "B", "tmc5160", True), ("Z", "", "tmc2209", False),
+        ("Z1", "", "tmc2209", False), ("Z2", "", "tmc2209", False), ("E", "", "tmc2209", False), ("E1", "", "tmc2240", True)]
+    # a bed slinger has no belt motors A and B
+    assert {m["motor"] for m in js("tmcSteppers", OBJECTS, "cartesian")} == {""}
+    # CoreXZ: the belt motors are X and Z
+    assert [m["motor"] for m in js("tmcSteppers", ["tmc2209 stepper_x", "tmc2209 stepper_z"], "corexz")] == ["A", "B"]
+    assert js("tmcSteppers", ["heater_bed", "fan"], "corexy") == []
+
+
+@needs_node
+def test_driver_warnings_worst_first():
+    assert js("driverFlags", {"cs_actual": 16, "otpw": 1, "ola": 1, "s2ga": 1, "stst": 1}) == [
+        {"flag": "s2ga", "level": "bad"}, {"flag": "otpw", "level": "warn"}, {"flag": "ola", "level": "info"}]
+    assert js("driverFlags", {"cs_actual": 16, "sg_result": 120}) == []
+    assert js("driverFlags", None) == []
+
+
+@needs_node
+def test_the_load_against_the_motors_own_easy_running():
+    easy = [120 + (i % 7) for i in range(60)]
+    assert js("motorLoad", easy[:10])["level"] == "wait"                 # too few readings yet
+    ok = js("motorLoad", easy)
+    assert ok["level"] == "ok" and ok["load"] < 0.1
+    hard = js("motorLoad", easy + [40] * 10)
+    assert hard["level"] == "warn" and 0.6 < hard["load"] < 0.75
+    stall = js("motorLoad", easy + [8] * 10)
+    assert stall["level"] == "bad" and stall["load"] > 0.9
+    # moments without a reading (slow or still) are not counted as load
+    assert js("motorLoad", easy + [None] * 10)["level"] == "ok"
+
+
+@needs_node
+def test_a_motors_own_temperature_sensor():
+    motors = js("tmcSteppers", OBJECTS, "corexy")
+    x, y, e = motors[0], motors[1], motors[5]
+    assert js("motorSensor", x, OBJECTS) == "temperature_sensor motor_a"   # the CoreXY name
+    assert js("motorSensor", y, OBJECTS) is None
+    assert js("motorSensor", e, OBJECTS) == "temperature_fan motor_e"
+    assert js("motorSensor", x, ["temperature_sensor stepper_x"]) == "temperature_sensor stepper_x"

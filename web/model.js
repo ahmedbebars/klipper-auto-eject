@@ -586,10 +586,92 @@
     };
   }
 
+  // ----- the motors: every stepper with a TMC driver Klipper knows
+
+  // Drivers whose DRV_STATUS carries the StallGuard reading (the load).
+  // The TMC2208/2209/2224 keep theirs in another register Klipper does not report.
+  const LOAD_DRIVERS = ["tmc2130", "tmc2240", "tmc2660", "tmc5160"];
+
+  // The steppers with a TMC driver, in axis order: X, Y, Z, then the extruders.
+  // On CoreXY and CoreXZ the two belt motors are A (stepper_x) and B (stepper_y).
+  function tmcSteppers(objects, kinematics) {
+    const out = [];
+    for (const o of objects || []) {
+      const m = /^(tmc\d{4})\s+(\S+)$/.exec(String(o));
+      if (!m) continue;
+      const stepper = m[2];
+      const ax = /^stepper_([a-z])(\d*)$/.exec(stepper);
+      const ex = /^extruder(\d*)$/.exec(stepper);
+      let title = stepper, rank = 9, motor = "";
+      if (ax) {
+        title = ax[1].toUpperCase() + ax[2];
+        rank = "xyzabc".indexOf(ax[1]) >= 0 ? "xyzabc".indexOf(ax[1]) : 6;
+        const k = String(kinematics || "");
+        if (/^(corexy|corexz|hybrid_corexy|hybrid_corexz)$/.test(k) && !ax[2]) {
+          if (ax[1] === "x") motor = "A";
+          else if (ax[1] === (k.indexOf("xz") >= 0 ? "z" : "y")) motor = "B";
+        }
+      } else if (ex) {
+        title = "E" + ex[1];
+        rank = 7;
+      }
+      out.push({ obj: o, driver: m[1], stepper, title, motor, extruder: !!ex, reportsLoad: LOAD_DRIVERS.indexOf(m[1]) >= 0,
+        order: rank * 100 + (ax && ax[2] ? Number(ax[2]) : ex && ex[1] ? Number(ex[1]) : 0) });
+    }
+    return out.sort((a, b) => a.order - b.order || a.stepper.localeCompare(b.stepper));
+  }
+
+  // What the driver's status flags mean, worst first. Klipper leaves out the
+  // flags that are 0. Open load (ola/olb) is only a hint: drivers show it at
+  // standstill and at high speed even with the coil connected.
+  const DRIVER_FLAGS = {
+    ot: "bad", s2ga: "bad", s2gb: "bad", s2vsa: "bad", s2vsb: "bad", t150: "bad", t157: "bad", uv_cp: "bad",
+    otpw: "warn", t120: "warn", t143: "warn",
+    ola: "info", olb: "info"
+  };
+  const LEVEL_RANK = { bad: 0, warn: 1, info: 2 };
+  function driverFlags(drv) {
+    const out = [];
+    for (const k of Object.keys(drv || {})) {
+      if (DRIVER_FLAGS[k] && drv[k]) out.push({ flag: k, level: DRIVER_FLAGS[k] });
+    }
+    return out.sort((a, b) => LEVEL_RANK[a.level] - LEVEL_RANK[b.level] || a.flag.localeCompare(b.flag));
+  }
+
+  // The load from recent StallGuard readings (lower reading = harder work):
+  // the median of the last ones against this motor's own easy running (the
+  // 90th percentile of all its readings), so every motor and driver is
+  // judged against itself. null readings are moments without one.
+  function motorLoad(readings, recent) {
+    const all = (readings || []).filter((v) => typeof v === "number" && isFinite(v));
+    if (all.length < 20) return { level: "wait", load: null, reading: all.length ? all[all.length - 1] : null };
+    const sorted = all.slice().sort((a, b) => a - b);
+    const ref = Math.max(1, sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))]);
+    const last = all.slice(-(recent || 10)).sort((a, b) => a - b);
+    const med = last[Math.floor(last.length / 2)];
+    const load = Math.max(0, Math.min(1, 1 - med / ref));
+    const peak = Math.max(0, Math.min(1, 1 - sorted[Math.floor(sorted.length * 0.02)] / ref));
+    return { level: med <= ref * 0.15 ? "bad" : med <= ref * 0.35 ? "warn" : "ok", load, peak, reading: all[all.length - 1], ref };
+  }
+
+  // Temperature sensors on the motors themselves: temperature_sensor or
+  // temperature_fan named after the motor (motor_x, stepper_x, motor_a for
+  // a CoreXY belt motor, motor_e for the extruder…).
+  function motorSensor(stepper, objects) {
+    const want = [stepper.stepper.toLowerCase(), "motor_" + stepper.title.toLowerCase()];
+    if (stepper.motor) want.push("motor_" + stepper.motor.toLowerCase());
+    if (stepper.extruder) want.push("motor_extruder", "extruder_motor");
+    for (const o of objects || []) {
+      const m = /^temperature_(?:sensor|fan)\s+(\S+)$/.exec(String(o));
+      if (m && want.indexOf(m[1].toLowerCase()) >= 0) return o;
+    }
+    return null;
+  }
+
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, motorLoad, motorSensor, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

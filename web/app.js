@@ -94,7 +94,8 @@
     power: "M12 3v8 M6.3 6.3a8 8 0 1 0 11.4 0",
     clock: "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z M12 7v5l3 2",
     spool: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z",
-    height: "M12 3v18 M8 7l4-4 4 4 M8 17l4 4 4-4"
+    height: "M12 3v18 M8 7l4-4 4 4 M8 17l4 4 4-4",
+    motor: "M4 7h11v10H4z M15 10h3v4h-3 M18 12h3 M7 7V4 M12 7V4 M7 20v-3 M12 20v-3"
   };
   function icon(name, cls) {
     return s("svg", { class: "ic" + (cls ? " " + cls : ""), viewBox: "0 0 24 24", "aria-hidden": "true" }, s("path", { d: ICONS[name] || "" }));
@@ -310,6 +311,7 @@
     app.loaded = false;
     client.call("printer.objects.list").then((r) => {
       const objs = r.objects || [];
+      app.objects = objs;
       app.hasMacros = objs.includes("gcode_macro AUTO_EJECT");
       const want = {};
       for (const o of SUBSCRIBE) if (objs.includes(o)) want[o] = null;
@@ -505,6 +507,7 @@
     { id: "check", icon: "check", render: viewCheck },
     { id: "setup", icon: "setup", render: viewSetup },
     { id: "settings", icon: "settings", render: viewSettings },
+    { id: "motors", icon: "motor", render: viewMotors },
     { id: "activity", icon: "activity", render: viewActivity },
     { id: "guide", icon: "guide", render: viewGuide }
   ];
@@ -569,7 +572,7 @@
     const ph = phase();
     const id = route();
     const sig = [lang, id, app.conn, app.klippy, ph, app.host, app.hasQueue, app.queue.jobs.length, leftover().length, app.hasMacros,
-      farmShown(), farmNeeds()].join("|");
+      farmShown(), farmNeeds(), motorList().length].join("|");
     if (sig === chromeSig) return;
     chromeSig = sig;
     const dir = (AE_LANGS[lang] || {}).dir || "ltr";
@@ -619,7 +622,8 @@
     back.setAttribute("aria-label", t("app.back"));
 
     const nav = $("#nav");
-    nav.replaceChildren(...VIEWS.filter((v) => (v.id !== "queue" || app.hasQueue || DEMO) && (v.id !== "farm" || farmShown() || id === "farm")).map((v) => {
+    nav.replaceChildren(...VIEWS.filter((v) => (v.id !== "queue" || app.hasQueue || DEMO) && (v.id !== "farm" || farmShown() || id === "farm") &&
+      (v.id !== "motors" || motorList().length || id === "motors")).map((v) => {
       let count = v.id === "queue" && app.queue.jobs.length ? h("span", { class: "count", text: num(app.queue.jobs.length, 0) }) : null;
       if (v.id === "farm" && farmNeeds()) count = h("span", { class: "count bad", text: num(farmNeeds(), 0) });
       return h("a", { href: "#/" + v.id, class: v.id === id ? "active" : "", "aria-current": v.id === id ? "page" : null },
@@ -2117,6 +2121,171 @@
     name.select();
   }
 
+  /* ============================================================= motors */
+
+  // Every stepper with a TMC driver: its current, its load (StallGuard) and
+  // its driver's warnings, read once a second while this tab is open. Read
+  // only: nothing here changes the printer.
+  const motors = { hist: {}, status: {}, at: 0, events: [], seen: {} };
+  const MOTOR_KEEP = 600;          // ten minutes, one reading a second
+
+  function motorList() {
+    return M.tmcSteppers(app.objects || [], ((app.config || {}).printer || {}).kinematics);
+  }
+  function motorName(m) {
+    return m.extruder ? t("motors.extruder", { n: m.title.slice(1) }).trim() : m.title;
+  }
+
+  function pollMotors() {
+    if (route() !== "motors" || document.hidden || app.conn !== "online" || app.klippy !== "ready") return;
+    const list = motorList();
+    if (!list.length) return;
+    const objects = { stepper_enable: null };
+    for (const m of list) {
+      objects[m.obj] = null;
+      const sensor = M.motorSensor(m, app.objects);
+      if (sensor) objects[sensor] = ["temperature"];
+    }
+    client.call("printer.objects.query", { objects }).then((r) => {
+      const st = r.status || {};
+      const now = Date.now() / 1000;
+      const on = (st.stepper_enable || {}).steppers || {};
+      for (const m of list) {
+        const d = (st[m.obj] || {}).drv_status || {};
+        const hist = motors.hist[m.stepper] || (motors.hist[m.stepper] = []);
+        // a reading only while it turns: Klipper leaves a zero out, and a slow motor gives none
+        hist.push(m.reportsLoad && on[m.stepper] !== false && !d.stst && typeof d.sg_result === "number" ? d.sg_result : null);
+        if (hist.length > MOTOR_KEEP) hist.splice(0, hist.length - MOTOR_KEEP);
+        for (const f of M.driverFlags(d)) {
+          const key = m.stepper + " " + f.flag;
+          if (!motors.seen[key] || now - motors.seen[key] > 60) motors.events.unshift({ time: now, name: motorName(m), flag: f.flag, level: f.level });
+          motors.seen[key] = now;
+        }
+      }
+      motors.events.splice(30);
+      motors.status = st;
+      motors.at = now;
+      refresh("motors");
+    }).catch(() => {});
+  }
+
+  function viewMotors() {
+    const list = motorList();
+    if (!list.length) {
+      return { el: h("div", null, head("motors.title", "motors.intro"),
+        h("section", { class: "card empty" }, icon("motor"), h("p", { text: t(app.klippy === "ready" ? "motors.none" : "motors.waiting") }))) };
+    }
+    const el = h("div", null, head("motors.title", "motors.intro"),
+      h("div", { class: "banner", "data-live": "msum", hidden: true }),
+      h("div", { class: "motor-grid" }, list.map((m) => h("section", { class: "card mcard", "data-motor": m.stepper },
+        h("div", { class: "mc-top" },
+          h("div", { class: "mc-ic" }, icon("motor")),
+          h("div", { class: "grow" },
+            h("div", { class: "mc-name" }, h("b", { text: motorName(m) }),
+              m.motor ? h("span", { class: "badge", text: t("motors.belt", { m: m.motor }) }) : null),
+            h("div", { class: "mc-sub ltr", text: m.stepper + " · " + m.driver.toUpperCase() })),
+          h("span", { class: "badge", "data-f": "state" })),
+        h("div", { class: "mc-load" },
+          h("div", { class: "mc-row" }, h("span", { text: t("motors.load") }), h("b", { "data-f": "loadtxt", text: "…" })),
+          m.reportsLoad ? h("div", { class: "meter" }, h("i", { "data-f": "bar" })) : null,
+          m.reportsLoad ? s("svg", { class: "spark", viewBox: "0 0 300 56", preserveAspectRatio: "none", "data-f": "spark", "aria-hidden": "true" }) : null,
+          h("div", { class: "mc-note", "data-f": "loadnote" })),
+        h("dl", { class: "mc-kv" },
+          h("dt", { text: t("motors.current") }), h("dd", { "data-f": "current", text: "…" }),
+          h("dt", { text: t("motors.temp") }), h("dd", { "data-f": "temp", text: "…" })),
+        h("div", { class: "chips", "data-f": "flags" })))),
+      h("section", { class: "card", style: { marginTop: "16px" } },
+        h("h2", null, icon("alert"), t("motors.events")), h("div", { "data-live": "mevents" })),
+      h("p", { class: "note", style: { marginTop: "14px" } }, icon("info"), h("span", { text: t("motors.explain") })),
+      h("p", { class: "note", style: { marginTop: "8px" } }, icon("thermo"), h("span", { text: t("motors.sensor_tip") })));
+    return { el, update: () => paintMotors(el, list) };
+  }
+  viewMotors.sig = function () { return JSON.stringify([motorList().map((m) => m.obj + m.motor), app.klippy]); };
+
+  const LEVEL_RANK = { info: 1, warn: 2, bad: 3 };
+  function paintMotors(el, list) {
+    const st = motors.status || {};
+    const on = (st.stepper_enable || {}).steppers || {};
+    let worst = null;                      // [level, text]
+    const note = (level, text) => { if (!worst || LEVEL_RANK[level] > LEVEL_RANK[worst[0]]) worst = [level, text]; };
+    for (const m of list) {
+      const card = el.querySelector('[data-motor="' + m.stepper + '"]');
+      if (!card) continue;
+      const f = (name) => card.querySelector('[data-f="' + name + '"]');
+      const ms = st[m.obj] || {};
+      const d = ms.drv_status || {};
+      const state = !motors.at ? "wait" : on[m.stepper] === false ? "off" : d.stst ? "holding" : "moving";
+      f("state").textContent = t("motors.state." + state);
+      f("state").className = "badge " + (state === "moving" ? "blue" : state === "holding" ? "ok" : "");
+      f("current").textContent = typeof ms.run_current === "number" ? t("motors.amps", { run: num(ms.run_current, 2), hold: num(ms.hold_current, 2) }) : "—";
+      // temperatures: the motor's own sensor, and the driver's (TMC2240)
+      const sensor = M.motorSensor(m, app.objects);
+      const mt = sensor && st[sensor] && typeof st[sensor].temperature === "number" ? st[sensor].temperature : null;
+      const temps = [];
+      if (mt !== null) temps.push(t("motors.temp_motor", { v: num(mt, 0) }));
+      if (typeof ms.temperature === "number") temps.push(t("motors.temp_driver", { v: num(ms.temperature, 0) }));
+      f("temp").textContent = temps.length ? temps.join(" · ") : t("motors.temp_none");
+      f("temp").className = mt !== null && mt >= 80 ? "bad" : mt !== null && mt >= 65 ? "warn" : "";
+      if (mt !== null && mt >= 65) note(mt >= 80 ? "bad" : "warn", t("motors.sum_hot", { m: motorName(m), v: num(mt, 0) }));
+      // the load
+      const L = M.motorLoad(motors.hist[m.stepper]);
+      const txt = f("loadtxt");
+      if (!m.reportsLoad) {
+        txt.textContent = "—"; txt.className = "ltr";
+        f("loadnote").textContent = t("motors.no_load", { d: m.driver.toUpperCase() });
+      } else if (L.level === "wait") {
+        txt.textContent = "…"; txt.className = "ltr";
+        f("loadnote").textContent = t("motors.load_wait");
+        drawSpark(f("spark"), [], 1);
+      } else {
+        txt.textContent = num(L.load * 100, 0) + " %";
+        txt.className = "ltr " + L.level;
+        f("bar").style.width = num(Math.max(2, L.load * 100), 1) + "%";
+        f("bar").className = L.level;
+        f("loadnote").textContent = t("motors.load_note", { sg: iso("StallGuard " + (L.reading === null ? "—" : num(L.reading, 0))), peak: iso(num(L.peak * 100, 0) + " %") });
+        drawSpark(f("spark"), motors.hist[m.stepper], L.ref);
+        if (L.level !== "ok") note(L.level, t("motors.sum_load_" + L.level, { m: motorName(m) }));
+      }
+      // the driver's warnings
+      const flags = M.driverFlags(d);
+      f("flags").replaceChildren(...(flags.length
+        ? flags.map((x) => h("span", { class: "chip " + (x.level === "info" ? "" : x.level) }, icon(x.level === "info" ? "info" : "alert"), h("span", { text: t("motors.flag." + x.flag) })))
+        : state === "wait" ? [] : [h("span", { class: "chip ok" }, icon("ok"), h("span", { text: t("motors.flags_ok") }))]));
+      for (const x of flags) if (x.level !== "info") note(x.level, t("motors.sum_flag", { m: motorName(m), what: t("motors.flag." + x.flag) }));
+    }
+    const sum = el.querySelector('[data-live="msum"]');
+    if (sum && motors.at) {
+      sum.hidden = false;
+      sum.className = "banner " + (worst ? worst[0] : "ok");
+      sum.replaceChildren(icon(worst ? "alert" : "ok"), h("div", { class: "grow", text: worst ? worst[1] : t("motors.sum_ok", { n: num(list.length, 0) }) }));
+    }
+    const ev = el.querySelector('[data-live="mevents"]');
+    if (ev) ev.replaceChildren(motors.events.length
+      ? h("div", { class: "list" }, motors.events.map((e) => h("div", { class: "row" },
+          h("span", { class: "badge " + (e.level === "info" ? "" : e.level), text: e.name }),
+          h("div", { class: "grow", text: t("motors.flag." + e.flag) }),
+          h("span", { class: "muted ltr", text: new Date(e.time * 1000).toLocaleTimeString([], { hour12: false }) }))))
+      : h("p", { class: "muted", text: t("motors.events_none") }));
+  }
+
+  // The load over the last ten minutes, with lines where it gets hard (65 %) and close to skipping (85 %).
+  function drawSpark(svg, hist, ref) {
+    if (!svg) return;
+    const W = 300, H = 56, y = (load) => (H - 3 - load * (H - 6)).toFixed(1);
+    const segs = [];
+    let seg = [];
+    const start = MOTOR_KEEP - hist.length;
+    hist.forEach((v, i) => {
+      if (v === null) { if (seg.length > 1) segs.push(seg); seg = []; return; }
+      seg.push(((start + i) / (MOTOR_KEEP - 1) * W).toFixed(1) + "," + y(Math.max(0, Math.min(1, 1 - v / ref))));
+    });
+    if (seg.length > 1) segs.push(seg);
+    svg.replaceChildren(
+      s("line", { x1: 0, x2: W, y1: y(0.65), y2: y(0.65), class: "spark-warn" }),
+      s("line", { x1: 0, x2: W, y1: y(0.85), y2: y(0.85), class: "spark-bad" }),
+      ...segs.map((p) => s("polyline", { points: p.join(" "), class: "spark-line" })));
+  }
+
   /* =========================================================== activity */
 
   const activityUi = { only: true };
@@ -2171,6 +2340,7 @@
       img.src = u + (u.includes("?") ? "&" : "?") + "t=" + Date.now();
     }
   }, 1200);
+  setInterval(pollMotors, 1000);
   // the farm: often while it is shown, now and then for the menu's count
   loadFarm();
   setInterval(() => {
