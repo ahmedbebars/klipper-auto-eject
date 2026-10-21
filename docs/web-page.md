@@ -35,6 +35,15 @@ bed and starts the next job by itself.
 The page is in English and Arabic (right to left), in light and dark, and works on a phone.
 It picks the browser's language and theme; both can be switched at the top.
 
+### Settings
+
+Every setting with what it does and its control, in the file's sections. The sections are listed at
+the side with how many you have set in each; a search and **Only my changes** narrow the list. Only
+your own values are marked: **Your file** for `auto_eject_settings.cfg`, **Saved here** for a change
+made on the page, which the round arrow takes back.
+
+<p align="center"><img src="images/settings.png" alt="The Settings tab: the sections at the side with how many are set, a search, Only my changes, and each setting with its control in one column" width="900"></p>
+
 ### Hardware
 
 The **Hardware** tab shows what Klipper and Moonraker report about the machine, read while the tab
@@ -100,6 +109,8 @@ The files in **Check a file**, the print queue, the printer farm and its **Print
 picture your slicer puts in the G-code, with what the file says about the print: the time, the
 filament, the height and the material. **Overview** shows the picture of the print on the bed. A
 black part on the dark page, or a white one on the light page, gets a backdrop that shows it.
+
+<p align="center"><img src="images/queue.png" alt="The print queue: the jobs waiting, and Add files with every file's picture, time, filament, height and material" width="900"></p>
 
 Moonraker keeps the pictures next to the files; nothing else needs installing. The slicer has to
 put them in:
