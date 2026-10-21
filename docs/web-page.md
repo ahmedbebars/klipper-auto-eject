@@ -52,6 +52,14 @@ has it. The line at the top says **All hardware normal**, or what needs a look.
 | **Camera** | Working or not; resolution and frames a second with ustreamer | A camera that stops answering |
 | **Problems** | Every warning while the page was open, and the prints that stopped with an error | |
 
+**With the page closed.** With the notification service (`install.sh --push`), the printer watches the
+serious ones all the time and sends them to the phones that turned notifications on in the app: a
+fan with a speed sensor that stopped, a driver warning, a motor above 70 °C (with its own sensor), a
+board link resending data (200 bytes in ten minutes) or sending corrupt data, an unhealthy CAN bus,
+a heater that cannot hold its target, and the computer too hot, short of voltage, memory or storage.
+A warning must last a few seconds, is sent once, and again only after it has cleared. StallGuard and
+'coil open?' never send one. Each phone can turn them off: **Hardware warnings too**.
+
 #### Motors
 
 The motors section shows every stepper that has a TMC driver (TMC2130, 2208, 2209, 2224, 2240,

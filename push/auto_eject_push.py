@@ -34,12 +34,15 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zlib
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+from hardware import HardwareWatcher   # next to this file
 
 NAMESPACE = "auto_eject_push"
 CONTACT = "https://github.com/ahmedbebars/klipper-auto-eject"
@@ -129,17 +132,17 @@ NOTICES = [
     (re.compile(r"the parts box is (almost )?full"), "bin"),
     (re.compile(r"^AUTO_EJECT: test notification"), "test"),
 ]
-PROBLEMS = {"stuck", "guard", "thin", "left", "bin", "error", "shutdown"}
+PROBLEMS = {"stuck", "guard", "thin", "left", "bin", "error", "shutdown", "hardware"}
 TITLES = {
     "en": {"stuck": "A part is still on the bed", "guard": "The print did not start",
            "thin": "Parts left on the bed", "left": "Take the parts off", "complete": "Print finished",
            "error": "Print stopped with an error", "cancelled": "Print cancelled", "shutdown": "Klipper stopped",
            "bin": "Empty the parts box", "off": "Switched off", "service": "Maintenance due",
-           "report": "The farm today", "test": "Auto-eject"},
+           "report": "The farm today", "hardware": "Hardware warning", "test": "Auto-eject"},
     "ar": {"stuck": "قطعة ما زالت على السرير", "guard": "لم تبدأ الطباعة", "thin": "قطع متروكة على السرير",
            "left": "أزل القطع", "complete": "انتهت الطباعة", "error": "توقفت الطباعة بخطأ",
            "cancelled": "أُلغيت الطباعة", "shutdown": "توقف Klipper", "bin": "أفرغ صندوق القطع", "off": "أُطفئت",
-           "service": "حان وقت الصيانة", "report": "المزرعة اليوم",
+           "service": "حان وقت الصيانة", "report": "المزرعة اليوم", "hardware": "تحذير من العتاد",
            "test": "الإزالة التلقائية"},
 }
 TEST_BODY = {"en": "Notifications from your printer work.", "ar": "إشعارات طابعتك تعمل."}
@@ -208,13 +211,18 @@ class Watcher:
 
 def message_for(kind, text, sub, printer=None):
     lang = sub.get("lang") if sub.get("lang") in TITLES else "en"
-    body = TEST_BODY[lang] if kind == "test" else text
+    # a text in each language ({"en": ..., "ar": ...}) or one as the printer said it
+    body = TEST_BODY[lang] if kind == "test" else text.get(lang) or text.get("en", "") if isinstance(text, dict) else text
     title = TITLES[lang].get(kind, "Auto-eject")
     url = sub.get("url") or ""
+    tag = "auto-eject-%s-%s" % (printer or "here", kind)
     if printer or kind == "report":   # another printer of the farm, or the whole farm
         title = "%s · %s" % (printer, title) if printer else title
         url = url.split("#")[0] + "#/farm" if url else ""
-    return {"title": title, "body": body, "tag": "auto-eject-%s-%s" % (printer or "here", kind), "url": url}
+    elif kind == "hardware":          # its own notice for each warning, and the Hardware tab
+        url = url.split("#")[0] + "#/hardware" if url else ""
+        tag += "-%08x" % (zlib.crc32(str(text.get("en") if isinstance(text, dict) else text).encode()) & 0xffffffff)
+    return {"title": title, "body": body, "tag": tag, "url": url}
 
 
 # ----------------------------------------------------------------- Moonraker
@@ -240,6 +248,9 @@ class Moonraker:
     def console(self, count=50):
         return self._call("/server/gcode_store?count=%d" % count)["gcode_store"]
 
+    def call(self, path):
+        return self._call(path)
+
     def get(self, key, namespace=NAMESPACE):
         try:
             return self._call("/server/database/item?namespace=%s&key=%s" % (namespace, key))["value"]
@@ -261,6 +272,8 @@ def deliver(events, moonraker, vapid, sender=send, printer=None):
         for sid, sub in list(subs.items()):
             if kind == "complete" and not sub.get("jobs", True):
                 continue
+            if kind == "hardware" and not sub.get("hardware", True):
+                continue
             status = sender(sub, message_for(kind, text, sub, printer), vapid,
                             "high" if kind in PROBLEMS else "normal")
             log.info("%s -> %s: %s", kind, sub.get("name", sid), status)
@@ -280,6 +293,8 @@ def main():
     vapid = Vapid(args.key)
     moonraker = Moonraker(args.moonraker)
     watcher = Watcher()
+    hardware = HardwareWatcher()
+    hardware_at = 0.0
     published = False
     if args.api_port:
         import farm as farm_mod
@@ -318,6 +333,9 @@ def main():
             except Exception:     # Klipper restarting: the console still counts
                 pass
             events += watcher.history(moonraker.newest_job(), message)
+            if time.time() - hardware_at >= 5:
+                hardware_at = time.time()
+                events += [(kind, words) for kind, words, _level in hardware.check(moonraker)]
             if events:
                 deliver(events, moonraker, vapid)
         except Exception as e:  # Moonraker restarting, network down: try again

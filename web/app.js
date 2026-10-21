@@ -161,7 +161,7 @@
     webcams: [],
     trustedClients: undefined,   // Moonraker's trusted_clients, null without [authorization]
     ntfy: "",                    // the ntfy topic of [notifier auto_eject], if any
-    push: { key: null, id: null, jobs: true },   // the printer's notification service and this device
+    push: { key: null, id: null, jobs: true, hardware: true },   // the printer's notification service and this device
     log: [],
     template: null,              // parsed auto_eject_settings.cfg, or false
     prompt: null,
@@ -1336,7 +1336,7 @@
         const id = await subId(sub.endpoint);
         const mine = await client.call("server.database.get_item", { namespace: PUSH, key: "subs." + id }).catch(() => null);
         const sameKey = sub.options && sub.options.applicationServerKey && bytesToB64(sub.options.applicationServerKey) === app.push.key;
-        if (mine && sameKey) { app.push.id = id; app.push.jobs = mine.value.jobs !== false; }
+        if (mine && sameKey) { app.push.id = id; app.push.jobs = mine.value.jobs !== false; app.push.hardware = mine.value.hardware !== false; }
       }
       // turned on before the service was installed: move on to push, the
       // permission is there already
@@ -1355,7 +1355,7 @@
     const json = sub.toJSON();
     const id = await subId(json.endpoint);
     await client.call("server.database.post_item", { namespace: PUSH, key: "subs." + id, value: {
-      endpoint: json.endpoint, keys: json.keys, lang, jobs: app.push.jobs,
+      endpoint: json.endpoint, keys: json.keys, lang, jobs: app.push.jobs, hardware: app.push.hardware,
       url: location.origin + location.pathname, name: deviceName(), time: Math.round(Date.now() / 1000) } });
     app.push.id = id;
   }
@@ -1366,9 +1366,10 @@
     if (app.push.id) await client.call("server.database.delete_item", { namespace: PUSH, key: "subs." + app.push.id }).catch(() => {});
     app.push.id = null;
   }
-  function pushJobs(on) {
-    app.push.jobs = on;
-    if (app.push.id) client.call("server.database.post_item", { namespace: PUSH, key: "subs." + app.push.id + ".jobs", value: on }).catch((e) => toast(e.message, "bad"));
+  function pushJobs(on) { pushOption("jobs", on); }
+  function pushOption(key, on) {
+    app.push[key] = on;
+    if (app.push.id) client.call("server.database.post_item", { namespace: PUSH, key: "subs." + app.push.id + "." + key, value: on }).catch((e) => toast(e.message, "bad"));
     refresh();
   }
   function deviceName() {
@@ -1429,7 +1430,7 @@
     const tc = app.trustedClients;
     const trusts = tc === null ? true : tc === undefined ? null : tc.some((c) => /^100\./.test(String(c).trim()));
     return { ts, https: location.protocol === "https:", trusts, cams: app.webcams.length, app: appMode(), notify: notifyState(),
-      ntfy: app.ntfy, push: !!app.push.key, jobs: app.push.jobs };
+      ntfy: app.ntfy, push: !!app.push.key, jobs: app.push.jobs, hardware: app.push.hardware };
   }
 
   function remoteCard() {
@@ -1461,6 +1462,8 @@
         r.ntfy ? h("dt", { text: t("remote.ntfy") }) : null, r.ntfy ? h("dd", { text: t("remote.ntfy_on") }) : null),
       r.notify === "push" ? h("label", { class: "switch-row", style: { marginTop: "10px" } },
         h("input", { type: "checkbox", checked: r.jobs, onchange: (e) => pushJobs(e.target.checked) }), h("span", { text: t("remote.push_jobs") })) : null,
+      r.notify === "push" ? h("label", { class: "switch-row", style: { marginTop: "6px" } },
+        h("input", { type: "checkbox", checked: r.hardware, onchange: (e) => pushOption("hardware", e.target.checked) }), h("span", { text: t("remote.push_hardware") })) : null,
       h("div", { class: "toolbar", style: { marginTop: "10px" } },
         r.notify === "push" || r.notify === "on" || r.notify === "off" ? h("button", { type: "button", class: "btn" + (r.notify === "off" ? " primary" : ""), onclick: notifyToggle },
           icon(r.notify === "off" ? "ok" : "bad"), t(r.notify === "off" ? "remote.notify_start" : "remote.notify_stop")) : null,
@@ -2355,14 +2358,16 @@
           P.sensors.length || P.filament.length ? sect("sensors", "thermo", "hw.sensors") : null,
           app.webcams.some((w) => w.enabled !== false && w.snapshot_url) ? sect("camera", "camera", "hw.camera") : null,
           sect("events", "alert", "hw.events"))),
-      h("p", { class: "note", style: { marginTop: "14px" } }, icon("info"), h("span", { text: t("hw.explain_boards") })),
+      h("p", { class: "note", style: { marginTop: "14px" } }, icon(app.push.id && app.push.hardware ? "ok" : "phone"),
+        h("span", { text: t(app.push.id && app.push.hardware ? "hw.push_on" : app.push.key ? "hw.push_off" : "hw.push_none") })),
+      h("p", { class: "note", style: { marginTop: "8px" } }, icon("info"), h("span", { text: t("hw.explain_boards") })),
       list.length ? h("p", { class: "note", style: { marginTop: "8px" } }, icon("info"), h("span", { text: t("motors.explain") })) : null,
       list.length ? h("p", { class: "note", style: { marginTop: "8px" } }, icon("thermo"), h("span", { text: t("motors.sensor_tip") })) : null);
     return { el, update: () => paintHardware(el, list, P) };
   }
   viewHardware.sig = function () {
     return JSON.stringify([(app.objects || []).length, Object.keys(app.config || {}).length, motorList().map((m) => m.obj + m.motor), app.klippy,
-      app.webcams.length]);
+      app.webcams.length, app.push.id, app.push.hardware, app.push.key]);
   };
 
   function paintHardware(el, list, P) {

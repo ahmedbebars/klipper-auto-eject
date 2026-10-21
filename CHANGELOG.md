@@ -14,7 +14,11 @@ All notable changes to this project are documented here. The format is based on
   one cannot hold its target at full power. **Fans**: speed and turns per minute, with a warning when
   one with a speed sensor stops. **Computer**: processor use and temperature, memory, storage,
   network errors, low voltage on a Raspberry Pi. **Sensors**, the **camera**, and the prints that
-  stopped with an error. Every motor with a TMC driver (X, Y, every Z motor and every
+  stopped with an error. **With the page closed**, the notification service watches the serious
+  ones (a fan with a speed sensor that stopped, driver warnings, a hot motor, a board link resending
+  data, an unhealthy CAN bus, a heater that cannot hold its target, the computer too hot or short of
+  voltage, memory or storage) and sends each once to the phones, opening the Hardware tab; each
+  phone can turn them off. Every motor with a TMC driver (X, Y, every Z motor and every
   extruder), live once a second: moving, holding or off; its current; its StallGuard reading with
   the last ten minutes as a line (TMC2130, 2240, 2660 and 5160 report it); its driver's warnings
   (overheating, shorts, a dropped supply, an open coil); and the motor's own temperature from a

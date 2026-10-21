@@ -165,3 +165,24 @@ def test_the_service_and_the_page_agree_on_what_notifies():
         page = (js("noticeFor", line) or {}).get("kind")
         service = (ap.notice_for(line) or (None,))[0]
         assert page == service, line
+
+
+def test_hardware_warnings_in_the_phones_language_open_the_hardware_tab():
+    words = {"en": "The fan hotend fan is not turning.", "ar": "المروحة hotend fan لا تدور."}
+    sub = {"lang": "ar", "url": "https://p/auto-eject/web/#/overview"}
+    note = ap.message_for("hardware", words, sub)
+    assert note["title"] == "تحذير من العتاد" and note["body"] == words["ar"]
+    assert note["url"] == "https://p/auto-eject/web/#/hardware"
+    # each warning its own notification, not one replacing the other
+    other = ap.message_for("hardware", {"en": "Motor X: the driver is getting hot", "ar": "x"}, sub)
+    assert note["tag"] != other["tag"] and note["tag"].startswith("auto-eject-here-hardware-")
+    assert ap.message_for("hardware", words, {"lang": "fr"})["body"] == words["en"]
+
+
+def test_a_phone_can_turn_hardware_warnings_off():
+    subs = {"a1": {"endpoint": "https://push/a", "lang": "en", "name": "Phone"},
+            "b2": {"endpoint": "https://push/b", "lang": "en", "hardware": False, "name": "Laptop"}}
+    sent = []
+    ap.deliver([("hardware", {"en": "The part cooling fan is not turning.", "ar": "x"})], FakeMoonraker(subs), vapid=None,
+               sender=lambda sub, message, vapid, urgency: sent.append((sub["name"], urgency)) or 201)
+    assert sent == [("Phone", "high")]
