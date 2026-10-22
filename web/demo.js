@@ -168,6 +168,16 @@
     this.defaults = Object.assign({}, FALLBACK_DEFAULTS);
     this.queue = { state: "ready", jobs: [] };
     this.jobId = 1;
+    // Spoolman: the spool on the printer is nearly empty, so the queue
+    // shows where it runs out; another spool can be chosen
+    const fil = (id, vendor, name, material, color, density) => ({ id, vendor: { id, name: vendor }, name, material, color_hex: color,
+                                                                   density, diameter: 1.75, weight: 1000, spool_weight: 200 });
+    this.spools = [
+      { id: 3, remaining_weight: 33, used_weight: 967, initial_weight: 1000, filament: fil(1, "Generic", "PLA Orange", "PLA", "ff7a1a", 1.24) },
+      { id: 5, remaining_weight: 780, used_weight: 220, initial_weight: 1000, filament: fil(2, "eSUN", "PLA+ Black", "PLA", "18191c", 1.24) },
+      { id: 7, remaining_weight: 1000, used_weight: 0, initial_weight: 1000, filament: fil(3, "Polymaker", "PETG Blue", "PETG", "2f6fdf", 1.27) }
+    ];
+    this.spoolId = 3;
     this.parts = [];
     this.wizard = { step: "" };
     this.status = {
@@ -438,6 +448,19 @@
     }, 2500);
   };
 
+  // What the klipper-auto-eject service does with Spoolman (push/spool.py):
+  // stop the queue before a job the spool on the printer cannot finish.
+  Demo.prototype.spoolGuard = function () {
+    const sp = this.spools.find((x) => x.id === this.spoolId);
+    const next = this.queue.jobs[0], set = this.settings();
+    if (!sp || !next || this.queue.state !== "ready" || String(set.spool_low_action || "stop") !== "stop") return;
+    const ps = this.status.print_stats, fil = sp.filament;
+    const now = ps.state === "printing" ? M.gramsLeft(this.fileMeta(ps.filename), ps.filament_used, this.status.virtual_sdcard.progress, fil) : 0;
+    const reserve = Number(set.spool_reserve);
+    const p = M.spoolPlan(sp.remaining_weight, now, [M.fileGrams(this.fileMeta(next.filename), fil)], isFinite(reserve) ? reserve : 10);
+    if (p && p.stopAt === 0) { this.queue.state = "paused"; this.queueChanged("state_changed"); }
+  };
+
   Demo.prototype.print = async function (name) {
     const f = FILES[name];
     const ps = this.status.print_stats;
@@ -463,8 +486,17 @@
       ps.total_duration = ps.print_duration + 60;
       this.status.virtual_sdcard.progress = i / steps;
       this.status.display_status.progress = i / steps;
+      const used = this.fileMeta(name).filament_total / steps;
+      ps.filament_used = (i === 1 ? 0 : ps.filament_used || 0) + used;
+      const spool = this.spools.find((x) => x.id === this.spoolId);
+      if (spool) {
+        const g = used * Math.PI * 1.75 * 1.75 / 4 * spool.filament.density / 1000;
+        spool.remaining_weight = Math.round(Math.max(0, spool.remaining_weight - g) * 10) / 10;
+        spool.used_weight = Math.round((spool.used_weight + g) * 10) / 10;
+      }
       this.touch("print_stats"); this.touch("virtual_sdcard"); this.touch("display_status");
       if (i === 2) { this.capture(); this.state({ job: name, height: 0 }); }
+      if (i === 4) this.spoolGuard();
       if (z > this.status["gcode_macro _AUTO_EJECT_STATE"].height) this.state({ height: Math.round(z * 100) / 100 });
     }
     this.status.extruder.target = 0;
@@ -731,7 +763,7 @@
     const st = this.status;
     switch (method) {
       case "server.connection.identify": return ok({ connection_id: 1 });
-      case "server.info": return ok({ klippy_connected: true, klippy_state: st.webhooks.state, components: ["job_queue", "webcam", "file_manager"], moonraker_version: "demo" });
+      case "server.info": return ok({ klippy_connected: true, klippy_state: st.webhooks.state, components: ["job_queue", "webcam", "file_manager", "spoolman"], moonraker_version: "demo" });
       case "printer.info": return ok({ state: st.webhooks.state, hostname: "demo-printer", software_version: "demo" });
       case "printer.objects.list":
         return ok({ objects: Object.keys(st).concat(["gcode_macro AUTO_EJECT", "gcode_macro AUTO_EJECT_SET", "gcode_macro AUTO_EJECT_SETUP", "configfile", "probe"],
@@ -759,6 +791,23 @@
       }
       case "server.config": return ok({ config: { job_queue: { load_on_startup: false, automatic_transition: true, job_transition_delay: 0.01 } } });
       case "server.job_queue.status": return ok({ queued_jobs: this.queue.jobs.slice(), queue_state: this.queue.state });
+      case "server.spoolman.status": return ok({ spoolman_connected: true, pending_reports: [], spool_id: this.spoolId });
+      case "server.spoolman.get_spool_id": return ok({ spool_id: this.spoolId });
+      case "server.spoolman.post_spool_id": {
+        this.spoolId = params.spool_id === null || params.spool_id === undefined ? null : Number(params.spool_id);
+        setTimeout(() => this.emit("notify_active_spool_set", [{ spool_id: this.spoolId }]), 80);
+        return ok({ spool_id: this.spoolId });
+      }
+      case "server.spoolman.proxy": {
+        const one = /^\/v1\/spool\/(\d+)$/.exec(params.path || "");
+        const copy = (v) => JSON.parse(JSON.stringify(v));
+        if (one) {
+          const sp = this.spools.find((x) => x.id === Number(one[1]));
+          return ok(sp ? { response: copy(sp), error: null } : { response: null, error: { status_code: 404, message: "No spool with ID " + one[1] } });
+        }
+        if (/^\/v1\/spool(\?|$)/.test(params.path || "")) return ok({ response: copy(this.spools), error: null });
+        return ok({ response: null, error: { status_code: 404, message: "Not found" } });
+      }
       case "server.job_queue.post_job": {
         for (const f of params.filenames || []) this.queue.jobs.push(this.newJob(f));
         this.queueChanged("jobs_added");

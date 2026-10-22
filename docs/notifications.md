@@ -11,6 +11,7 @@ A message on your phone when the printer needs you, and, if you like, when every
 | a print ended without an eject (no `AUTO_EJECT` in the end G-code, or cancelled) | the parts are still on the bed |
 | the next print did not start because old parts are still on the bed | [the guard](recovery.md#the-guard-auto_eject_guard) |
 | the parts box is almost full, or full ([`bin_capacity`](configuration.md#the-parts-box)) | when full, the next print waits until you empty it |
+| with [Spoolman](spoolman.md): the spool cannot finish the next job, or may run out during the print | the queue stops before that job (`spool_low_action`) |
 | a print stopped with an error, or was cancelled | |
 | a printer's maintenance is due, and the farm's daily report ([farm.md](farm.md#maintenance-reminders-and-the-daily-report)) | in the app, with the farm |
 | a hardware warning: a fan with a speed sensor stopped, a motor driver warning, a hot motor, a board link resending data, an unhealthy CAN bus, a heater that cannot hold its target, the computer too hot or short of voltage, memory or storage ([Hardware](web-page.md#hardware)) | in the app; it opens the Hardware tab. Each phone can turn them off: **Hardware warnings too** |

@@ -125,6 +125,7 @@ nav:
       - Remote access: remote-access.md
       - Notifications: notifications.md
       - Printer farm: farm.md
+      - Spoolman: spoolman.md
   - Reference:
       - Configuration: configuration.md
       - Strategies: strategies.md
@@ -140,6 +141,7 @@ nav:
       - من الهاتف: ar/remote-access.md
       - الإشعارات: ar/notifications.md
       - مزرعة الطابعات: ar/farm.md
+      - البكرة وSpoolman: ar/spoolman.md
       - الأسئلة الشائعة: ar/faq.md
       - السلامة: ar/safety.md
   - Live demo: demo.md

@@ -734,6 +734,67 @@
     return Math.max(0, (Number(state.cool_start) || 0) + limit - estimated);
   }
 
+  // ----- the spool, with Spoolman: does the queue fit on what is left?
+  // The same rules as push/spool.py, which stops the queue with the page closed.
+
+  // Grams of filament for a length (mm) of the spool's filament.
+  function lengthGrams(mm, filament) {
+    const f = filament || {}, d = Number(f.diameter) > 0 ? Number(f.diameter) : 1.75, rho = Number(f.density);
+    if (!(Number(mm) > 0) || !(rho > 0)) return null;
+    return Number(mm) * Math.PI * d * d / 4 * rho / 1000;
+  }
+
+  // Grams a file needs: the slicer's weight or, without one, its length on
+  // the spool's filament. null when it cannot be told, and for a file that
+  // prints more than one filament, which one spool cannot be checked for.
+  function fileGrams(m, filament) {
+    m = m || {};
+    if ((m.filament_weights || []).filter((w) => Number(w) > 0).length > 1 || Number(m.filament_change_count) > 0) return null;
+    if (Number(m.filament_weight_total) > 0) return Number(m.filament_weight_total);
+    return lengthGrams(m.filament_total, filament);
+  }
+
+  // What the print running now still needs: the part of it not printed yet,
+  // by filament used (mm) when the file gives its length, else by progress.
+  function gramsLeft(m, used, progress, filament) {
+    const all = fileGrams(m, filament);
+    if (all === null) return null;
+    const total = Number((m || {}).filament_total);
+    const done = total > 0 && Number(used) >= 0 ? Number(used) / total : Number(progress) || 0;
+    return all * (1 - Math.min(1, Math.max(0, done)));
+  }
+
+  // The queue against the spool. left: grams on it now; now: grams the print
+  // running still needs (0 for none, null unknown); jobs: grams for each
+  // queued job (null unknown). A job is "short" when it would leave less than
+  // reserve, and from the first job that cannot be told on nothing can.
+  // stopAt: the job the queue must not start (-1 none).
+  function spoolPlan(left, now, jobs, reserve) {
+    if (typeof left !== "number" || !isFinite(left)) return null;
+    const keep = Number(reserve) > 0 ? Number(reserve) : 0;
+    let rest = now === null ? null : left - (now || 0);
+    const out = { left, now, reserve: keep, after: rest, nowShort: rest !== null && (now || 0) > 0 && rest < keep, jobs: [], stopAt: -1, fit: 0 };
+    for (const g of jobs || []) {
+      if (rest === null || g === null || g === undefined) {
+        rest = null;
+        out.jobs.push({ grams: g === undefined ? null : g, left: null, fit: "unknown" });
+        continue;
+      }
+      rest -= g;
+      const short = rest < keep;
+      if (short && out.stopAt < 0) out.stopAt = out.jobs.length;
+      if (!short && out.stopAt < 0) out.fit++;
+      out.jobs.push({ grams: g, left: rest, fit: out.stopAt >= 0 ? "short" : "ok" });
+    }
+    return out;
+  }
+
+  // The spool's name as Mainsail shows it: maker, filament, colour.
+  function spoolName(spool) {
+    const f = (spool || {}).filament || {};
+    return [(f.vendor || {}).name, f.name || f.material].filter(Boolean).join(" ") || (spool && spool.id ? "#" + spool.id : "");
+  }
+
   // A fan with a tachometer that should turn and does not.
   function fanStopped(fan) {
     return !!fan && typeof fan.rpm === "number" && (fan.speed || 0) >= 0.25 && fan.rpm < 1;
@@ -789,7 +850,8 @@
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
     noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
-    hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft,
+    lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

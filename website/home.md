@@ -197,10 +197,11 @@ and blades come 60, 80 and 100 mm wide. [Print and mount it](hardware.md)
   <a href="https://docs.fluidd.xyz/" title="Fluidd"><img src="images/logos/fluidd.svg" alt="Fluidd"></a>
   <a href="https://github.com/SoftFever/OrcaSlicer" title="OrcaSlicer"><img src="images/logos/orcaslicer.svg" alt="OrcaSlicer"></a>
   <a href="https://github.com/prusa3d/PrusaSlicer" title="PrusaSlicer"><img src="images/logos/prusaslicer.svg" alt="PrusaSlicer"></a>
+  <a href="https://github.com/Donkie/Spoolman" title="Spoolman"><img src="images/logos/spoolman.svg" alt="Spoolman"></a>
 </p>
 
 Klipper and Moonraker, Mainsail or Fluidd, and OrcaSlicer, PrusaSlicer, SuperSlicer or Cura.
-Phone access through Tailscale.
+Phone access through Tailscale; the spool checked with Spoolman.
 
 ## Get started { .ae-section }
 

@@ -179,6 +179,17 @@ After emptying the box, run `AUTO_EJECT_BIN_EMPTY` or press **I emptied the box*
 (on the overview, or the printer's card in the farm). Count by the biggest parts you print: a box
 that holds 40 cookie cutters holds fewer vases.
 
+## The spool (Spoolman)
+
+With [Spoolman](https://github.com/Donkie/Spoolman) linked to Moonraker (`[spoolman]`), the queue is
+checked against what is left on the printer's spool ([spoolman.md](spoolman.md)). Without Spoolman,
+these do nothing.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `spool_low_action` | `"stop"` | Before a job the spool cannot finish: `"stop"` stops the job queue before it and sends a message (needs the `klipper-auto-eject` service, `install.sh --push`), `"notify"` only sends the message, `"off"` does not check |
+| `spool_reserve` | `10.0` | Grams to keep on the spool, since slicer weights are estimates |
+
 ## Recovery
 
 | Setting | Default | Description |

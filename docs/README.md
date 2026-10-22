@@ -27,6 +27,7 @@ it worked.
 | [Web page](web-page.md) | The Auto-eject page in Mainsail: installing it and what it shows |
 | [Notifications](notifications.md) | A message on your phone when the printer needs you, or when a print is done |
 | [Remote access](remote-access.md) | Watch and control the printer from your phone, from anywhere, without opening it to the internet |
+| [Spoolman](spoolman.md) | With Spoolman, the queue stops before a job the spool on the printer cannot finish |
 | [Printer farm](farm.md) | Every printer on your network on one page, found by itself; the others need nothing installed |
 
 ## 3. Use it every day

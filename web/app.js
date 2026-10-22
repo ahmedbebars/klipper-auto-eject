@@ -157,6 +157,8 @@
     hasQueue: false,
     autoTransition: null,
     queue: { jobs: [], state: "" },
+    spool: null,                 // with Moonraker's [spoolman]: { connected, id, pending, data, list }
+    spoolmanUrl: "",             // [spoolman] server, for a link to Spoolman's own page
     files: null,
     meta: {},
     webcams: [],
@@ -278,6 +280,8 @@
       app.hasQueue = (info.components || []).includes("job_queue");
       app.klippy = info.klippy_state || "";
       if (app.hasQueue) loadQueue();
+      app.spool = (info.components || []).includes("spoolman") ? app.spool || {} : null;
+      if (app.spool) loadSpool();
       if ((info.components || []).includes("webcam")) client.call("server.webcams.list").then((r) => { app.webcams = r.webcams || []; refresh(); }).catch(() => {});
       client.call("server.config").then((r) => {
         const jq = (r.config || {}).job_queue;
@@ -285,6 +289,7 @@
         const auth = (r.config || {}).authorization;
         app.trustedClients = auth ? [].concat(auth.trusted_clients || []) : null;
         app.ntfy = M.ntfyTopic(r.config);
+        app.spoolmanUrl = String(((r.config || {}).spoolman || {}).server || "");
         refresh();
       }).catch(() => {});
       loadPush();
@@ -354,6 +359,7 @@
     if (ps.state && ps.state !== app.lastJobState) {
       if ((app.lastJobState === "printing" || app.lastJobState === "paused") && ["complete", "error", "cancelled"].includes(ps.state)) {
         notifyUser(t("note." + ps.state), [ps.filename, ps.message].filter(Boolean).join(": "));
+        if (app.spool) setTimeout(loadSpool, 6000);
       }
       app.lastJobState = ps.state;
     }
@@ -379,6 +385,9 @@
     refresh();
   });
 
+  client.on("notify_active_spool_set", () => loadSpool());
+  client.on("notify_spoolman_status_changed", () => loadSpool());
+
   client.on("notify_filelist_changed", () => { app.files = null; if (route() === "check" || route() === "queue") loadFiles(); });
 
   function loadQueue() {
@@ -387,6 +396,66 @@
       refresh();
     }).catch(() => {});
   }
+
+  // Spoolman, through Moonraker: the spool on the printer and what is left on it.
+  function spoolman(method, path) {
+    return client.call("server.spoolman.proxy", { request_method: method, path, use_v2_response: true }).then((r) => {
+      if (r && r.error) throw new Error(r.error.message || "Spoolman");
+      return (r || {}).response;
+    });
+  }
+  function loadSpool() {
+    if (!app.spool || app.conn !== "online") return Promise.resolve();
+    return client.call("server.spoolman.status").then((st) => {
+      const sp = app.spool;
+      if (!sp) return;
+      sp.connected = !!st.spoolman_connected;
+      sp.id = st.spool_id === undefined ? null : st.spool_id;
+      sp.pending = st.pending_reports || [];
+      if (!sp.connected || sp.id === null) { sp.data = null; return; }
+      return spoolman("GET", "/v1/spool/" + sp.id).then((d) => { sp.data = d || null; }, () => { sp.data = null; });
+    }).catch(() => {}).then(() => refresh());
+  }
+  function loadSpools() {
+    if (!app.spool || app.spool.listing) return;
+    app.spool.listing = true;
+    refresh();
+    spoolman("GET", "/v1/spool?allow_archived=false").then((list) => { app.spool.list = Array.isArray(list) ? list : []; },
+      (e) => { app.spool.list = null; toast(e.message, "bad"); }).then(() => { app.spool.listing = false; refresh(); });
+  }
+  function useSpool(id) {
+    client.call("server.spoolman.post_spool_id", { spool_id: id === null ? null : Number(id) })
+      .then(() => toast(t("spool.changed"), "ok")).catch((e) => toast(e.message, "bad"));
+  }
+
+  // The queue against the spool (M.spoolPlan), with the settings; null
+  // without Spoolman, without a spool chosen, or a spool without a weight.
+  function spoolCheck() {
+    const sp = app.spool;
+    if (!sp || !sp.data || typeof sp.data.remaining_weight !== "number") return null;
+    const fil = sp.data.filament || {};
+    const pending = (sp.pending || []).filter((r) => r.spool_id === sp.id).reduce((a, r) => a + (Number(r.filament_used) || 0), 0);
+    const ps = app.status.print_stats || {};
+    let now = 0;
+    if (["printing", "paused"].includes(ps.state) && ps.filename) {
+      const m = app.meta[ps.filename];
+      if (!m) meta(ps.filename).then(() => refresh());
+      now = m ? M.gramsLeft(m, ps.filament_used, (app.status.virtual_sdcard || {}).progress, fil) : null;
+    }
+    const jobs = app.queue.jobs.map((j) => {
+      if (!app.meta[j.filename]) meta(j.filename).then(() => refresh());
+      return app.meta[j.filename] ? M.fileGrams(app.meta[j.filename], fil) : null;
+    });
+    const set = sv(), reserve = Number(set.spool_reserve);
+    const p = M.spoolPlan(sp.data.remaining_weight - (M.lengthGrams(pending, fil) || 0), now, jobs, isFinite(reserve) ? reserve : 10);
+    if (p) p.action = String(set.spool_low_action || "stop").toLowerCase();
+    return p;
+  }
+  // whether the plan warns about anything
+  function spoolTrouble(p) {
+    return !!p && p.action !== "off" && (p.nowShort || p.stopAt >= 0);
+  }
+  function spoolGrams(g) { return iso(t("spool.g", { g: num(Math.max(0, g), 0) })); }
 
   function loadFiles() {
     // a page opened on #/check draws before the connection is open: wait for it
@@ -664,6 +733,13 @@
     return h("button", { type: "button", class: "chip" + cls, title: t("bin.empty"), onclick: doBinEmpty }, icon("tray"),
       h("span", { text: t("bin.chip") + ":" }), h("b", { text: cap ? num(n, 0) + " / " + num(cap, 0) : num(n, 0) }));
   }
+  // The spool on the printer, with Spoolman: what is left.
+  function spoolChip() {
+    const d = (app.spool || {}).data;
+    if (!d || typeof d.remaining_weight !== "number") return null;
+    return h("a", { class: "chip" + (spoolTrouble(spoolCheck()) ? " warn" : ""), href: "#/queue", title: M.spoolName(d) }, icon("spool"),
+      h("span", { text: t("spool.chip") + ":" }), h("b", { text: spoolGrams(d.remaining_weight) }));
+  }
   function doBinEmpty() {
     confirm(t("bin.empty"), t("bin.empty_confirm"), t("bin.empty")).then((ok) => { if (ok) gcode("AUTO_EJECT_BIN_EMPTY"); });
   }
@@ -752,6 +828,7 @@
         h("b", { class: "ltr", "data-live": "bed", text: num(bed.temperature) + " °C" })) : null,
       h("span", { class: "chip" }, icon("box"), h("b", { text: num(n, 0) }), h("span", { text: t("facts.parts") })),
       binChip(set),
+      spoolChip(),
       app.hasQueue ? h("a", { class: "chip", href: "#/queue" }, icon("queue"), h("span", { text: t("facts.queue") + ":" }),
         h("b", { text: t("facts.queue_value", { n: num(app.queue.jobs.length, 0) }) })) : null,
       farmShown() && farm.data.printers.length > 1 ? h("a", { class: "chip" + (farmNeeds() ? " bad" : ""), href: "#/farm" }, icon("farm"),
@@ -814,7 +891,13 @@
       h("div", { class: "grow" }, h("b", { text: t("bin.full_title") }),
         h("div", { text: t("bin.full_body", { n: num(box, 0), cap: num(boxCap, 0) }) }),
         h("div", { class: "btns" }, h("button", { type: "button", class: "btn sm", onclick: doBinEmpty }, icon("ok"), t("bin.empty"))))) : null;
-    const el = h("div", null, left, boxFull, h("div", { class: "cols" },
+    const sp = spoolCheck();
+    const spoolLow = spoolTrouble(sp) && (sp.nowShort || (sp.stopAt === 0 && app.queue.state === "paused")) ? h("div", { class: "banner warn" }, icon("spool"),
+      h("div", { class: "grow" }, h("b", { text: t(sp.nowShort ? "spool.now_title" : "spool.stopped_title") }),
+        h("div", { text: sp.nowShort ? t("spool.now_short", { g: num(sp.now, 0), left: num(Math.max(0, sp.left), 0), reserve: num(sp.reserve, 0) })
+                                     : t("spool.stopped_body", { g: num(sp.jobs[0].grams, 0), left: num(Math.max(0, sp.after), 0), reserve: num(sp.reserve, 0) }) }),
+        h("div", { class: "btns" }, h("a", { class: "btn sm", href: "#/queue" }, icon("queue"), t("spool.see_queue"))))) : null;
+    const el = h("div", null, left, boxFull, spoolLow, h("div", { class: "cols" },
       h("div", { class: "stack" }, hero, actions, camera),
       h("div", { class: "stack" }, bedCard, facts)));
 
@@ -842,7 +925,7 @@
     return JSON.stringify([phase(), parts().map((r) => r.slice(0, 5)), st.leftover, st.height, homed(), blocked(), ps.filename,
       m && m.values, app.queue.state, app.queue.jobs.length, app.hasQueue, Object.keys(app.config).length, app.webcams.length,
       Array.from(app.lanesDone), Object.keys(polygons()).length, farmShown() && farm.data.printers.length, farmNeeds(), st.bin,
-      !!(ps.filename && app.meta[ps.filename])]);
+      !!(ps.filename && app.meta[ps.filename]), spoolSig()]);
   };
 
   function camUrl(cam) {
@@ -995,6 +1078,8 @@
     const q = app.queue;
     const paused = q.state === "paused";
     const set = sv();
+    const sp = spoolCheck();
+    const fil = ((app.spool || {}).data || {}).filament;
     let total = 0;
     const rows = q.jobs.map((j, i) => {
       const m = app.meta[j.filename];
@@ -1005,12 +1090,15 @@
         const thin = set.min_part_height > 0 && m.object_height < set.min_part_height && set.thin_parts_action === "ignore";
         badge = thin ? h("span", { class: "badge warn", text: t("queue.badge.thin") }) : h("span", { class: "badge ok", text: t("queue.badge.ok") });
       }
-      return h("div", { class: "row" + (i === 0 && !paused ? " now" : "") },
+      const g = m ? M.fileGrams(m, fil) : null;
+      const short = !!sp && sp.action !== "off" && !!sp.jobs[i] && sp.jobs[i].fit === "short";
+      return h("div", { class: "row" + (i === 0 && !paused ? " now" : "") + (short ? " short" : "") },
         h("span", { class: "num", text: num(i + 1, 0) }),
         thumbBox(m ? thumbSrc(j.filename, m, 96) : null, "sm"),
         h("div", { class: "grow" }, h("div", { class: "name ltr", text: j.filename }),
-          h("div", { class: "sub" }, m && m.estimated_time ? duration(m.estimated_time) : "", m && m.object_height ? " · " + t("c.mm", { v: num(m.object_height) }) : "")),
-        badge,
+          h("div", { class: "sub" }, m && m.estimated_time ? duration(m.estimated_time) : "", m && m.object_height ? " · " + t("c.mm", { v: num(m.object_height) }) : "",
+            g !== null ? " · " + t("spool.g", { g: num(g, 0) }) : "")),
+        short ? h("span", { class: "badge bad", text: t("queue.badge.spool") }) : badge,
         h("button", { type: "button", class: "icon-btn", title: t("queue.remove"), "aria-label": t("queue.remove"),
           onclick: () => client.call("server.job_queue.delete_job", { job_ids: [j.job_id] }).then(() => toast(t("queue.removed"))).catch((e) => toast(e.message, "bad")) }, icon("trash")));
     });
@@ -1051,9 +1139,10 @@
               h("span", { class: "right" }, h("span", { class: "badge " + (paused ? "warn" : "ok"), text: t("queue.state." + (q.state || "ready")) }))),
             rows.length ? h("div", { class: "list" }, rows) : h("div", { class: "empty" }, icon("queue"), h("p", { text: t("queue.empty") })),
             h("div", { class: "toolbar", style: { marginTop: "14px" } },
-              paused ? h("button", { type: "button", class: "btn primary", onclick: () => client.call("server.job_queue.start").catch((e) => toast(e.message, "bad")) }, icon("play"), t("queue.start"))
+              paused ? h("button", { type: "button", class: "btn primary", onclick: startQueue }, icon("play"), t("queue.start"))
                      : h("button", { type: "button", class: "btn", onclick: () => client.call("server.job_queue.pause").catch((e) => toast(e.message, "bad")) }, icon("pause"), t("queue.pause")),
-              q.jobs.length ? h("span", { class: "muted", text: t("queue.total", { n: num(q.jobs.length, 0), t: duration(total) }) }) : null))),
+              q.jobs.length ? h("span", { class: "muted", text: t("queue.total", { n: num(q.jobs.length, 0), t: duration(total) }) }) : null)),
+          spoolCard(sp)),
         h("div", { class: "stack" },
           h("section", { class: "card" },
             h("h2", null, icon("plus"), t("queue.add")),
@@ -1076,8 +1165,70 @@
   }
   viewQueue.sig = function () {
     const ps = app.status.print_stats || {};
-    return JSON.stringify([app.hasQueue, app.queue, ps.state, ps.filename, Math.round(((app.status.display_status || {}).progress || 0) * 100), app.autoTransition, (app.files || []).length, Object.keys(app.meta).length, sv().min_part_height, sv().thin_parts_action, queueUi.file, queueUi.filter]);
+    return JSON.stringify([app.hasQueue, app.queue, ps.state, ps.filename, Math.round(((app.status.display_status || {}).progress || 0) * 100), app.autoTransition, (app.files || []).length, Object.keys(app.meta).length, sv().min_part_height, sv().thin_parts_action, queueUi.file, queueUi.filter,
+      spoolSig()]);
   };
+
+  // A queue whose next job the spool cannot finish asks before it starts.
+  function startQueue() {
+    const p = spoolCheck();
+    const go = () => client.call("server.job_queue.start").catch((e) => toast(e.message, "bad"));
+    if (!spoolTrouble(p) || p.stopAt !== 0) return go();
+    confirm(t("spool.start_title"), t("spool.start_body", { g: num(p.jobs[0].grams, 0), left: num(Math.max(0, p.after), 0), reserve: num(p.reserve, 0) }), t("queue.start"))
+      .then((ok) => { if (ok) go(); });
+  }
+
+  function spoolSig() {
+    const sp = app.spool;
+    const p = spoolCheck();
+    return sp ? [sp.connected, sp.id, sp.data && Math.round(sp.data.remaining_weight || 0), sp.data && sp.data.filament && sp.data.filament.id,
+      (sp.list || []).length, !!sp.list, !!sp.listing, app.spoolmanUrl, p && [p.nowShort, p.stopAt, p.fit, p.jobs.map((j) => j.fit)]] : null;
+  }
+
+  // The spool on the printer: what is left, and whether the queue fits.
+  function spoolCard(p) {
+    const sp = app.spool;
+    if (!sp) return null;
+    const link = /^https?:\/\//i.test(app.spoolmanUrl) ? h("a", { class: "right", href: app.spoolmanUrl, target: "_blank", rel: "noopener" },
+      t("spool.open"), icon("external")) : null;
+    const head = h("h2", null, icon("spool"), t("spool.title"), link);
+    const picker = () => {
+      if (!sp.list) return h("button", { type: "button", class: "btn sm", disabled: !!sp.listing, onclick: loadSpools }, icon("spool"), t("spool.change"));
+      return h("label", { class: "field grow" }, h("span", { text: t("spool.change") }),
+        h("select", { class: "input", onchange: (e) => useSpool(e.target.value === "" ? null : e.target.value) },
+          h("option", { value: "", text: t("spool.none"), selected: sp.id === null }),
+          sp.list.map((x) => h("option", { value: String(x.id), selected: x.id === sp.id,
+            text: "#" + x.id + " · " + M.spoolName(x) + (typeof x.remaining_weight === "number" ? " · " + t("spool.g", { g: num(x.remaining_weight, 0) }) : "") }))));
+    };
+    if (sp.connected === undefined) return h("section", { class: "card" }, head, h("div", { class: "empty" }, h("span", { class: "spinner" })));
+    if (!sp.connected) return h("section", { class: "card" }, head, h("p", { class: "note" }, icon("alert"), h("span", { text: t("spool.offline") })));
+    if (sp.id === null) return h("section", { class: "card" }, head, h("p", { class: "note" }, icon("info"), h("span", { text: t("spool.unset") })),
+      h("div", { class: "toolbar", style: { marginTop: "12px" } }, picker()));
+    const d = sp.data || {}, f = d.filament || {};
+    const full = Number(d.initial_weight) || Number(f.weight) || 0;
+    const left = typeof d.remaining_weight === "number" ? d.remaining_weight : null;
+    const color = /^[0-9a-f]{6}$/i.test(f.color_hex || "") ? "#" + f.color_hex : "";
+    let line = null;
+    if (left === null) line = h("p", { class: "note" }, icon("info"), h("span", { text: t("spool.no_weight") }));
+    else if (!p || p.action === "off") line = null;
+    else if (p.nowShort) line = h("p", { class: "note bad" }, icon("alert"), h("span", { text: t("spool.now_short", { g: num(p.now, 0), left: num(Math.max(0, p.left), 0), reserve: num(p.reserve, 0) }) }));
+    else if (p.stopAt >= 0) {
+      const j = p.jobs[p.stopAt];
+      line = h("p", { class: "note warn" }, icon("alert"), h("span", { text: t(p.action === "stop" ? "spool.stops_at" : "spool.short_at",
+        { n: num(p.stopAt + 1, 0), g: num(j.grams, 0), left: num(Math.max(0, j.left + j.grams), 0), reserve: num(p.reserve, 0) }) }));
+    } else if (p.jobs.some((j) => j.fit === "unknown")) {
+      line = h("p", { class: "note" }, icon("info"), h("span", { text: t("spool.unknown_at", { n: num(p.jobs.findIndex((j) => j.fit === "unknown") + 1, 0) }) }));
+    } else if (p.jobs.length) line = h("p", { class: "note ok" }, icon("ok"), h("span", { text: t("spool.fits", { left: num(Math.max(0, p.jobs[p.jobs.length - 1].left), 0) }) }));
+    return h("section", { class: "card" }, head,
+      h("div", { class: "spool-head" },
+        h("span", { class: "spool-swatch", style: color ? { background: color } : null }),
+        h("div", { class: "grow" }, h("b", { text: M.spoolName(d) }),
+          h("div", { class: "sub ltr", text: ["#" + d.id, f.material, f.diameter ? num(f.diameter, 2) + " mm" : ""].filter(Boolean).join(" · ") })),
+        left !== null ? h("div", { class: "spool-left" }, h("b", { text: spoolGrams(left) }), full ? h("span", { class: "sub", text: t("spool.of", { g: num(full, 0) }) }) : null) : null),
+      left !== null && full ? h("div", { class: "meter" + (spoolTrouble(p) ? " warn" : "") }, h("i", { style: { width: Math.max(1, Math.min(100, left / full * 100)).toFixed(1) + "%" } })) : null,
+      line,
+      h("div", { class: "toolbar", style: { marginTop: "12px" } }, picker()));
+  }
 
   function head(titleKey, introKey, extra) {
     return h("div", { class: "view-head" }, h("div", null, h("h1", { text: t(titleKey) }), introKey ? h("p", { text: t(introKey) }) : null), extra || null);
@@ -2835,6 +2986,9 @@
     }
   }, 1200);
   setInterval(pollHardware, 1000);
+  setInterval(() => {
+    if (app.spool && !document.hidden && ["printing", "paused"].includes((app.status.print_stats || {}).state)) loadSpool();
+  }, 20000);
   // the farm: often while it is shown, now and then for the menu's count
   loadFarm();
   setInterval(() => {

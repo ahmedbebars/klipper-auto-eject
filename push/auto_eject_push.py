@@ -9,6 +9,8 @@ them on in the auto-eject page, even while the page is closed:
   that ended without an eject, a print the guard did not start
 - a print that stopped with an error or was cancelled, Klipper stopping
 - every finished print, on the devices that want it
+- with Spoolman, a spool that cannot finish the next job (spool.py): the
+  queue stops before it
 - AUTO_EJECT_NOTIFY_TEST
 
 The page subscribes with the browser's push service (Google for Chrome and
@@ -43,6 +45,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from hardware import HardwareWatcher   # next to this file
+from spool import SpoolWatcher
 
 NAMESPACE = "auto_eject_push"
 CONTACT = "https://github.com/ahmedbebars/klipper-auto-eject"
@@ -132,17 +135,19 @@ NOTICES = [
     (re.compile(r"the parts box is (almost )?full"), "bin"),
     (re.compile(r"^AUTO_EJECT: test notification"), "test"),
 ]
-PROBLEMS = {"stuck", "guard", "thin", "left", "bin", "error", "shutdown", "hardware"}
+PROBLEMS = {"stuck", "guard", "thin", "left", "bin", "error", "shutdown", "hardware", "spool"}
 TITLES = {
     "en": {"stuck": "A part is still on the bed", "guard": "The print did not start",
            "thin": "Parts left on the bed", "left": "Take the parts off", "complete": "Print finished",
            "error": "Print stopped with an error", "cancelled": "Print cancelled", "shutdown": "Klipper stopped",
            "bin": "Empty the parts box", "off": "Switched off", "service": "Maintenance due",
-           "report": "The farm today", "hardware": "Hardware warning", "test": "Auto-eject"},
+           "report": "The farm today", "hardware": "Hardware warning", "spool": "The spool is running low",
+           "test": "Auto-eject"},
     "ar": {"stuck": "قطعة ما زالت على السرير", "guard": "لم تبدأ الطباعة", "thin": "قطع متروكة على السرير",
            "left": "أزل القطع", "complete": "انتهت الطباعة", "error": "توقفت الطباعة بخطأ",
            "cancelled": "أُلغيت الطباعة", "shutdown": "توقف Klipper", "bin": "أفرغ صندوق القطع", "off": "أُطفئت",
            "service": "حان وقت الصيانة", "report": "المزرعة اليوم", "hardware": "تحذير من العتاد",
+           "spool": "البكرة توشك أن تنفد",
            "test": "الإزالة التلقائية"},
 }
 TEST_BODY = {"en": "Notifications from your printer work.", "ar": "إشعارات طابعتك تعمل."}
@@ -251,6 +256,9 @@ class Moonraker:
     def call(self, path):
         return self._call(path)
 
+    def post(self, path, data=None):
+        return self._call(path, {} if data is None else data)
+
     def get(self, key, namespace=NAMESPACE):
         try:
             return self._call("/server/database/item?namespace=%s&key=%s" % (namespace, key))["value"]
@@ -295,6 +303,7 @@ def main():
     watcher = Watcher()
     hardware = HardwareWatcher()
     hardware_at = 0.0
+    spool = SpoolWatcher()
     published = False
     if args.api_port:
         import farm as farm_mod
@@ -336,6 +345,10 @@ def main():
             if time.time() - hardware_at >= 5:
                 hardware_at = time.time()
                 events += [(kind, words) for kind, words, _level in hardware.check(moonraker)]
+            try:
+                events += spool.check(moonraker)
+            except Exception as e:
+                log.debug("spool: %s", e)
             if events:
                 deliver(events, moonraker, vapid)
         except Exception as e:  # Moonraker restarting, network down: try again

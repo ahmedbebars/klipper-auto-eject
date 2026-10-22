@@ -33,10 +33,11 @@
   <a href="https://docs.mainsail.xyz/" title="Mainsail"><img src="../images/logos/mainsail.svg" alt="Mainsail" height="44"></a>&emsp;
   <a href="https://docs.fluidd.xyz/" title="Fluidd"><img src="../images/logos/fluidd.svg" alt="Fluidd" height="44"></a>&emsp;
   <a href="https://github.com/SoftFever/OrcaSlicer" title="OrcaSlicer"><img src="../images/logos/orcaslicer.svg" alt="OrcaSlicer" height="44"></a>&emsp;
-  <a href="https://github.com/prusa3d/PrusaSlicer" title="PrusaSlicer"><img src="../images/logos/prusaslicer.svg" alt="PrusaSlicer" height="44"></a>
+  <a href="https://github.com/prusa3d/PrusaSlicer" title="PrusaSlicer"><img src="../images/logos/prusaslicer.svg" alt="PrusaSlicer" height="44"></a>&emsp;
+  <a href="https://github.com/Donkie/Spoolman" title="Spoolman"><img src="../images/logos/spoolman.svg" alt="Spoolman" height="44"></a>
 </p>
 <p align="center"><sub>تعمل مع Klipper وMoonraker، ومع Mainsail أو Fluidd، ومع OrcaSlicer أو PrusaSlicer أو SuperSlicer أو Cura.
-والوصول من الهاتف عبر Tailscale. (<a href="../images/logos/README.md">عن هذه الشعارات</a>)</sub></p>
+والوصول من الهاتف عبر Tailscale، وفحص البكرة مع Spoolman. (<a href="../images/logos/README.md">عن هذه الشعارات</a>)</sub></p>
 
 ---
 
@@ -180,6 +181,8 @@
 - تتحمل إعادة التشغيل وانقطاع الكهرباء: تتذكر الطابعة أماكن القطع، وتضبط المحاور دون أن تلمسها،
   ولا تبدأ طباعة فوقها أبدًا ([الاسترداد](../recovery.md)، بالإنجليزية).
 - التبريد لا ينتظر إلى الأبد: في غرفة دافئة تُدفع القطع بعد مهلة محددة، مع تحذير.
+- مع [Spoolman](spoolman.md)، تتوقف القائمة قبل مهمة لا تكفيها البكرة المركّبة، بدل أن تنفد البكرة في
+  منتصفها.
 
 **سهلة**
 - إعداد موجّه في خمس نوافذ داخل Mainsail أو Fluidd. بلا تعديل ملفات إعداد، وبلا مسطرة.
@@ -265,6 +268,7 @@
 | [من الهاتف](remote-access.md) | مراقبة الطابعة والتحكم فيها من هاتفك من أي مكان، دون فتحها على الإنترنت |
 | [الإشعارات](notifications.md) | رسالة على هاتفك عندما تحتاجك الطابعة، أو عندما تنتهي طباعة |
 | [مزرعة الطابعات](farm.md) | كل طابعات شبكتك في صفحة واحدة، تجدها وحدها؛ والطابعات الأخرى لا تحتاج أي تثبيت |
+| [البكرة وSpoolman](spoolman.md) | مع Spoolman، تتوقف القائمة قبل مهمة لا تكفيها البكرة المركّبة على الطابعة |
 | [الأسئلة الشائعة](faq.md) | إجابات قصيرة: هل تخدش السرير، هل أحتاج مجسًا، كم تستغرق… |
 | [السلامة](safety.md) | ما الذي قد يحدث خطأ، وما تراقبه قبل أن تترك الطابعة وحدها |
 

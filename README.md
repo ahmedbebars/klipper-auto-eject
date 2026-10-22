@@ -31,10 +31,11 @@
   <a href="https://docs.mainsail.xyz/" title="Mainsail"><img src="docs/images/logos/mainsail.svg" alt="Mainsail" height="44"></a>&emsp;
   <a href="https://docs.fluidd.xyz/" title="Fluidd"><img src="docs/images/logos/fluidd.svg" alt="Fluidd" height="44"></a>&emsp;
   <a href="https://github.com/SoftFever/OrcaSlicer" title="OrcaSlicer"><img src="docs/images/logos/orcaslicer.svg" alt="OrcaSlicer" height="44"></a>&emsp;
-  <a href="https://github.com/prusa3d/PrusaSlicer" title="PrusaSlicer"><img src="docs/images/logos/prusaslicer.svg" alt="PrusaSlicer" height="44"></a>
+  <a href="https://github.com/prusa3d/PrusaSlicer" title="PrusaSlicer"><img src="docs/images/logos/prusaslicer.svg" alt="PrusaSlicer" height="44"></a>&emsp;
+  <a href="https://github.com/Donkie/Spoolman" title="Spoolman"><img src="docs/images/logos/spoolman.svg" alt="Spoolman" height="44"></a>
 </p>
 <p align="center"><sub>Works with Klipper and Moonraker, Mainsail or Fluidd, and OrcaSlicer, PrusaSlicer, SuperSlicer or Cura.
-Phone access through Tailscale. (<a href="docs/images/logos/README.md">about these logos</a>)</sub></p>
+Phone access through Tailscale; the spool checked with Spoolman. (<a href="docs/images/logos/README.md">about these logos</a>)</sub></p>
 
 ---
 
@@ -183,6 +184,8 @@ and works out how high the blade sits and how far ahead of the nozzle, in 2–3 
 - Survives restarts and power cuts: the printer remembers where the parts are, homes without
   touching them, and never starts a print on top of them ([recovery](docs/recovery.md)).
 - Cooling never waits forever: in a warm room the parts are pushed after a time limit, with a warning.
+- With [Spoolman](docs/spoolman.md), the queue stops before a job the spool on the printer cannot
+  finish, instead of running out halfway through it.
 
 **Easy**
 - Guided setup in five dialogs in Mainsail or Fluidd. No config editing, no ruler.

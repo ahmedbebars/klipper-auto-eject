@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Spoolman** ([docs/spoolman.md](docs/spoolman.md)): with Moonraker's `[spoolman]`, the queue is
+  checked against what is left on the spool on the printer. The print queue gets a **Spool** card
+  (the spool, the grams left, whether the queue fits, **Change the spool**) and the grams each job
+  needs; the job the spool cannot finish is marked, and **Start the queue** asks first. The
+  service stops the queue before that job and sends a notification, also with the page closed,
+  and warns when the print running may run out. New settings `spool_low_action` (`"stop"`,
+  `"notify"`, `"off"`) and `spool_reserve` (grams kept back, 10). Without Spoolman nothing
+  changes. Spoolman's logo joins the "works with" row.
 - **Removing it**, a page in English and Arabic ([docs/uninstall.md](docs/uninstall.md)): what to
   take out of the slicer first, the one line, what it removes, the restart, and what it leaves.
   Linked from the READMEs, the FAQ, the installation page and the website.
