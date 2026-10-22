@@ -50,6 +50,9 @@ All notable changes to this project are documented here. The format is based on
   - The search boxes are named for screen readers, headings no longer skip a level, and a
     **Skip to the content** button comes first for the keyboard.
   - A farm printer that is offline is no longer faded, which made its text hard to read.
+- `install.sh` puts the `[include]` lines next to the printer's own `[include]` lines at the top of
+  `printer.cfg`, where people look for them, instead of at the bottom above `SAVE_CONFIG` (still
+  the place when there are none at the top), and says on which line.
 - The farm asks all printers at once (up to 32 at a time), and a printer that does not answer is
   asked again after 10 seconds, then less often, up to once a minute: 100 printers take about as
   long as one, and printers switched off no longer slow the others.

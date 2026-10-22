@@ -118,6 +118,24 @@ insert_before_save_config() {
     ' "${PRINTER_CFG}" > "${PRINTER_CFG}.tmp" && mv "${PRINTER_CFG}.tmp" "${PRINTER_CFG}"
 }
 
+# The [include] lines go with the printer's own ones at the top of
+# printer.cfg, where people look for them: after the last [include] that
+# comes before any other section. Without such a block, above SAVE_CONFIG.
+# INCLUDE_LINE is where they landed.
+insert_includes() {
+    local last
+    last=$(awk '/^\[include /{ last = NR; next } /^\[/{ exit } END { print last + 0 }' "${PRINTER_CFG}")
+    if [[ "${last}" -gt 0 ]]; then
+        awk -v block="$1" -v at="${last}" '{ print } NR == at { print block }' "${PRINTER_CFG}" > "${PRINTER_CFG}.tmp" &&
+            mv "${PRINTER_CFG}.tmp" "${PRINTER_CFG}"
+        INCLUDE_WHERE="with your other [include] lines"
+    else
+        insert_before_save_config "$1"
+        INCLUDE_WHERE="above the SAVE_CONFIG block"
+    fi
+    INCLUDE_LINE=$(grep -n '^\[include auto_eject\.cfg\]' "${PRINTER_CFG}" | head -1 | cut -d: -f1)
+}
+
 # A yes/no question; $2 is the answer when you just press Enter (y or n).
 # Without a terminal (piped install) the default is taken.
 ask() {
@@ -812,9 +830,9 @@ if [[ "${ADD_INCLUDE}" -eq 1 ]]; then
         log "printer.cfg already includes auto_eject.cfg"
     else
         backup "${PRINTER_CFG}"
-        insert_before_save_config $'[include auto_eject.cfg]\n[include auto_eject_settings.cfg]'
+        insert_includes $'[include auto_eject.cfg]\n[include auto_eject_settings.cfg]'
         CHANGED_CFG=1
-        log "Added [include] lines to printer.cfg"
+        log "Added [include] lines to printer.cfg, line ${INCLUDE_LINE}, ${INCLUDE_WHERE}"
     fi
     add_required_sections
 fi

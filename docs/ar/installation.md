@@ -43,7 +43,8 @@ cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./kli
 
 1. يضع رابطًا لـ `auto_eject.cfg` في مجلد الإعدادات، وينشئ `auto_eject_settings.cfg`، وهو ملف إعداداتك
    الخاص الذي لا تغيّره التحديثات أبدًا.
-2. يضيف أسطر `[include]` إلى `printer.cfg`، فوق كتلة `SAVE_CONFIG`.
+2. يضيف أسطر `[include]` إلى `printer.cfg` بجوار أسطر `[include]` الخاصة بك في أعلى الملف (أو فوق كتلة
+   `SAVE_CONFIG` إن لم يوجد منها شيء هناك)، ويذكر رقم السطر.
 3. يضيف أقسام Klipper التي تحتاجها الإزالة التلقائية إذا لم تكن في إعداداتك
    ([انظر بالأسفل](#ما-يحتاجه-printercfg)).
 4. يضيف قسم `[update_manager klipper-auto-eject]` إلى `moonraker.conf`، فتصلك التحديثات من لوحة

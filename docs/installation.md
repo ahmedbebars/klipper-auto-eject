@@ -33,7 +33,8 @@ Then it:
 
 1. links `auto_eject.cfg` into your config folder and creates `auto_eject_settings.cfg`, the file
    with your own settings, which updates never change;
-2. adds the `[include]` lines to `printer.cfg`, above the `SAVE_CONFIG` block;
+2. adds the `[include]` lines to `printer.cfg`, next to your own `[include]` lines at the top
+   (or above the `SAVE_CONFIG` block if there are none there), and says on which line;
 3. adds the Klipper sections auto-eject needs if your config lacks them
    ([below](#what-printercfg-needs));
 4. adds the `[update_manager klipper-auto-eject]` section to `moonraker.conf`, so updates come
