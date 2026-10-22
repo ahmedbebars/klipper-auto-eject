@@ -156,7 +156,7 @@ The versions are read from each printer's Moonraker every 5 minutes, and right a
 Tick printers (a box on each card and line), a whole group (the box by its title) or **Select
 all shown** (what the filters and the search show now). A bar then offers what can be done on
 them: **Bed is clear**, **Start the queue**, **Push now**, **Pause**, **Resume**, **Send a file**,
-**Turn on**, **Turn off**, **Cancel the print** and **Emergency stop**, each with how many printers
+**Turn on**, **Turn off**, **QR labels**, **Cancel the print** and **Emergency stop**, each with how many printers
 it reaches. A command goes only to the selected printers it suits now (pause to the ones printing,
 turn off never to one printing), and the confirmation names the ones left out.
 
@@ -178,6 +178,19 @@ cancel), the success rate, the hours printing and the filament used, then the wh
 in Moonraker; the filament from each file's weight, or as 1.75 mm PLA when a file does not say.
 
 <p align="center"><img src="images/farm-production.png" alt="The farm with a box to tick on each card, each printer's spool, and the Production table under it" width="900"></p>
+
+### A QR label on each printer
+
+✎ on a printer, then **QR label**: its name, its group and a QR code of its page, to print and stick
+on the printer. Point a phone's camera at it and the printer's page opens. Choose **At home** (its
+address on your network: the phone must be on the same Wi-Fi) or **From anywhere (Tailscale)** (a
+phone with [Tailscale](remote-access.md) on opens it at home or away). **Print** prints the label
+alone; **Save as a picture** keeps it as a PNG for a label printer's own app.
+
+For the whole farm, tick the printers and choose **QR labels** in the bar: one sheet, three labels
+across, a dashed line to cut along. The codes are made in the page itself, with nothing sent anywhere.
+
+<p align="center"><img src="images/farm-qr.png" alt="The QR label of a printer: its name, its group, the code and its address, with At home or From anywhere, Print and Save as a picture" width="420"></p>
 
 ### Many printers, without waiting
 

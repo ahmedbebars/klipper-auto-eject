@@ -257,6 +257,10 @@
   --toast-radius: var(--radius-lg);
   --icon: 18px;
   --touch: 44px;                      /* the smallest target for a finger */
+  --label-paper: var(--white);        /* a printed label: black on white in any theme */
+  --label-ink: var(--black);
+  --label-soft: var(--gray-600);
+  --label-edge: var(--gray-200);
 }
 
 /* States: one colour for each state of a printer, the same everywhere */
@@ -997,6 +1001,30 @@ html[dir="rtl"] .file-row .name, html[dir="rtl"] .fc-job .fc-file { text-align: 
   margin-top: 16px; padding: 10px 14px; border-radius: var(--radius-xl); background: var(--surface); border: 1px solid var(--accent);
   box-shadow: var(--shadow-lg); }
 .bulk-n { white-space: nowrap; }
+
+/* a QR label: printed black on white whatever the theme */
+.qr-preview { display: flex; justify-content: center; padding: 6px 0 4px; }
+.qr-preview.qr-many { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; max-height: 50vh; overflow: auto; }
+.qr-label { display: flex; flex-direction: column; align-items: center; gap: 2px; width: min(260px, 100%); padding: 14px 14px 12px;
+  background: var(--label-paper); color: var(--label-ink); border: 1px dashed var(--label-edge); border-radius: var(--radius-md); text-align: center; }
+.qr-many .qr-label { width: auto; padding: 8px; }
+.qr-label .qr { width: 100%; height: auto; display: block; }
+.qr-name { font-size: var(--text-lg); line-height: 1.2; overflow-wrap: anywhere; }
+.qr-many .qr-name { font-size: var(--text-sm); }
+.qr-group { font-size: var(--text-sm); color: var(--label-soft); }
+.qr-url { font-family: var(--mono); font-size: var(--text-sm); color: var(--label-soft); overflow-wrap: anywhere; }
+#print-sheet { display: none; }
+@media print {
+  @page { margin: 10mm; }
+  html.printing body > *:not(#print-sheet) { display: none !important; }
+  html.printing body { background: var(--label-paper); }
+  html.printing #print-sheet { display: grid; grid-template-columns: repeat(3, 58mm); gap: 6mm; justify-content: center; }
+  #print-sheet .qr-label { width: 58mm; padding: 4mm 4mm 3mm; border-radius: 2mm; break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #print-sheet .qr { width: 48mm; }
+  #print-sheet .qr-name { font-size: 15pt; }
+  #print-sheet .qr-group { font-size: 9pt; }
+  #print-sheet .qr-url { font-size: 7pt; }
+}
 .fleet-in.prod-in { grid-template-columns: minmax(130px, 1.6fr) repeat(6, minmax(64px, 1fr)); }
 .prod-c { font-variant-numeric: tabular-nums; }
 .prod-na { grid-column: 2 / -1; }
@@ -1010,7 +1038,8 @@ html[dir="rtl"] .file-row .name, html[dir="rtl"] .fc-job .fc-file { text-align: 
 .bulk-acts { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
 @media (max-width: 640px) { .bulk-bar { bottom: calc(72px + env(safe-area-inset-bottom)); } }
 /* one set of columns for every line, so they line up */
-.frows-in { display: grid; grid-template-columns: 28px 22px minmax(110px, 1fr) minmax(130px, 1.2fr) minmax(130px, 1.3fr) max-content max-content; column-gap: 12px; }
+/* the facts wrap to a second line before the row gets too wide */
+.frows-in { display: grid; grid-template-columns: 28px 22px minmax(110px, 1fr) minmax(130px, 1.2fr) minmax(130px, 1.3fr) minmax(min-content, max-content) max-content; column-gap: 12px; }
 .frow { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; padding: 10px 14px;
   border-top: 1px solid var(--border); border-inline-start: 3px solid var(--state); min-width: 0; }
 .frow:first-child { border-top: 0; }
@@ -1021,7 +1050,7 @@ html[dir="rtl"] .file-row .name, html[dir="rtl"] .fc-job .fc-file { text-align: 
 .frow-state b { font-size: var(--text-md); color: var(--state); }
 .frow-job span { font-size: var(--text-md); }
 .frow-job .progress { width: 100%; height: 5px; margin-top: 4px; }
-.frow-facts { display: flex; gap: 6px; }
+.frow-facts { display: flex; flex-wrap: wrap; gap: 6px; }
 .frow .chip { white-space: nowrap; }
 .frow-acts { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
 /* the whole farm's versions: a table, cards on a narrow page */

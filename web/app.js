@@ -9,6 +9,7 @@
 
 (function () {
   const M = window.AEModel;
+  const Q = window.AEQr;
   const params = new URLSearchParams(location.search);
   const DEMO = params.has("demo");
   const STATE = "gcode_macro _AUTO_EJECT_STATE";
@@ -101,7 +102,8 @@
     chip: "M7 7h10v10H7z M10 10h4v4h-4z M9 3v4 M15 3v4 M9 17v4 M15 17v4 M3 9h4 M3 15h4 M17 9h4 M17 15h4",
     fan: "M12 12m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0 M12 10.5C11 6 12 3 15 3s3 4-1.5 7.5 M13.5 12c4.5-1 7.5 0 7.5 3s-4 3-7.5-1.5 M12 13.5c1 4.5 0 7.5-3 7.5s-3-4 1.5-7.5 M10.5 12C6 13 3 12 3 9s4-3 7.5 1.5",
     server: "M4 4h16v6H4z M4 14h16v6H4z M8 7h.01 M8 17h.01",
-    close: "M6 6l12 12 M18 6L6 18"
+    close: "M6 6l12 12 M18 6L6 18",
+    qr: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M6 6h1v1H6z M17 6h1v1h-1z M6 17h1v1H6z M14 14h3v3h-3z M18 18h3v3h-3z M21 14v1 M14 21h1"
   };
   function icon(name, cls) {
     return s("svg", { class: "ic" + (cls ? " " + cls : ""), viewBox: "0 0 24 24", "aria-hidden": "true" }, s("path", { d: ICONS[name] || "" }));
@@ -1641,7 +1643,7 @@
 
   // 7. A page left open (a tablet by the farm) learns that the printer got a
   // new version of it: the files' tags change when the files do.
-  const PAGE_FILES = ["index.html", "app.js", "model.js", "style.css", "lang/en.js", "lang/ar.js"];
+  const PAGE_FILES = ["index.html", "app.js", "model.js", "qr.js", "style.css", "lang/en.js", "lang/ar.js"];
   let pageTags = null;
   function pageVersion() {
     return Promise.all(PAGE_FILES.map((f) => fetch(f, { method: "HEAD", cache: "no-store" })
@@ -2285,7 +2287,8 @@
   // One command for the selected printers: only those it can be done on now.
   const BULK_UI = { clear: ["hand", "farm.clear", "primary"], continue: ["play", "farm.continue", "primary"], push: ["push", "act.push_now", "primary"],
     pause: ["pause", "farm.pause", ""], resume: ["play", "farm.resume", ""], send: ["file", "farm.bulk_send", ""],
-    power_on: ["power", "farm.bulk_on", ""], power_off: ["power", "farm.bulk_off", ""], cancel: ["bad", "farm.cancel", "stop"], estop: ["stop", "act.estop", "stop"] };
+    power_on: ["power", "farm.bulk_on", ""], power_off: ["power", "farm.bulk_off", ""], labels: ["qr", "farm.qr_labels", ""],
+    cancel: ["bad", "farm.cancel", "stop"], estop: ["stop", "act.estop", "stop"] };
   function farmBulkBar(all) {
     for (const id of Array.from(farmUi.sel)) if (!all.some((p) => p.id === id)) farmUi.sel.delete(id);
     if (!farmUi.sel.size) return null;
@@ -2310,6 +2313,7 @@
     const ok = bulk.actions[action];
     const left = bulk.selected.filter((p) => !ok.includes(p));
     if (action === "send") return farmBulkSend(ok, left);
+    if (action === "labels") return qrDialog(ok);
     const label = t(BULK_UI[action][1], { dev: "" }).trim();
     const names = (list) => list.map((p) => p.name).join(lang === "ar" ? "، " : ", ");
     const body = t("farm.bulk_confirm", { what: label, n: num(ok.length, 0), names: names(ok) }) +
@@ -2683,6 +2687,93 @@
   }
 
   // ----- rename or remove one printer
+  /* ------------------------------------------------------- QR labels */
+
+  // A label for a printer: its name and a QR code of its page, printed and
+  // stuck on it, so a phone camera opens the page.
+  function qrHere() {
+    return { hostname: location.hostname, page: new URL("../", location.href).href };
+  }
+  function qrSvg(url) {
+    const q = Q.qrPath(Q.qrEncode(url, { level: "M" }), 4);
+    return s("svg", { class: "qr", viewBox: "0 0 " + q.size + " " + q.size, role: "img", "aria-label": url, "shape-rendering": "crispEdges" },
+      s("rect", { width: q.size, height: q.size, fill: "#fff" }), s("path", { d: q.d, fill: "#000" }));
+  }
+  function qrShort(url) { return url.replace(/^https?:\/\//, "").replace(/\/$/, ""); }
+  function qrLabel(p, url) {
+    return h("div", { class: "qr-label" }, qrSvg(url),
+      h("b", { class: "qr-name", dir: "auto", text: p.name }),
+      p.group ? h("span", { class: "qr-group", dir: "auto", text: p.group }) : null,
+      h("span", { class: "qr-url ltr", text: qrShort(url) }));
+  }
+  // the labels alone on the paper; the page comes back after printing
+  function qrPrint(labels) {
+    const old = document.getElementById("print-sheet");
+    if (old) old.remove();
+    const sheet = h("div", { id: "print-sheet" }, labels);
+    document.body.appendChild(sheet);
+    document.documentElement.classList.add("printing");
+    const done = () => {
+      document.documentElement.classList.remove("printing");
+      sheet.remove();
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    window.print();
+  }
+  // the label as a picture, for a label printer's own app
+  function qrPng(p, url) {
+    const qr = Q.qrEncode(url, { level: "M" });
+    const unit = Math.max(4, Math.floor(560 / (qr.size + 8)));
+    const side = (qr.size + 8) * unit;
+    const c = h("canvas", { width: side, height: side + 170 });
+    const g = c.getContext("2d");
+    g.fillStyle = "#fff";
+    g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = "#000";
+    qr.modules.forEach((row, y) => row.forEach((dark, x) => { if (dark) g.fillRect((x + 4) * unit, (y + 4) * unit, unit, unit); }));
+    const font = getComputedStyle(document.body).fontFamily;
+    g.textAlign = "center";
+    g.textBaseline = "alphabetic";
+    g.font = "700 " + Math.round(side / 11) + "px " + font;
+    g.fillText(p.name, side / 2, side + 40, side - 40);
+    g.font = Math.round(side / 20) + "px " + font;
+    if (p.group) g.fillText(p.group, side / 2, side + 90, side - 40);
+    g.font = Math.round(side / 26) + "px ui-monospace, monospace";
+    g.fillText(qrShort(url), side / 2, side + 140, side - 40);
+    c.toBlob((blob) => {
+      const a = h("a", { href: URL.createObjectURL(blob), download: "qr-" + (p.name.replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "") || p.id) + ".png" });
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }, "image/png");
+  }
+  // one printer's label, or a sheet of them for the printers selected
+  function qrDialog(printers) {
+    const close = () => closeModal("qr");
+    const here = qrHere();
+    const items = printers.map((p) => ({ p, links: M.farmQrLinks(p, here) })).filter((x) => x.links.length);
+    if (!items.length) { toast(t("farm.qr_none"), "bad"); return; }
+    const kinds = ["lan", "remote"].filter((k) => items.some((x) => x.links.some((l) => l.kind === k)));
+    let kind = items[0].links[0].kind;
+    const urlOf = (x) => (x.links.find((l) => l.kind === kind) || x.links[0]).url;
+    const one = items.length === 1 ? items[0] : null;
+    const draw = () => {
+      const labels = () => items.map((x) => qrLabel(x.p, urlOf(x)));
+      modal("qr", one ? t("farm.qr_title", { name: one.p.name }) : t("farm.qr_labels") + " (" + num(items.length, 0) + ")", h("div", null,
+        kinds.length > 1 ? h("div", { class: "seg", role: "tablist", "aria-label": t("farm.qr_where") }, kinds.map((k) =>
+          h("button", { type: "button", role: "tab", class: "seg-btn" + (kind === k ? " active" : ""), "aria-selected": kind === k ? "true" : "false",
+            onclick: () => { kind = k; draw(); } }, t("farm.qr_" + k)))) : null,
+        h("p", { class: "note", style: { margin: "10px 0" } }, icon("info"), h("span", { text: t("farm.qr_note_" + kind) })),
+        h("div", { class: one ? "qr-preview" : "qr-preview qr-many" }, labels()),
+        items.length < printers.length ? h("p", { class: "muted", text: t("farm.qr_some", { n: num(printers.length - items.length, 0) }) }) : null), [
+        one ? h("button", { type: "button", class: "btn", onclick: () => qrPng(one.p, urlOf(one)) }, icon("download"), t("farm.qr_png")) : null,
+        h("button", { type: "button", class: "btn", onclick: close, text: t("c.close") }),
+        h("button", { type: "button", class: "btn primary", onclick: () => qrPrint(labels()) }, icon("file"), t("farm.qr_print"))
+      ], close);
+    };
+    draw();
+  }
+
   function editPrinter(p) {
     const close = () => closeModal("edit");
     const name = h("input", { class: "input", type: "text", value: p.name, maxlength: 40, dir: "auto" });
@@ -2711,7 +2802,9 @@
     });
     modal("edit", p.name, h("div", null,
       h("label", { class: "field" }, h("span", { text: t("farm.name") }), name),
-      h("p", { class: "muted ltr", style: { marginTop: "8px" }, text: p.local ? location.host : p.host }),
+      h("div", { class: "toolbar", style: { marginTop: "8px", justifyContent: "space-between" } },
+        h("span", { class: "muted ltr", text: p.local ? location.host : p.host }),
+        p.local || p.page || p.page_remote ? h("button", { type: "button", class: "btn sm", onclick: () => { close(); qrDialog([p]); } }, icon("qr"), t("farm.qr")) : null),
       h("label", { class: "field", style: { marginTop: "12px" } }, h("span", { text: t("farm.group") }), group,
         h("datalist", { id: "farm-groups" }, groupNames.map((g) => h("option", { value: g })))),
       h("p", { class: "note", style: { marginTop: "6px" } }, icon("info"), h("span", { text: t("farm.group_note") })),

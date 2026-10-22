@@ -1,8 +1,9 @@
-// Runs one function of web/model.js for tests/test_web.py.
+// Runs one function of web/model.js or web/qr.js for the tests.
 // Reads {"fn": name, "args": [...]} on stdin, prints the result as JSON.
 "use strict";
 const path = require("path");
-const M = require(path.join(__dirname, "..", "web", "model.js"));
+const M = Object.assign({}, require(path.join(__dirname, "..", "web", "model.js")),
+                        require(path.join(__dirname, "..", "web", "qr.js")));
 
 let input = "";
 process.stdin.on("data", (d) => { input += d; });

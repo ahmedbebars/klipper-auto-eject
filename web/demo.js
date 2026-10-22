@@ -1037,7 +1037,8 @@
     const now = Date.now() / 1000;
     if (!this.farmStart) this.farmStart = now;
     const base = { id: f.id, name: f.name, host: f.host, group: f.group || "", local: false, auto_eject: f.auto_eject, camera: false,
-      page: "http://" + f.host + (f.auto_eject ? "/auto-eject/" : "/"), parts: 0, leftover: [], jobs: f.jobs || 0, queue: "ready",
+      page: "http://" + f.host + (f.auto_eject ? "/auto-eject/" : "/"),
+      page_remote: f.auto_eject ? "https://" + f.name + ".tail0000.ts.net/auto-eject/" : null, parts: 0, leftover: [], jobs: f.jobs || 0, queue: "ready",
       stats: f.stats || null, power: f.power ? f.power.map((d) => Object.assign({}, d)) : null, spool: f.spool || null,
       auto_off: f.auto_off || 0, auto_off_device: f.auto_off_device || "", bin: f.bin || 0, bin_cap: f.bin_cap || 0,
       service_every: f.service_every || 0,

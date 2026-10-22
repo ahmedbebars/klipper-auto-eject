@@ -16,6 +16,10 @@ All notable changes to this project are documented here. The format is based on
   grams left, in orange when it runs low.
 - **Production** at the foot of the farm: what each printer made today, in 7 or 30 days (prints,
   ended well, stopped, success, hours, filament), the whole farm, and a CSV to download.
+- **A QR label on each printer** ([farm.md](docs/farm.md#a-qr-label-on-each-printer)): its name and
+  a QR code of its page, at home or through Tailscale, to print and stick on it; a phone camera
+  opens the page. One printer's from ✎, or a sheet for the printers ticked. The codes are made in
+  the page, offline.
 - **Push now, or I took the parts off, while the bed cools** (`cool_background: True`, off by
   default; [configuration.md](docs/configuration.md#cooling-with-the-printer-free)). The print
   ends first and the job queue waits; the bed cools in steps of a few seconds with the printer

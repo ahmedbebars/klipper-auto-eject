@@ -540,6 +540,19 @@
     return farmAway(hostname) ? p.page_remote || null : p.page || null;
   }
 
+  // The links a printer's QR label can hold, the one to use first: its page
+  // on the home network, and through Tailscale; first the kind this page is
+  // open on now. This printer: the page open now.
+  function farmQrLinks(p, here) {
+    here = here || {};
+    const away = farmAway(here.hostname || "");
+    if (p.local) return here.page ? [{ kind: away ? "remote" : "lan", url: here.page }] : [];
+    const out = [];
+    if (p.page) out.push({ kind: "lan", url: p.page });
+    if (p.page_remote) out.push({ kind: "remote", url: p.page_remote });
+    return away ? out.reverse() : out;
+  }
+
   // What a farm card can offer: the bed is clear, start the queue, stop.
   function farmActions(p) {
     const out = [];
@@ -579,7 +592,7 @@
 
   // One command for several printers: for each, the selected printers it can
   // be done on now (what each one's card offers), so the rest are left out.
-  const FARM_BULK = ["clear", "continue", "push", "pause", "resume", "send", "power_on", "power_off", "cancel", "estop"];
+  const FARM_BULK = ["clear", "continue", "push", "pause", "resume", "send", "power_on", "power_off", "labels", "cancel", "estop"];
   function farmBulk(printers, ids) {
     const chosen = new Set(ids || []);
     const selected = (printers || []).filter((p) => chosen.has(p.id));
@@ -593,6 +606,7 @@
       if (devs.some((d) => d.status !== "on")) actions.power_on.push(p);
       // never off while it prints or clears its bed: the farm refuses it too
       if (devs.some((d) => d.status === "on") && !["printing", "paused", "ejecting"].includes(p.phase)) actions.power_off.push(p);
+      if (p.local || p.page || p.page_remote) actions.labels.push(p);
     }
     return { selected, actions };
   }
@@ -1083,7 +1097,7 @@
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, notifierKind, farmOrder, farmKind, farmCounts, farmFilter, farmGroups, farmPending, ejectRunning, farmBulk, FARM_BULK, farmSpoolLow, farmReportCsv, farmFirmware, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
+    noticeFor, ntfyTopic, notifierKind, farmOrder, farmKind, farmCounts, farmFilter, farmGroups, farmPending, ejectRunning, farmBulk, FARM_BULK, farmSpoolLow, farmReportCsv, farmFirmware, farmActions, farmToday, farmLink, farmAway, farmQrLinks, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
     hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft,
     lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, parseVersion, firmwareAge, boardCode, configNotes, updateArea, updateAreas, scrubReport, supportReport, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText, macroSet

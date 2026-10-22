@@ -258,7 +258,7 @@ def test_arabic_has_every_text():
 
 
 @needs_node
-@pytest.mark.parametrize("name", ["app.js", "demo.js", "model.js", "moonraker.js", "sw.js", "lang/en.js", "lang/ar.js"])
+@pytest.mark.parametrize("name", ["app.js", "demo.js", "model.js", "qr.js", "moonraker.js", "sw.js", "lang/en.js", "lang/ar.js"])
 def test_scripts_parse(name):
     subprocess.run([NODE, "--check", str(WEB / name)], check=True)
 
@@ -861,6 +861,23 @@ def test_one_command_for_several_printers_reaches_only_those_that_can():
     assert ids("power_off") == ["c"]                      # never the one printing
     assert ids("estop") == ["a", "e"]
     assert js("farmBulk", printers, [])["selected"] == []
+
+
+@needs_node
+def test_a_printer_label_holds_its_page_at_home_and_through_tailscale():
+    p = {"id": "a", "page": "http://printer-a.local/auto-eject/", "page_remote": "https://printer-a.example.ts.net/auto-eject/"}
+    home = js("farmQrLinks", p, {"hostname": "printer-b.local", "page": "http://printer-b.local/auto-eject/"})
+    assert [x["kind"] for x in home] == ["lan", "remote"]
+    away = js("farmQrLinks", p, {"hostname": "printer-b.example.ts.net", "page": "https://printer-b.example.ts.net/auto-eject/"})
+    assert [x["kind"] for x in away] == ["remote", "lan"]                 # the kind open now first
+    assert away[0]["url"] == p["page_remote"]
+    # this printer: the page open now
+    here = js("farmQrLinks", {"id": "local", "local": True}, {"hostname": "printer-b.local", "page": "http://printer-b.local/auto-eject/"})
+    assert here == [{"kind": "lan", "url": "http://printer-b.local/auto-eject/"}]
+    assert js("farmQrLinks", {"id": "c", "page": None}, {"hostname": "x"}) == []
+    # labels for the printers selected that have a page
+    out = js("farmBulk", [p, {"id": "c", "phase": "offline"}, {"id": "local", "local": True, "phase": "idle"}], ["a", "c", "local"])
+    assert [x["id"] for x in out["actions"]["labels"]] == ["a", "local"]
 
 
 @needs_node
