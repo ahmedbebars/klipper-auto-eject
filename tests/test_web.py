@@ -777,3 +777,35 @@ def test_the_board_furthest_behind_on_a_farm_printer():
     assert js("farmFirmware", {"klipper": host, "boards": [["mcu", ""], ["mcu ebb", host]]}) == {"state": "same", "by": 0}
     assert js("farmFirmware", {"klipper": host, "boards": []}) is None
     assert js("farmFirmware", None) is None
+
+
+def _style():
+    css = (WEB / "style.css").read_text(encoding="utf-8")
+    at = css.index("* { box-sizing: border-box; }")
+    return css, css[:at], css[at:]
+
+
+def test_the_page_draws_with_its_tokens_only():
+    css, tokens, rules = _style()
+    # colours are written once, in the tokens; the rules name them
+    assert re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", rules) == []
+    # text sizes come from the type scale (the bed drawings use their own units)
+    for line in rules.splitlines():
+        if not re.search(r"\.(bm|bf)-", line):
+            assert not re.search(r"font-size: [\d.]+px", line), line
+    assert not re.search(r"radius: [^;]*\d+px", rules)
+    # every token a rule uses is defined
+    defined = set(re.findall(r"(--[\w-]+)\s*:", css))
+    assert set(re.findall(r"var\((--[\w-]+)", css)) <= defined
+
+
+def test_both_dark_themes_are_the_same():
+    _, tokens, _ = _style()
+    system = re.search(r':root:not\(\[data-theme="light"\]\) \{([^}]*)\}', tokens).group(1)
+    chosen = re.search(r':root\[data-theme="dark"\] \{([^}]*)\}', tokens).group(1)
+    assert system.split() == chosen.split()
+    # and the dark theme sets every colour the light one does
+    light = re.search(r"/\* -+ 2\. semantic \*/\s*:root \{([^}]*)\}", tokens).group(1)
+    names = lambda block: set(re.findall(r"(--[\w-]+)\s*:", block))
+    assert names(system) <= names(light)
+    assert {"--bg", "--surface", "--text", "--muted", "--accent", "--ok", "--warn", "--bad"} <= names(system)

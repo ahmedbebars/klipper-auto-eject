@@ -299,8 +299,29 @@ Anything left out is shown in English. Setting names and console messages stay i
 | `web/model.js` | The logic: the push plan, reading the settings file, checking G-code, the setup dialogs. It does what the macros do, and `tests/test_web.py` compares the two |
 | `web/moonraker.js` | A small Moonraker websocket client |
 | `web/demo.js` | The pretend printer for `?demo` |
-| `web/style.css` | Styles, light and dark, the phone layout |
+| `web/style.css` | The design tokens, then the styles: light and dark, the phone layout |
 | `web/manifest.json`, `web/sw.js`, `web/icons/` | What makes it an app: the name and icons, and the service worker that keeps a copy of the page's files |
 
 The settings section is built from the comments in `config/auto_eject_settings.cfg`, so a new
 setting shows up in the page with its explanation without changing the page.
+
+### Design tokens
+
+The top of `web/style.css` holds every colour and measure of the page, in three layers. The
+rules below them use only the last two, so a colour or a size is changed in one place:
+
+| Layer | What it holds | Examples |
+|---|---|---|
+| Primitives | The raw values: the palette, the type scale, corners, spacing, motion | `--orange-600`, `--text-sm`, `--radius-lg`, `--dur-fast` |
+| Semantic | What a value is for, once for the light theme and once for the dark one | `--surface`, `--text`, `--muted`, `--accent`, `--ok`, `--warn`, `--bad` |
+| Component | One control's measures | `--btn-h`, `--input-h`, `--card-pad`, `--modal-radius`, `--focus-ring` |
+
+- **Text sizes** come from one scale: `--text-2xs` (10 px) to `--text-3xl` (24 px), with
+  `--text-base` (14 px) for body text.
+- **A printer's state** has one colour everywhere: an element with `data-state="printing"`,
+  `"paused"`, `"needs"`… gets `--state` and `--state-soft`, whether it is the overview, a farm
+  card, a farm line or the farm's versions.
+- **Less motion:** with the system's *reduce motion* setting, nothing pulses, spins or slides.
+- `tests/test_web.py` checks that the rules write no colour or text size of their own, that every
+  token they use exists, and that the two dark-theme blocks (by the system, or chosen on the page)
+  stay the same.

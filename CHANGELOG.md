@@ -35,6 +35,11 @@ All notable changes to this project are documented here. The format is based on
   `home_method` is `"g28"`, and says when DEMON's auto power-off is on and how the eject holds it.
 
 ### Changed
+- **The web page's look comes from design tokens**, in three layers: the raw palette and scales,
+  what each value is for (per theme), and each control's measures. Text sizes are on one scale
+  (from 20 sizes to 9), corners on one (from 15 to 8), and no rule writes a colour of its own.
+  A printer's state has one colour everywhere. Some small text is half a pixel larger. With the
+  system's *reduce motion* setting, nothing on the page pulses, spins or slides.
 - The farm asks all printers at once (up to 32 at a time), and a printer that does not answer is
   asked again after 10 seconds, then less often, up to once a minute: 100 printers take about as
   long as one, and printers switched off no longer slow the others.

@@ -41,6 +41,8 @@ description which machine you tested on.
 - Settings names in `snake_case`. Text values in double quotes.
 - Comments explain *why*, not what the next line does.
 - User-facing messages start with the macro name (`AUTO_EJECT: ...`).
+- In `web/style.css`, use the design tokens at the top of the file, never a colour or a text size
+  of your own ([how they are laid out](docs/web-page.md#design-tokens)).
 
 ## Code of conduct
 
