@@ -6,6 +6,8 @@ body:
     attributes:
       value: |
         Thanks for reporting. Please check [troubleshooting](https://github.com/ahmedbebars/klipper-auto-eject/blob/main/docs/troubleshooting.md) first.
+
+        With the web page: **Report a problem** (Hardware or Activity tab) gathers the versions, the printer, the settings you changed and the console. Paste it under *What happened?* and add what you saw.
   - type: textarea
     id: what
     attributes:

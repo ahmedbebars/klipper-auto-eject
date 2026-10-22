@@ -668,3 +668,54 @@ def test_the_slicer_card_knows_demon():
     assert js("macroSet", {"gcode_macro _demon_version": {}})["name"] == "demon"
     assert js("macroSet", {"gcode_macro PRINT_START": {}, "gcode_macro PRINT_END": {}}) is None
     assert js("macroSet", None) is None
+
+
+@needs_node
+def test_versions_and_the_boards_firmware():
+    assert js("parseVersion", "v0.13.0-816-gee2c6fb6-dirty") == {"tag": "v0.13.0", "count": 816, "sha": "ee2c6fb6", "dirty": True}
+    assert js("parseVersion", "v0.13.0") == {"tag": "v0.13.0", "count": 0, "sha": None, "dirty": False}
+    assert js("parseVersion", "demo") is None
+    host = "v0.13.0-816-gee2c6fb6-dirty"
+    assert js("firmwareAge", "v0.13.0-800-g9cb99754", host) == {"state": "older", "by": 16}
+    assert js("firmwareAge", "v0.13.0-816-gee2c6fb6", host) == {"state": "same", "by": 0}
+    assert js("firmwareAge", "v0.12.0-300-gabcdef12", host) == {"state": "older", "by": None}   # another release
+    assert js("firmwareAge", "v0.13.0-820-g11112222", host) == {"state": "newer", "by": 4}
+    assert js("firmwareAge", "v0.13.0-816-g11112222", host)["state"] == "unknown"           # same count, other build
+    assert js("firmwareAge", "", host)["state"] == "unknown"
+    # only what runs on the boards
+    assert js("boardCode", ["docs/Config_Changes.md", "src/sensor_cs1237.c", {"filename": "lib/stm32h7/x.h"},
+                            "klippy/chelper/serialqueue.c"]) == ["src/sensor_cs1237.c", "lib/stm32h7/x.h"]
+
+
+@needs_node
+def test_what_an_update_is_about_and_its_config_notes():
+    subjects = ["tmc5262: Add TMC5262 stepper driver", "pid_calibrate: Fix Ku formula", "docs: Add more context",
+                "sensor_cs1237: Discard the first sample", "icm20948: Fix clearing of FIFO overflow flag",
+                "stm32: Fix clock", "toolhead, kinematics: Faster", "Merge pull request #1", "bed_mesh: Fix", "heater_fan: Fix"]
+    assert [js("updateArea", s) for s in subjects] == ["drivers", "heat", "docs", "firmware", "shaping",
+                                                       "firmware", "motion", "other", "bed", "fans"]
+    assert js("updateAreas", [{"subject": "docs: a"}, {"subject": "docs: b"}, {"message": "tmc: c\nmore"}]) == [
+        {"area": "docs", "count": 2}, {"area": "drivers", "count": 1}]
+    patch = ("@@ -8,6 +8,12 @@\n ## Changes\n \n+20261018: An error in the `PID_CALIBRATE` calculations has been\n"
+             "+corrected.\n+\n+20261001: Option `foo` was removed.\n+\n 20260901: An older note.\n")
+    assert js("configNotes", patch) == [
+        {"date": "2026-10-18", "text": "An error in the `PID_CALIBRATE` calculations has been corrected."},
+        {"date": "2026-10-01", "text": "Option `foo` was removed."}]
+    assert js("configNotes", None) == []
+
+
+@needs_node
+def test_the_support_report_has_no_addresses():
+    report = js("supportReport", {
+        "versions": {"autoEject": "v0.15.0-1", "klipper": "v0.13.0-816"},
+        "boards": [{"name": "main", "version": "v0.13.0-800", "chip": "stm32h723xx"}],
+        "machine": {"kinematics": "corexy", "probe": "contact [probe]", "macroSet": "DEMON"},
+        "state": {"klippy": "ready", "busy": False},
+        "settings": [{"key": "push_z", "value": 0.8, "source": "saved"}, {"key": "direction", "value": "back", "source": "file"}],
+        "log": ["// AUTO_EJECT: homed at 192.168.1.102", "!! Lost connection to voron-450.tailb6e54a.ts.net", "``` breaks"]})
+    assert "- klipper-auto-eject: v0.15.0-1" in report and "- Board main: v0.13.0-800 · stm32h723xx" in report
+    assert "| `push_z` | `0.8` | the web page |" in report and "| `direction` | `\"back\"` | auto_eject_settings.cfg |" in report
+    assert "- Macro set: DEMON" in report and "- Ejecting: no" in report
+    assert "192.168" not in report and "ts.net" not in report and "x.x.x.x" in report and "<host>" in report
+    assert report.count("```") == 2                      # a line cannot close the console block
+    assert "None: every setting is at its default." in js("supportReport", {})

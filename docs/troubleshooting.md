@@ -128,7 +128,9 @@ blade by 0.2 mm.
 
 ## Getting help
 
-Open an issue with:
+In the web page, **Report a problem** (on **Hardware** or **Activity**) gathers most of what an issue
+needs: the versions, the printer, its state, the settings you changed and the console. Copy it into
+the issue and add what happened. Otherwise, open an issue with:
 
 - your `auto_eject_settings.cfg`
 - the console output of `AUTO_EJECT DRY=1`

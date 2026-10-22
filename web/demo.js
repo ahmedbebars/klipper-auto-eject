@@ -158,6 +158,38 @@
 
   /* -------------------------------------------------------------- demo */
 
+  // Moonraker's update manager: Klipper a few updates behind (Klipper's own
+  // recent updates), Mainsail with a new version, the rest up to date
+  const KLIPPER_VERSION = "v0.13.0-809-gc63b2951";
+  const DEMO_DAY = 1792411200;      // 2026-10-19, noon UTC
+  const kc = (sha, day, subject) => ({ sha, author: "Klipper", date: String(DEMO_DAY + day * 86400), subject, message: subject, tag: null });
+  const DEMO_UPDATES = {
+    klipper: {
+      configured_type: "git_repo", owner: "Klipper3d", repo_name: "klipper", version: "v0.13.0-809", remote_version: "v0.13.0-816",
+      current_hash: "c63b2951", remote_hash: "ee2c6fb6", commits_behind_count: 7,
+      commits_behind: [
+        kc("ee2c6fb6", 2, "sensor_cs1237: Combine cs1237_read_bits() calls in cs1237_write_config()"),
+        kc("705d50dd", 2, "sensor_cs1237: Simplify flags handling in cs1237_read_adc()"),
+        kc("a5b4f2ed", 2, "sensor_cs1237: Discard the first sample after a start"),
+        kc("a08fc79f", 0, "icm20948: Select bank 0 before reading WHO_AM_I"),
+        kc("9aa4439f", 0, "icm20948: Write ACCEL_SMPLRT_DIV in bank 2"),
+        kc("01ca487b", 0, "icm20948: Reset FIFO with FIFO_RST"),
+        kc("7b50c21a", 0, "icm20948: Fix clearing of FIFO overflow flag")
+      ]
+    },
+    moonraker: { configured_type: "git_repo", owner: "Arksine", repo_name: "moonraker", version: "v0.11.0-4", remote_version: "v0.11.0-4", commits_behind: [] },
+    mainsail: { configured_type: "web", owner: "mainsail-crew", repo_name: "mainsail", version: "v2.19.0", remote_version: "v2.20.0" },
+    crowsnest: { configured_type: "git_repo", owner: "mainsail-crew", repo_name: "crowsnest", version: "v5.0.12-3", remote_version: "v5.0.12-3", commits_behind: [] },
+    "klipper-auto-eject": { configured_type: "git_repo", owner: "ahmedbebars", repo_name: "klipper-auto-eject", version: "v0.15.0-1", remote_version: "v0.15.0-1", commits_behind: [] },
+    system: { package_count: 0, package_list: [] }
+  };
+  // what GitHub tells about those updates: the files they change
+  const DEMO_GITHUB = {
+    "c63b2951...ee2c6fb6": { files: [{ filename: "klippy/extras/icm20948.py" }, { filename: "src/sensor_cs1237.c" }] },
+    "9cb99754...c63b2951": { files: [{ filename: "docs/Config_Changes.md", patch: "@@ -8,6 +8,10 @@\n ## Changes\n \n+20261018: An error in the `PID_CALIBRATE` calculations has been\n+corrected: it recommended PID values twice their desired values. If\n+your heaters hold their temperature well, nothing needs to change.\n+\n" },
+      { filename: "klippy/extras/pid_calibrate.py" }, { filename: "klippy/extras/tmc.py" }, { filename: "klippy/extras/tmc5262.py" }] }
+  };
+
   function Demo() {
     this.handlers = {};
     this.open = false;
@@ -686,7 +718,7 @@
     const st = this.status;
     const busy = st.print_stats.state === "printing" || st["gcode_macro _AUTO_EJECT_STATE"].busy;
     const t = Date.now() / 1000, wob = (n) => Math.round((n + Math.sin(t / 25 + n) * 0.6) * 10) / 10;
-    const mcu = (chip, awake, sent) => ({ mcu_version: "v0.13.0-demo", mcu_constants: { MCU: chip },
+    const mcu = (chip, awake, sent) => ({ mcu_version: chip === "stm32h723xx" ? "v0.13.0-800-g9cb99754" : KLIPPER_VERSION, mcu_constants: { MCU: chip },
       last_stats: { mcu_awake: awake, srtt: 0.0011, bytes_retransmit: sent, bytes_invalid: 0, freq: 1 } });
     switch (k) {
       case "mcu": return mcu("stm32h723xx", busy ? 0.008 : 0.002, 9);
@@ -755,6 +787,12 @@
 
   /* ---------------------------------------------------------------- RPC */
 
+  Demo.prototype.github = function (path) {
+    const m = /\/compare\/([0-9a-f]+\.\.\.[0-9a-f]+)$/.exec(path);
+    const r = m && DEMO_GITHUB[m[1]];
+    return r ? new Promise((resolve) => setTimeout(() => resolve(r), 400)) : Promise.reject(new Error("not in the demo"));
+  };
+
   Demo.prototype.gcode = function (script) { return this.call("printer.gcode.script", { script }); };
 
   Demo.prototype.call = function (method, params) {
@@ -764,7 +802,8 @@
     switch (method) {
       case "server.connection.identify": return ok({ connection_id: 1 });
       case "server.info": return ok({ klippy_connected: true, klippy_state: st.webhooks.state, components: ["job_queue", "webcam", "file_manager", "spoolman"], moonraker_version: "demo" });
-      case "printer.info": return ok({ state: st.webhooks.state, hostname: "demo-printer", software_version: "demo" });
+      case "printer.info": return ok({ state: st.webhooks.state, hostname: "demo-printer", software_version: KLIPPER_VERSION });
+      case "machine.update.status": return ok({ busy: false, version_info: DEMO_UPDATES });
       case "printer.objects.list":
         return ok({ objects: Object.keys(st).concat(["gcode_macro AUTO_EJECT", "gcode_macro AUTO_EJECT_SET", "gcode_macro AUTO_EJECT_SETUP", "configfile", "probe"],
           Object.keys(DEMO_MOTORS), Object.keys(DEMO_HW), ["stepper_enable", "temperature_sensor motor_a", "temperature_sensor motor_b"]).filter((o, i, a) => a.indexOf(o) === i) });

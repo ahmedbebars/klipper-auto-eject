@@ -299,7 +299,7 @@
     }).catch((e) => {
       if (/unauthori/i.test(e.message)) { app.conn = "unauthorized"; refresh(); }
     });
-    client.call("printer.info").then((r) => { app.host = r.hostname || ""; refresh(); }).catch(() => {});
+    client.call("printer.info").then((r) => { app.host = r.hostname || ""; app.klipperVersion = r.software_version || ""; refresh(); }).catch(() => {});
     client.call("server.gcode_store", { count: 300 }).then((r) => {
       app.log = (r.gcode_store || []).map((g) => ({ time: g.time, text: g.message, type: g.type }));
       // a dialog that is open in Mainsail is open here too
@@ -581,6 +581,7 @@
     { id: "setup", icon: "setup", render: viewSetup },
     { id: "settings", icon: "settings", render: viewSettings },
     { id: "hardware", icon: "chip", render: viewHardware },
+    { id: "updates", icon: "download", render: viewUpdates },
     { id: "activity", icon: "activity", render: viewActivity },
     { id: "guide", icon: "guide", render: viewGuide }
   ];
@@ -2620,7 +2621,7 @@
     }
     const list = motorList(), P = hwParts();
     const sect = (id, ic, title, extra) => h("section", { class: "card hw-sec", id: "hw-" + id }, h("h2", null, icon(ic), t(title)), h("div", { "data-live": id }), extra || null);
-    const el = h("div", null, head("hw.title", "hw.intro"),
+    const el = h("div", null, head("hw.title", "hw.intro", reportButton()),
       h("div", { class: "banner", "data-live": "hsum", hidden: true }),
       h("div", { class: "hw-kpis", "data-live": "kpis" }),
       h("h3", { class: "hw-head", id: "hw-boards" }, icon("chip"), t("hw.boards")),
@@ -2708,6 +2709,7 @@
           [t("hw.mcu_bad_bytes"), resent + " · " + (typeof ls.bytes_invalid === "number" ? num(ls.bytes_invalid, 0) : "—")],
           cs ? [t("hw.can_bus"), t("hw.can_state." + (cs.bus_state || "active")) + " · " + t("hw.can_errors", { rx: num(cs.rx_error || 0, 0), tx: num(cs.tx_error || 0, 0), r: num(cs.tx_retries || 0, 0) }), "", true] : null,
           info.version ? [t("hw.mcu_fw"), info.version, "", true] : null]),
+        info.version ? noteLine(firmwareNote(info.version), "upd-gap") : null,
         chips.length ? h("div", { class: "chips" }, chips) : h("div", { class: "chips" }, chip("ok", t("hw.link_ok"))));
     }));
 
@@ -2953,7 +2955,7 @@
     const toggle = h("label", { class: "switch" },
       h("input", { type: "checkbox", checked: activityUi.only, onchange: (e) => { activityUi.only = e.target.checked; refresh("activity"); } }),
       h("span", { text: t("activity.only") }));
-    const el = h("div", null, head("activity.title", null, toggle),
+    const el = h("div", null, head("activity.title", null, h("div", { class: "toolbar" }, toggle, reportButton())),
       h("section", { class: "card", style: { padding: 0 } },
         lines.length ? h("div", { class: "log" }, lines.map((l) => {
           const cls = l.text.startsWith("!!") ? "err" : l.text.startsWith("$") || l.type === "command" ? "cmd" : /AUTO_EJECT/.test(l.text) ? "ae" : "";
@@ -2981,6 +2983,261 @@
     return { el };
   }
   viewGuide.sig = function () { return ""; };
+
+  /* ====================================================== support report */
+
+  // Everything a GitHub issue asks for, gathered in one go: the versions, the
+  // printer, the state, the settings you changed and the console. Read only,
+  // and without addresses (M.supportReport scrubs them).
+  function reportButton() {
+    return h("button", { type: "button", class: "btn", onclick: openReport }, icon("file"), t("report.button"));
+  }
+
+  function gatherReport() {
+    const call = (method, params) => client.call(method, params).catch(() => null);
+    const mcus = (app.objects || []).filter((o) => o === "mcu" || o.startsWith("mcu "));
+    return Promise.all([
+      call("machine.update.status", { refresh: false }),
+      mcus.length ? call("printer.objects.query", { objects: Object.fromEntries(mcus.map((o) => [o, ["mcu_version", "mcu_constants"]])) }) : null,
+      call("machine.system_info"),
+      call("printer.info"),
+      app.spool ? call("server.spoolman.status") : null
+    ]).then(([upd, ms, sys, info, spool]) => {
+      const vi = (upd || {}).version_info || {};
+      const ver = (k) => (vi[k] ? vi[k].version + (vi[k].remote_version && vi[k].remote_version !== vi[k].version ? " (latest " + vi[k].remote_version + ")" : "") : "");
+      const P = hwParts();
+      const boards = mcus.map((o) => {
+        const x = ((ms || {}).status || {})[o] || {};
+        const b = P.mcus.find((y) => y.obj === o) || { name: o, main: o === "mcu" };
+        return { name: b.main ? "main" : b.name, version: x.mcu_version || "", chip: (x.mcu_constants || {}).MCU || "" };
+      });
+      const si = (sys || {}).system_info || {};
+      const dist = (si.distribution || {}).name || "";
+      const cpu = si.cpu_info || {};
+      const th = app.status.toolhead || {};
+      const axes = (a, b) => (Array.isArray(a) && Array.isArray(b) ? ["X", "Y", "Z"].map((n, i) => n + " " + num(a[i], 0) + "…" + num(b[i], 0)).join(", ") : "");
+      const m = settings();
+      const changed = m ? Object.keys(m.values).filter((k) => m.source[k] !== "default").sort().map((k) => ({ key: k, value: m.values[k], source: m.source[k] })) : [];
+      const ps = app.status.print_stats || {};
+      const st = aeState();
+      const pb = probe();
+      const web = Object.keys(vi).find((k) => vi[k].configured_type === "web");
+      const set = M.macroSet(app.config);
+      return M.supportReport({
+        versions: { autoEject: ver("klipper-auto-eject"), klipper: (info || {}).software_version || app.klipperVersion || ver("klipper"),
+          moonraker: ver("moonraker"), web: web ? web + " " + ver(web) : "" },
+        boards,
+        host: [dist, cpu.model || cpu.processor, cpu.total_memory ? Math.round(cpu.total_memory / 1024) + " MB" : ""].filter(Boolean).join(" · "),
+        machine: { kinematics: ((app.config || {}).printer || {}).kinematics || "", travel: axes(th.axis_minimum, th.axis_maximum),
+          probe: pb.section ? pb.kind + " [" + pb.section + "]" : "none",
+          macroSet: set ? set.name.toUpperCase() : "", spoolman: !app.spool ? "not linked" : spool && spool.spoolman_connected ? "linked, spool " + (spool.spool_id === null ? "none" : "#" + spool.spool_id) : "linked, not connected" },
+        state: { klippy: app.klippy, klippyMsg: app.klippyMsg, print: [ps.state, ps.filename].filter(Boolean).join(" · "),
+          queue: app.hasQueue ? (app.queue.state || "?") + ", " + app.queue.jobs.length + " waiting" : "no [job_queue]",
+          parts: String((st.objects || []).length), leftover: (st.leftover || []).join(", "), busy: !!st.busy },
+        settings: changed,
+        log: app.log.filter((l) => isAe(l.text) || /^!!/.test(l.text)).filter((l) => !/action:prompt/.test(l.text)).slice(-40).map((l) => l.text)
+      });
+    });
+  }
+
+  function openReport() {
+    const area = h("textarea", { class: "input report-text", readonly: true, rows: 14, dir: "ltr", "aria-label": t("report.title") });
+    area.value = t("report.reading");
+    const close = () => root.remove();
+    const save = () => {
+      const a = h("a", { href: URL.createObjectURL(new Blob([area.value], { type: "text/markdown" })), download: "auto-eject-report.md" });
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    };
+    const root = h("div", { class: "modal-back", onclick: (e) => { if (e.target === root) close(); } },
+      h("div", { class: "modal wide", role: "dialog", "aria-modal": "true" },
+        h("header", null, h("h3", { text: t("report.title") })),
+        h("div", { class: "body" },
+          h("p", { text: t("report.intro") }),
+          area,
+          h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", null, t("report.log"), " ",
+            h("a", { href: client.fileUrl("/server/files/logs/klippy.log"), download: "klippy.log", text: "klippy.log" })))),
+        h("footer", null,
+          h("button", { type: "button", class: "btn", onclick: close, text: t("c.close") }),
+          h("button", { type: "button", class: "btn", onclick: save }, icon("download"), t("report.save")),
+          h("button", { type: "button", class: "btn", onclick: () => copyText(area.value) }, icon("copy"), t("slicer.copy")),
+          h("a", { class: "btn primary", href: DOCS + "/issues/new?template=bug_report.yml", target: "_blank", rel: "noopener" }, icon("external"), t("report.issue")))));
+    $("#modal-root").appendChild(root);
+    root.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+    gatherReport().then((text) => { area.value = text; }, (e) => { area.value = t("c.error", { e: e.message }); });
+  }
+
+  /* ============================================================ updates */
+
+  // What changed in Klipper and the rest since this printer's versions, from
+  // Moonraker's update manager, and what that means here. GitHub tells which
+  // files an update changes: code that runs on the boards needs a reflash, and
+  // Klipper writes its notes on config changes in docs/Config_Changes.md.
+  const upd = { status: null, at: 0, loading: false, mcus: [], res: {}, ask: {}, open: {} };
+
+  function loadUpdates(force) {
+    if (upd.loading || app.conn !== "online" || (!force && upd.status && Date.now() - upd.at < 600000)) return;
+    upd.loading = true;
+    const mcus = (app.objects || []).filter((o) => o === "mcu" || o.startsWith("mcu "));
+    Promise.all([
+      client.call("machine.update.status", { refresh: false }).then((r) => r.version_info || {}, () => ({})),
+      mcus.length ? client.call("printer.objects.query", { objects: Object.fromEntries(mcus.map((o) => [o, ["mcu_version"]])) })
+        .then((r) => r.status || {}, () => ({})) : Promise.resolve({})
+    ]).then(([vi, ms]) => {
+      upd.status = vi;
+      upd.at = Date.now();
+      upd.mcus = mcus.map((o) => ({ obj: o, version: (ms[o] || {}).mcu_version || "" }));
+    }).then(() => { upd.loading = false; refresh(); });
+  }
+  client.on("notify_update_refreshed", () => { if (["updates", "hardware"].includes(route())) loadUpdates(true); });
+
+  // GitHub's answer to a path, or undefined while it is read and null when it
+  // could not be. Kept in the browser: a range of commits never changes.
+  function ghGet(path) {
+    if (Object.prototype.hasOwnProperty.call(upd.res, path)) return upd.res[path];
+    if (!upd.ask[path]) {
+      upd.ask[path] = true;
+      let kept = null;
+      try { kept = JSON.parse(store("ae.gh." + path) || "null"); } catch (e) { kept = null; }
+      if (kept) { upd.res[path] = kept; return kept; }
+      const read = DEMO && client.github ? client.github(path)
+        : fetch("https://api.github.com" + path, { headers: { Accept: "application/vnd.github+json" } })
+          .then((r) => (r.ok ? r.json() : Promise.reject(new Error("GitHub " + r.status))));
+      read.then((j) => {
+        upd.res[path] = ghTrim(j);
+        store("ae.gh." + path, JSON.stringify(upd.res[path]));
+      }, () => { upd.res[path] = null; }).then(() => refresh());
+    }
+    return undefined;
+  }
+  // only what the page shows: a comparison's files and notes, or a list of commits
+  function ghTrim(j) {
+    const commit = (c) => ({ sha: String(c.sha || "").slice(0, 8), date: (c.commit || {}).author ? Date.parse(c.commit.author.date) / 1000 : 0,
+      message: String((c.commit || {}).message || "") });
+    if (Array.isArray(j)) return j.slice(0, 30).map(commit);
+    const files = (j.files || []).map((f) => f.filename);
+    const cc = (j.files || []).find((f) => f.filename === "docs/Config_Changes.md");
+    return { files, notes: M.configNotes(cc && cc.patch) };
+  }
+  function klipperRepo() {
+    const k = (upd.status || {}).klipper || {};
+    return "/repos/" + (k.owner || "Klipper3d") + "/" + (k.repo_name || "klipper");
+  }
+
+  // A board's firmware against Klipper: { level, text }, or null without a version.
+  function firmwareNote(version) {
+    if (!version) return null;
+    const age = M.firmwareAge(version, app.klipperVersion);
+    if (age.state === "same") return { level: "ok", text: t("upd.fw.same") };
+    if (age.state === "newer") return { level: "info", text: t("upd.fw.newer") };
+    if (age.state !== "older") return null;
+    if (age.by === null) return { level: "warn", text: t("upd.fw.older_release") };
+    const a = M.parseVersion(version).sha, b = M.parseVersion(app.klipperVersion).sha;
+    const cmp = a && b ? ghGet(klipperRepo() + "/compare/" + a + "..." + b) : null;
+    const n = num(age.by, 0);
+    if (cmp === undefined) return { level: "info", text: t("upd.fw.older_check", { n }) };
+    if (!cmp) return { level: "info", text: t("upd.fw.older_unknown", { n }) };
+    const code = M.boardCode(cmp.files);
+    return code.length ? { level: "warn", text: t("upd.fw.older_changed", { n, files: code.join(", ") }) }
+      : { level: "ok", text: t("upd.fw.older_same", { n }) };
+  }
+  function noteLine(n, extra) {
+    return n ? h("p", { class: "note " + n.level + (extra ? " " + extra : "") }, icon(n.level === "ok" ? "ok" : n.level === "warn" ? "alert" : "info"), h("span", { text: n.text })) : null;
+  }
+
+  function updDate(d) {
+    const sec = typeof d === "number" ? d : /^\d+$/.test(String(d)) ? Number(d) : Date.parse(d) / 1000;
+    return sec > 0 ? iso(fmtDate(sec)) : "";
+  }
+  // one update: its date, what it is about, its first line; the rest on a tap
+  function commitRow(c) {
+    const msg = String(c.message || c.subject || "");
+    const subject = c.subject || msg.split("\n")[0];
+    const body = msg.split("\n").slice(1).join("\n").trim();
+    const area = M.updateArea(subject);
+    const open = !!upd.open[c.sha];
+    return h("div", { class: "upd-row" },
+      h("div", { class: "upd-head" },
+        h("span", { class: "upd-date", text: updDate(c.date) }),
+        h("span", { class: "badge upd-area " + area, text: t("upd.area." + area) }),
+        h("span", { class: "upd-subject ltr", text: subject }),
+        body ? h("button", { type: "button", class: "icon-btn", title: t(open ? "upd.less" : "upd.more"), "aria-label": t(open ? "upd.less" : "upd.more"),
+          onclick: () => { upd.open[c.sha] = !open; refresh("updates"); } }, icon(open ? "close" : "plus")) : null),
+      open && body ? h("pre", { class: "upd-body ltr", text: body }) : null);
+  }
+
+  function klipperUpdates(kl) {
+    const behind = kl.commits_behind || [];
+    const head = h("h2", null, icon("download"), "Klipper",
+      h("span", { class: "right" }, h("span", { class: "badge " + (behind.length ? "warn" : "ok"),
+        text: behind.length ? t("upd.n_updates", { n: num(kl.commits_behind_count || behind.length, 0) }) : t("upd.up_to_date") })));
+    const versions = h("p", { class: "muted ltr", text: t("upd.yours", { v: kl.version || "?" }) + (behind.length ? " · " + t("upd.latest", { v: kl.remote_version || "?" }) : "") });
+    if (!behind.length) {
+      const recent = kl.current_hash ? ghGet(klipperRepo() + "/commits?sha=" + kl.current_hash + "&per_page=15") : null;
+      return h("section", { class: "card" }, head, versions,
+        h("h3", { class: "upd-h", text: t("upd.recent") }),
+        recent === undefined ? h("div", { class: "empty" }, h("span", { class: "spinner" }))
+          : recent ? h("div", { class: "upd-list" }, recent.map(commitRow))
+          : h("p", { class: "note" }, icon("info"), h("span", { text: t("upd.no_github") })));
+    }
+    const cmp = kl.current_hash && kl.remote_hash ? ghGet(klipperRepo() + "/compare/" + kl.current_hash + "..." + kl.remote_hash) : null;
+    let fw;
+    if (cmp === undefined) fw = { level: "info", text: t("upd.reading") };
+    else if (!cmp) fw = { level: "info", text: t("upd.no_github") };
+    else {
+      const code = M.boardCode(cmp.files);
+      fw = code.length ? { level: "warn", text: t("upd.board_changed", { files: code.join(", ") }) } : { level: "ok", text: t("upd.board_same") };
+    }
+    const notes = cmp && cmp.notes.length ? h("div", { class: "upd-notes" }, h("h3", { class: "upd-h", text: t("upd.notes") }),
+      cmp.notes.map((x) => h("div", { class: "upd-note" }, h("b", { class: "ltr", text: x.date }), h("p", { class: "ltr", text: x.text })))) : null;
+    return h("section", { class: "card" }, head, versions,
+      h("div", { class: "chips" }, M.updateAreas(behind).map((a) => h("span", { class: "chip upd-area " + a.area },
+        h("span", { text: t("upd.area." + a.area) }), h("b", { text: num(a.count, 0) })))),
+      noteLine(fw, "upd-gap"),
+      notes,
+      h("h3", { class: "upd-h", text: t("upd.list") }),
+      h("div", { class: "upd-list" }, behind.map(commitRow)),
+      h("p", { class: "note upd-gap" }, icon("info"), h("span", { text: t("upd.how") })));
+  }
+
+  function viewUpdates() {
+    loadUpdates();
+    const vi = upd.status;
+    if (!vi) return { el: h("div", null, head("upd.title", "upd.intro"), h("div", { class: "card empty" }, h("span", { class: "spinner" }))) };
+    if (!Object.keys(vi).length) return { el: h("div", null, head("upd.title", "upd.intro"),
+      h("div", { class: "card empty" }, icon("download"), h("p", { text: t("upd.unavailable") }))) };
+    const P = hwParts();
+    const boards = upd.mcus.filter((m) => m.version).map((m) => {
+      const b = P.mcus.find((x) => x.obj === m.obj) || { name: m.obj.replace(/^mcu ?/, "") || "mcu", main: m.obj === "mcu" };
+      return h("div", { class: "upd-board" }, h("div", { class: "upd-head" }, icon("chip"), h("b", { text: boardName(b) }),
+        h("span", { class: "muted ltr", text: m.version })), noteLine(firmwareNote(m.version)));
+    });
+    const newer = (c) => (c.commits_behind || []).length > 0 || !!(c.version && c.remote_version && c.version !== c.remote_version && c.remote_version !== "?");
+    const others = Object.keys(vi).filter((k) => k !== "klipper" && k !== "system")
+      .sort((a, b) => newer(vi[b]) - newer(vi[a]) || ((vi[b].commits_behind || []).length - (vi[a].commits_behind || []).length) || a.localeCompare(b));
+    const other = (k) => {
+      const c = vi[k], behind = c.commits_behind || [], isNew = newer(c);
+      return h("details", { class: "upd-other" + (behind.length ? "" : " flat"), open: !!upd.open["c:" + k],
+        ontoggle: (e) => { upd.open["c:" + k] = e.target.open; } },
+        h("summary", null, h("b", { class: "ltr", text: k }), h("span", { class: "muted ltr", text: (c.version || "") + (isNew ? " → " + (c.remote_version || "") : "") }),
+          h("span", { class: "badge " + (isNew ? "warn" : "ok"), text: isNew ? (behind.length ? t("upd.n_updates", { n: num(c.commits_behind_count || behind.length, 0) }) : t("upd.new")) : t("upd.up_to_date") })),
+        behind.length ? h("div", { class: "upd-list" }, behind.map(commitRow)) : null);
+    };
+    return {
+      el: h("div", null, head("upd.title", "upd.intro"),
+        h("div", { class: "stack" },
+          vi.klipper ? klipperUpdates(vi.klipper) : null,
+          boards.length ? h("section", { class: "card" }, h("h2", null, icon("chip"), t("upd.boards")), boards) : null,
+          others.length ? h("section", { class: "card" }, h("h2", null, icon("layers"), t("upd.others")), others.map(other)) : null))
+    };
+  }
+  viewUpdates.sig = function () {
+    const vi = upd.status;
+    // drawn again once connected, so it can ask
+    return JSON.stringify([app.conn, (app.objects || []).length, !!vi, vi && Object.entries(vi).map(([k, c]) => [k, c.version, c.remote_version, (c.commits_behind || []).length]),
+      app.klipperVersion, upd.mcus, Object.keys(upd.res).length, upd.open]);
+  };
 
   /* =============================================================== start */
 

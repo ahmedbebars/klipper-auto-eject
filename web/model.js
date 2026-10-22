@@ -806,6 +806,130 @@
     return [(f.vendor || {}).name, f.name || f.material].filter(Boolean).join(" ") || (spool && spool.id ? "#" + spool.id : "");
   }
 
+  // ----- Klipper's updates, and the boards' firmware against Klipper
+
+  // "v0.13.0-816-gee2c6fb6-dirty" -> { tag: "v0.13.0", count: 816, sha: "ee2c6fb6", dirty: true }
+  function parseVersion(v) {
+    const m = /^(v?\d+(?:\.\d+)*)(?:-(\d+)-g([0-9a-f]{4,40}))?(-dirty)?/i.exec(String(v || "").trim());
+    if (!m) return null;
+    return { tag: m[1], count: m[2] ? Number(m[2]) : 0, sha: m[3] ? m[3].toLowerCase() : null, dirty: !!m[4] };
+  }
+  function cmpTags(a, b) {
+    const x = a.replace(/^v/i, "").split(".").map(Number), y = b.replace(/^v/i, "").split(".").map(Number);
+    for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0);
+    return 0;
+  }
+  // A board's firmware against Klipper on the computer: "same", "older" (by
+  // `by` updates when both are on one release), "newer" or "unknown".
+  function firmwareAge(mcuVersion, hostVersion) {
+    const a = parseVersion(mcuVersion), b = parseVersion(hostVersion);
+    if (!a || !b) return { state: "unknown", by: null };
+    const c = cmpTags(a.tag, b.tag) || a.count - b.count;
+    if (c === 0) return { state: a.sha && b.sha && a.sha !== b.sha ? "unknown" : "same", by: 0 };
+    return { state: c < 0 ? "older" : "newer", by: a.tag === b.tag ? Math.abs(a.count - b.count) : null };
+  }
+  // The files of a change that run on the boards, not on the computer.
+  function boardCode(files) {
+    return (files || []).map((f) => (typeof f === "string" ? f : f && f.filename) || "").filter((f) => /^(src|lib)\//.test(f));
+  }
+  // Klipper's notes in docs/Config_Changes.md that a change adds: what may
+  // need a change in printer.cfg. patch: the file's diff.
+  function configNotes(patch) {
+    const added = String(patch || "").split("\n").filter((l) => /^\+(?!\+\+)/.test(l)).map((l) => l.slice(1)).join("\n");
+    const out = [];
+    const re = /(?:^|\n)(\d{8}):\s*([\s\S]*?)(?=\n\d{8}:|$)/g;
+    let m;
+    while ((m = re.exec(added)) !== null) {
+      out.push({ date: m[1].slice(0, 4) + "-" + m[1].slice(4, 6) + "-" + m[1].slice(6), text: m[2].replace(/\s+/g, " ").trim() });
+    }
+    return out;
+  }
+  // What part of Klipper an update is about, from the "area: what" of its
+  // first line. A guess from Klipper's own habits; "other" when unknown.
+  const UPDATE_AREAS = [
+    ["docs", /^docs?$/],
+    ["config", /^config$/],
+    ["firmware", /^(src|lib|stm32\w*|rp2040|rp2350|atsam\w*|lpc176x|avr|hc32f460|ar100|pru|linux|sched|command|board|canserial|usb\w*|spicmds|i2ccmds|sensor_cs1237)$/],
+    ["drivers", /^tmc\w*$/],
+    ["shaping", /^(input_shaper|shaper\w*|resonance_tester|adxl345|lis2dw|lis3dh|mpu9250|icm20948|bmi160|accelerometer)$/],
+    ["probe", /^(probe\w*|bltouch|smart_effector|ldc1612|load_cell\w*|hx71x|ads1220)$/],
+    ["bed", /^(bed_mesh|z_tilt\w*|quad_gantry_level|screws_tilt_adjust|bed_tilt|bed_screws|axis_twist_compensation|z_thermal_adjust)$/],
+    ["fans", /^(fan\w*|heater_fan|controller_fan|temperature_fan)$/],
+    ["heat", /^(heaters?|heater_\w+|pid_calibrate|temperature_\w+|thermistor|adc_temperature|spi_temperature|verify_heater)$/],
+    ["extruder", /^(extruder\w*|pressure_advance|firmware_retraction|filament_\w+)$/],
+    ["motion", /^(toolhead|stepper\w*|kinematics|corexy|corexz|cartesian|delta|deltesian|hybrid_core\w+|polar|rotary_delta|winch|trapq|itersolve|motion_report|manual_stepper|force_move|homing\w*|endstop\w*)$/],
+    ["gcode", /^(gcode\w*|webhooks|api_server|print_stats|virtual_sdcard|exclude_object|save_variables|respond|pause_resume|idle_timeout|display_status|skew_correction)$/],
+    ["display", /^(display|menu|lcd\w*|st7920|uc1701|hd44780|neopixel|led\w*|dotstar|pca95\d\d)$/],
+    ["link", /^(mcu|serialhdl|clocksync|reactor|chelper|msgproto|canbus\w*|serial\w*)$/],
+    ["tools", /^(scripts?|tests?|graph\w*|klippy|build|workflows?|github)$/]
+  ];
+  function updateArea(subject) {
+    const m = /^\s*([\w./-]+)(?:\s*,\s*[\w./-]+)*\s*:/.exec(String(subject || ""));
+    if (!m) return "other";
+    const word = m[1].toLowerCase().replace(/\.(py|c|h)$/, "").split("/").pop();
+    const hit = UPDATE_AREAS.find(([, re]) => re.test(word));
+    return hit ? hit[0] : "other";
+  }
+  // How many of the updates are about each area, most first.
+  function updateAreas(commits) {
+    const n = {};
+    for (const c of commits || []) {
+      const a = updateArea(c.subject !== undefined ? c.subject : String(c.message || "").split("\n")[0]);
+      n[a] = (n[a] || 0) + 1;
+    }
+    return Object.entries(n).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).map(([area, count]) => ({ area, count }));
+  }
+
+  // ----- a report to paste into a GitHub issue
+
+  // Addresses do not belong in a public issue: IP addresses (the printer's,
+  // Tailscale's), Tailscale names and local host names become placeholders.
+  function scrubReport(text) {
+    return String(text)
+      .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, "x.x.x.x")
+      .replace(/\b[\w-]+(?:\.[\w-]+)*\.(?:ts\.net|local|lan|home|internal)\b/gi, "<host>");
+  }
+  // f: what the page knows, gathered by the app. Markdown, in English, for
+  // the issue form's fields: printer, versions, settings, console.
+  function supportReport(f) {
+    f = f || {};
+    const L = [];
+    const v = f.versions || {}, m = f.machine || {}, st = f.state || {};
+    const row = (k, val) => { if (val !== undefined && val !== null && val !== "") L.push("- " + k + ": " + val); };
+    L.push("### Versions");
+    row("klipper-auto-eject", v.autoEject || "?");
+    row("Klipper", v.klipper || "?");
+    for (const b of f.boards || []) row("Board " + b.name, [b.version, b.chip].filter(Boolean).join(" · "));
+    row("Moonraker", v.moonraker);
+    row("Web page", v.web);
+    row("Macro set", m.macroSet || "none found");
+    row("Computer", f.host);
+    L.push("", "### Printer");
+    row("Kinematics", m.kinematics);
+    row("Travel", m.travel);
+    row("Probe", m.probe);
+    row("Spoolman", m.spoolman);
+    L.push("", "### State");
+    row("Klipper", [st.klippy, st.klippyMsg].filter(Boolean).join(": "));
+    row("Print", st.print);
+    row("Job queue", st.queue);
+    row("Stored parts", st.parts);
+    row("Left on the bed", st.leftover);
+    row("Ejecting", st.busy === undefined ? undefined : st.busy ? "yes" : "no");
+    L.push("", "### Settings changed from the defaults");
+    const set = f.settings || [];
+    if (!set.length) L.push("None: every setting is at its default.");
+    else {
+      L.push("| Setting | Value | Set in |", "|---|---|---|");
+      for (const s of set) L.push("| `" + s.key + "` | `" + JSON.stringify(s.value) + "` | " + (s.source === "saved" ? "the web page" : "auto_eject_settings.cfg") + " |");
+    }
+    L.push("", "### Console (auto-eject lines and errors, newest last)", "```");
+    for (const line of f.log || []) L.push(String(line).replace(/```/g, "'''"));
+    if (!(f.log || []).length) L.push("(none)");
+    L.push("```");
+    return scrubReport(L.join("\n"));
+  }
+
   // A fan with a tachometer that should turn and does not.
   function fanStopped(fan) {
     return !!fan && typeof fan.rpm === "number" && (fan.speed || 0) >= 0.25 && fan.rpm < 1;
@@ -862,7 +986,7 @@
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
     noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
     hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft,
-    lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, parseVersion, firmwareAge, boardCode, configNotes, updateArea, updateAreas, scrubReport, supportReport, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText, macroSet
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

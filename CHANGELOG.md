@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **An Updates tab**: what changed in Klipper and the rest since your versions, from Moonraker's
+  update manager. Each update in Klipper's words, with what it is about (motion, heaters, board
+  firmware…); whether the updates change the code on the boards, so they need a reflash after
+  updating; and Klipper's notes on config changes. Each board's firmware against Klipper, and
+  whether it needs a reflash, also under each board on **Hardware**. What an update changes is
+  read from GitHub in the browser and kept there; without internet the list still shows.
+- **Report a problem** on **Hardware** and **Activity**: one text with what a GitHub issue asks
+  for (the versions, the printer, its state, the settings you changed, the console), without IP
+  addresses or host names, to copy or save, with a link to klippy.log and to a new issue.
 - **In your slicer** finds DEMON Klipper Essentials by itself: it says to keep DEMON's start lines
   as they are with `AUTO_EJECT_GUARD` above them, why `HOME=1` stays after `DEMON_END`, warns when
   `home_method` is `"g28"`, and says when DEMON's auto power-off is on and how the eject holds it.

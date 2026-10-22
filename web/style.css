@@ -757,3 +757,39 @@ html[dir="rtl"] .file-row .name, html[dir="rtl"] .fc-job .fc-file { text-align: 
 .hw-pct .meter { flex: 1; }
 .hw-pct b { min-width: 42px; text-align: end; font-size: 13px; }
 .spark-guide { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; opacity: 0.7; }
+
+/* ------------------------------------------------------------- updates */
+.upd-h { font-size: 13.5px; font-weight: 600; margin: 16px 0 8px; color: var(--text); }
+.upd-gap { margin-top: 12px; }
+.upd-list { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.upd-row { padding: 9px 12px; border-top: 1px solid var(--border); min-width: 0; }
+.upd-row:first-child { border-top: 0; }
+.upd-head { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+.upd-head .icon-btn { margin-inline-start: auto; }
+.upd-date { font-size: 12px; color: var(--muted); flex: none; min-width: 74px; }
+.upd-subject { flex: 1; min-width: 180px; font-size: 13px; overflow-wrap: anywhere; }
+.upd-body { margin: 8px 0 2px; padding: 10px 12px; background: var(--surface-2); border-radius: 8px; font-family: var(--mono); font-size: 12px;
+  white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); }
+.badge.upd-area, .chip.upd-area { flex: none; }
+.upd-area.firmware { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.upd-area.docs, .upd-area.tools, .upd-area.config { opacity: 0.75; }
+.chip.upd-area.firmware b { color: var(--warn); }
+.upd-notes { margin-top: 4px; }
+.upd-note { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); margin-bottom: 8px; }
+.upd-note b { font-size: 12px; color: var(--muted); }
+.upd-note p { margin: 4px 0 0; font-size: 13px; line-height: 1.5; }
+.upd-board { padding: 10px 0; border-top: 1px solid var(--border); }
+.upd-board:first-of-type { border-top: 0; }
+.upd-board .upd-head .ic { width: 18px; height: 18px; color: var(--muted); }
+.upd-board .note { margin-top: 6px; }
+.upd-other { border-top: 1px solid var(--border); padding: 10px 0; }
+.upd-other:first-of-type { border-top: 0; }
+.upd-other summary { display: flex; align-items: center; gap: 10px; cursor: pointer; flex-wrap: wrap; list-style: none; }
+.upd-other summary::-webkit-details-marker { display: none; }
+.upd-other summary .badge { margin-inline-start: auto; }
+.upd-other.flat summary { cursor: default; }
+.upd-other .upd-list { margin-top: 10px; }
+
+/* the support report */
+.modal.wide { width: min(760px, 100%); }
+.report-text { width: 100%; font-family: var(--mono); font-size: 12px; line-height: 1.45; resize: vertical; min-height: 220px; white-space: pre; }
