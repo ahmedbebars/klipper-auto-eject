@@ -35,6 +35,7 @@
   <a href="https://docs.fluidd.xyz/" title="Fluidd"><img src="../images/logos/fluidd.svg" alt="Fluidd" height="44"></a>&emsp;
   <a href="https://github.com/SoftFever/OrcaSlicer" title="OrcaSlicer"><img src="../images/logos/orcaslicer.svg" alt="OrcaSlicer" height="44"></a>&emsp;
   <a href="https://github.com/prusa3d/PrusaSlicer" title="PrusaSlicer"><img src="../images/logos/prusaslicer.svg" alt="PrusaSlicer" height="44"></a>&emsp;
+  <a href="https://tailscale.com/" title="Tailscale"><picture><source media="(prefers-color-scheme: dark)" srcset="../images/logos/tailscale-white.svg"><img src="../images/logos/tailscale.svg" alt="Tailscale" height="24"></picture></a>&emsp;
   <a href="https://github.com/Donkie/Spoolman" title="Spoolman"><img src="../images/logos/spoolman.svg" alt="Spoolman" height="44"></a>&emsp;
   <a href="https://github.com/3DPrintDemon/Demon_Klipper_Essentials_Unified" title="DEMON Klipper Essentials"><img src="../images/logos/demon.png" alt="DEMON Klipper Essentials" height="44"></a>
 </p>

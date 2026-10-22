@@ -197,6 +197,7 @@ and blades come 60, 80 and 100 mm wide. [Print and mount it](hardware.md)
   <a href="https://docs.fluidd.xyz/" title="Fluidd"><img src="images/logos/fluidd.svg" alt="Fluidd"></a>
   <a href="https://github.com/SoftFever/OrcaSlicer" title="OrcaSlicer"><img src="images/logos/orcaslicer.svg" alt="OrcaSlicer"></a>
   <a href="https://github.com/prusa3d/PrusaSlicer" title="PrusaSlicer"><img src="images/logos/prusaslicer.svg" alt="PrusaSlicer"></a>
+  <a href="https://tailscale.com/" title="Tailscale"><img class="ae-wordmark" src="images/logos/tailscale.svg" alt="Tailscale"></a>
   <a href="https://github.com/Donkie/Spoolman" title="Spoolman"><img src="images/logos/spoolman.svg" alt="Spoolman"></a>
   <a href="https://github.com/3DPrintDemon/Demon_Klipper_Essentials_Unified" title="DEMON Klipper Essentials"><img src="images/logos/demon.png" alt="DEMON Klipper Essentials"></a>
 </p>

@@ -233,3 +233,5 @@
 .ae-logos a { display: grid; place-items: center; background: #fff; border-radius: 12px; padding: 10px 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
 .ae-logos img { height: 44px; width: auto; display: block; }
+/* a wordmark (Tailscale): lower, in a tile as tall as the others */
+.ae-logos img.ae-wordmark { height: 24px; margin: 10px 0; }
