@@ -126,6 +126,7 @@ Each line is a shortcut to its page.
 | [Switch off by itself](docs/farm.md#switching-printers-off-by-themselves) | A printer with a power switch turns off when it has nothing to do |
 | [Maintenance and a daily report](docs/farm.md#maintenance-reminders-and-the-daily-report) | A reminder every so many hours of printing, and the day's summary on the phones |
 | [One printer or a hundred](docs/farm.md#a-big-farm) | Filters, a search, a list, and groups by shelf or room |
+| [One queue for the whole farm](docs/farm.md#one-queue-for-the-whole-farm) | A file printed 50 times: each copy to the next printer that is free |
 | [Several at once](docs/farm.md#one-command-for-several-printers) | One command, or one file to print, for the printers you tick |
 | [Production](docs/farm.md#production) | What each printer made today, in 7 or 30 days, with a CSV, and each one's spool |
 | [Settings for a kind of printer](docs/farm.md#settings-for-a-kind-of-printer) | Tune one, copy it to the others, or save it under a name for the next one |

@@ -894,6 +894,8 @@ def test_settings_to_copy_leave_out_what_each_printer_keeps():
                 {"id": "c", "auto_eject": False, "phase": "idle"}, {"id": "d", "auto_eject": True, "phase": "offline"}]
     out = js("farmBulk", printers, ["a", "b", "c", "d"])
     assert [x["id"] for x in out["actions"]["settings"]] == ["a"]
+    # the farm queue takes any of them: each copy waits for one to be free
+    assert [x["id"] for x in out["actions"]["queue"]] == ["a", "b", "c", "d"]
 
 
 @needs_node

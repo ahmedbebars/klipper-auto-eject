@@ -765,6 +765,9 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
         log "Kept [spoolman] in moonraker.conf: Mainsail and Fluidd use it too."
     fi
     log "Kept ${CONFIG_DIR}/auto_eject_settings.cfg and ${REPO_DIR} (delete them by hand if you want)."
+    if [[ -d "${HOME}/.cache/klipper-auto-eject/queue" ]]; then
+        log "Kept the farm queue's files in ${HOME}/.cache/klipper-auto-eject/queue (delete them by hand if you want)."
+    fi
     log "Restart Klipper to finish: FIRMWARE_RESTART"
     exit 0
 fi

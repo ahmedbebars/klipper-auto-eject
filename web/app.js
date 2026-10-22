@@ -103,6 +103,9 @@
     fan: "M12 12m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0 M12 10.5C11 6 12 3 15 3s3 4-1.5 7.5 M13.5 12c4.5-1 7.5 0 7.5 3s-4 3-7.5-1.5 M12 13.5c1 4.5 0 7.5-3 7.5s-3-4 1.5-7.5 M10.5 12C6 13 3 12 3 9s4-3 7.5 1.5",
     server: "M4 4h16v6H4z M4 14h16v6H4z M8 7h.01 M8 17h.01",
     close: "M6 6l12 12 M18 6L6 18",
+    up: "M12 19V5 M5 12l7-7 7 7",
+    down: "M12 5v14 M19 12l-7 7-7-7",
+    minus: "M5 12h14",
     qr: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M6 6h1v1H6z M17 6h1v1h-1z M6 17h1v1H6z M14 14h3v3h-3z M18 18h3v3h-3z M21 14v1 M14 21h1"
   };
   function icon(name, cls) {
@@ -2286,7 +2289,7 @@
 
   // One command for the selected printers: only those it can be done on now.
   const BULK_UI = { clear: ["hand", "farm.clear", "primary"], continue: ["play", "farm.continue", "primary"], push: ["push", "act.push_now", "primary"],
-    pause: ["pause", "farm.pause", ""], resume: ["play", "farm.resume", ""], send: ["file", "farm.bulk_send", ""],
+    pause: ["pause", "farm.pause", ""], resume: ["play", "farm.resume", ""], send: ["file", "farm.bulk_send", ""], queue: ["queue", "fq.title", ""],
     power_on: ["power", "farm.bulk_on", ""], power_off: ["power", "farm.bulk_off", ""], settings: ["copy", "farm.copy", ""], labels: ["qr", "farm.qr_labels", ""],
     cancel: ["bad", "farm.cancel", "stop"], estop: ["stop", "act.estop", "stop"] };
   function farmBulkBar(all) {
@@ -2313,6 +2316,7 @@
     const ok = bulk.actions[action];
     const left = bulk.selected.filter((p) => !ok.includes(p));
     if (action === "send") return farmBulkSend(ok, left);
+    if (action === "queue") return queueAdd(ok);
     if (action === "labels") return qrDialog(ok);
     if (action === "settings") return copySettings(ok);
     const label = t(BULK_UI[action][1], { dev: "" }).trim();
@@ -2491,6 +2495,7 @@
       h("div", { class: "farm-sum" }, farmTodayLine(all)),
       body,
       farmBulkBar(all),
+      farmQueueCard(all),
       all.length > 1 ? farmReportCard() : null,
       all.length < 2 ? h("section", { class: "card", style: { marginTop: "16px" } },
         h("p", { class: "note" }, icon("search"), h("span", { text: t("farm.first") })),
@@ -2507,7 +2512,7 @@
     return report + JSON.stringify(farm.data.printers.map((p) => [p.id, p.name, p.group, p.phase, p.reason, p.filename, Math.round((p.progress || 0) * 100),
       p.eta === null || p.eta === undefined ? null : Math.round(p.eta / 60), p.layer, Math.round(p.bed || 0), p.bed_target, p.jobs, p.queue,
       p.parts, p.leftover, p.camera, p.message, p.page, p.page_remote, p.auto_eject, p.service_every, p.service_since, p.stats, p.bin, p.bin_cap, p.power, p.auto_off, p.auto_off_device,
-      p.spool]));
+      p.spool]) + JSON.stringify(farm.data.queue || null));
   };
 
   function closeModal(cls) {
@@ -2687,7 +2692,131 @@
     });
   }
 
-  // ----- rename or remove one printer
+  /* -------------------------------------------------------- the farm queue */
+
+  // One list for the whole farm: each file printed so many times, each copy
+  // on the next free printer it may go to. push/farm.py sends them and
+  // follows each one; the page shows it and changes the list.
+  function queueCall(body) {
+    return farmCall("/queue", body).then(() => loadFarm()).catch((e) => toast(cleanError(e.message), "bad"));
+  }
+  function farmQueueCard(all) {
+    const q = farm.data.queue;
+    if (!q) return null;                               // a farm service from before the queue
+    const byId = {};
+    all.forEach((p) => { byId[p.id] = p; });
+    const name = (id) => (byId[id] || {}).name || id;
+    const list = (ids) => ids.map(name).join(lang === "ar" ? "، " : ", ");
+    // the ones whose card says nothing: a card that needs you has its own Bed is clear
+    const waiting = (q.need_clear || []).filter((id) => byId[id] && byId[id].phase === "idle");
+    const job = (j, i) => {
+      const printing = j.now.filter((r) => r.state === "printing").map((r) => r.printer);
+      const sending = j.now.filter((r) => r.state === "sending").map((r) => r.printer);
+      const facts = [t("fq.made", { done: num(j.done, 0), copies: num(j.copies, 0) })];
+      if (printing.length) facts.push(t("fq.printing", { names: list(printing) }));
+      if (sending.length) facts.push(t("fq.sending", { names: list(sending) }));
+      if (j.stopped) facts.push(t("fq.stopped", { n: num(j.stopped, 0) }));
+      if (j.left) facts.push(t("fq.left", { n: num(j.left, 0) }));
+      const under = j.done + j.stopped + j.now.length;     // made or on their way: the fewest copies it can have
+      return h("div", { class: "fq-job" + (j.left || j.now.length ? "" : " fq-finished") },
+        h("div", { class: "fq-main" },
+          h("div", { class: "fq-name" }, h("b", { class: "ltr", title: j.name, text: j.name }),
+            j.material ? h("span", { class: "badge", text: j.material }) : null),
+          h("div", { class: "progress fq-bar" }, h("i", { style: { width: num(j.copies ? 100 * j.done / j.copies : 0, 1) + "%" } })),
+          h("div", { class: "muted fq-facts", dir: "auto", text: facts.join(" · ") }),
+          h("div", { class: "muted fq-on", dir: "auto", text: t("fq.on", { names: list(j.printers) }) }),
+          j.error ? h("p", { class: "note bad" }, icon("alert"), h("span", { text: t("fq.error", { error: j.error }) })) : null),
+        h("div", { class: "fq-acts" },
+          h("button", { type: "button", class: "icon-btn", title: t("fq.up"), "aria-label": t("fq.up"), disabled: i === 0,
+            onclick: () => queueCall({ id: j.id, move: -1 }) }, icon("up")),
+          h("button", { type: "button", class: "icon-btn", title: t("fq.down"), "aria-label": t("fq.down"), disabled: i === q.jobs.length - 1,
+            onclick: () => queueCall({ id: j.id, move: 1 }) }, icon("down")),
+          h("span", { class: "fq-count" },
+            h("button", { type: "button", class: "icon-btn", title: t("fq.less"), "aria-label": t("fq.less"), disabled: j.copies <= Math.max(1, under),
+              onclick: () => queueCall({ id: j.id, copies: j.copies - 1 }) }, icon("minus")),
+            h("b", { title: t("fq.copies"), text: num(j.copies, 0) }),
+            h("button", { type: "button", class: "icon-btn", title: t("fq.more"), "aria-label": t("fq.more"),
+              onclick: () => queueCall({ id: j.id, copies: j.copies + 1 }) }, icon("plus"))),
+          h("button", { type: "button", class: "icon-btn", title: t("fq.remove"), "aria-label": t("fq.remove"),
+            onclick: () => confirm(t("fq.remove"), t("fq.remove_q", { name: j.name }), t("fq.remove"), "danger")
+              .then((yes) => { if (yes) queueCall({ id: j.id, remove: true }); }) }, icon("trash"))));
+    };
+    return h("section", { class: "card fq", style: { marginTop: "16px" } },
+      h("h2", null, icon("queue"), t("fq.title"),
+        h("span", { class: "right" },
+          q.jobs.length ? h("div", { class: "seg", role: "group", "aria-label": t("fq.title") }, [[true, "play", "fq.running"], [false, "pause", "fq.paused"]].map(([v, ic, k]) =>
+            h("button", { type: "button", class: "seg-btn" + (q.running === v ? " active" : ""), "aria-pressed": q.running === v ? "true" : "false",
+              onclick: () => { if (q.running !== v) queueCall({ running: v }); } }, icon(ic), t(k)))) : null,
+          h("button", { type: "button", class: "btn sm", onclick: () => queueAdd([]) }, icon("plus"), t("fq.add")))),
+      waiting.length ? h("div", { class: "fq-wait" },
+        h("p", { class: "note warn" }, icon("hand"), h("span", { text: t("fq.wait") })),
+        h("div", { class: "toolbar" }, waiting.map((id) => h("button", { type: "button", class: "btn sm", onclick: () => queueCall({ cleared: id }) },
+          icon("ok"), h("span", { dir: "auto", text: name(id) }))))) : null,
+      q.jobs.length ? h("div", { class: "fq-jobs" }, q.jobs.map(job))
+        : h("p", { class: "note" }, icon("info"), h("span", { text: t("fq.empty") })));
+  }
+
+  // a file into the farm queue: how many copies, and the printers it may go to
+  function queueAdd(pre) {
+    const picker = h("input", { type: "file", accept: ".gcode,.g,.gco,.bgcode", style: { display: "none" } });
+    const printers = (farm.data && farm.data.printers) || [];
+    const ui = { file: null, copies: 1, sel: new Set(pre.map((p) => p.id)), sending: null };
+    const close = () => { if (ui.sending === null) closeModal("fqadd"); };
+    const send = () => {
+      const copies = Math.round(Number(ui.copies));
+      if (!(copies >= 1 && copies <= 999)) return toast(t("fq.copies_bad"), "bad");
+      const ids = printers.filter((p) => ui.sel.has(p.id)).map((p) => p.id);
+      ui.sending = 0;
+      draw();
+      const done = (r) => { ui.sending = null; closeModal("fqadd"); toast(t("fq.added", { name: ui.file.name, n: num(copies, 0) }), "ok"); loadFarm(); return r; };
+      const failed = (e) => { ui.sending = null; draw(); toast(cleanError(e.message), "bad"); };
+      if (DEMO) return client.farm("/queue/upload", { name: ui.file.name, size: ui.file.size, copies, printers: ids }).then(done, failed);
+      const x = new XMLHttpRequest();
+      x.open("POST", FARM_API + "/queue/upload?name=" + encodeURIComponent(ui.file.name) + "&copies=" + copies + "&printers=" + ids.map(encodeURIComponent).join(","));
+      x.upload.onprogress = (e) => { if (e.lengthComputable) { ui.sending = e.loaded / e.total; draw(); } };
+      x.onload = () => {
+        let j = {};
+        try { j = JSON.parse(x.responseText || "{}"); } catch (e) { /* not JSON */ }
+        if (x.status >= 200 && x.status < 300) done(j); else failed(new Error(j.error || "HTTP " + x.status));
+      };
+      x.onerror = () => failed(new Error(t("farm.upload_failed")));
+      x.send(ui.file);
+    };
+    picker.addEventListener("change", () => { if (picker.files[0]) { ui.file = picker.files[0]; draw(); } });
+    const tick = (ids, on) => { ids.forEach((id) => { if (on) ui.sel.add(id); else ui.sel.delete(id); }); draw(); };
+    function draw() {
+      const busy = ui.sending !== null;
+      const row = (p) => h("label", { class: "copy-row" },
+        h("input", { type: "checkbox", checked: ui.sel.has(p.id), disabled: busy, onchange: (e) => tick([p.id], e.target.checked) }),
+        h("span", { dir: "auto", text: p.name + (p.local ? " · " + t("farm.this") : "") }),
+        h("span", { class: "muted fq-hint", text: ["offline", "off"].includes(p.phase) ? t("farm.phase." + p.phase) : p.auto_eject ? "" : t("fq.no_ae") }));
+      const groups = M.farmGroups(printers);
+      const body = h("div", null,
+        h("p", { class: "muted", text: t("fq.add_intro") }),
+        h("div", { class: "toolbar", style: { margin: "10px 0" } },
+          h("button", { type: "button", class: "btn", disabled: busy, onclick: () => picker.click() }, icon("file"), t("farm.choose_file")),
+          ui.file ? h("span", { class: "ltr muted", text: ui.file.name + " · " + fmtSize(ui.file.size) }) : null),
+        h("label", { class: "field", style: { maxWidth: "160px" } }, h("span", { text: t("fq.copies") }),
+          h("input", { class: "input", type: "number", min: 1, max: 999, step: 1, value: ui.copies, disabled: busy, oninput: (e) => { ui.copies = e.target.value; } })),
+        h("div", { class: "field", style: { marginTop: "12px" } }, h("span", { text: t("fq.printers") })),
+        h("div", { class: "copy-list" }, groups.map((g) => [
+          groups.length > 1 || g.group ? h("label", { class: "copy-row fq-group" },
+            h("input", { type: "checkbox", disabled: busy, checked: g.printers.every((p) => ui.sel.has(p.id)),
+              onchange: (e) => tick(g.printers.map((p) => p.id), e.target.checked) }),
+            h("b", { dir: "auto", text: g.group || t("farm.no_group") }), h("span")) : null,
+          g.printers.map(row)])),
+        h("p", { class: "note", style: { marginTop: "8px" } }, icon("info"), h("span", { text: t("fq.add_note") })),
+        busy ? h("div", { class: "progress", style: { marginTop: "10px" } }, h("i", { style: { width: num(ui.sending * 100, 1) + "%" } })) : null,
+        picker);
+      modal("fqadd", t("fq.add_title"), body, [
+        h("button", { type: "button", class: "btn", disabled: busy, onclick: close, text: t("c.close") }),
+        h("button", { type: "button", class: "btn primary", disabled: busy || !ui.file || !ui.sel.size, onclick: send },
+          busy ? h("span", { class: "spinner" }) : icon("queue"), t("fq.go"))
+      ], close);
+    }
+    draw();
+  }
+
   /* ------------------------------------- settings for a kind of printer */
 
   // One printer's auto-eject settings onto others, or a set saved under a
@@ -2891,6 +3020,7 @@
     draw();
   }
 
+  // ----- rename or remove one printer
   function editPrinter(p) {
     const close = () => closeModal("edit");
     const name = h("input", { class: "input", type: "text", value: p.name, maxlength: 40, dir: "auto" });

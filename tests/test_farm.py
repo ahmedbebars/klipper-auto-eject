@@ -1,6 +1,7 @@
 """push/farm.py: every printer on the network in the auto-eject page."""
 
 import json
+import os
 import pathlib
 import sys
 import time
@@ -1135,3 +1136,151 @@ def test_api_settings_and_sets(api, monkeypatch):
     assert call(base + "/farm/sets", {"name": "", "values": {"push_z": 0.6}})[0] == 400
     assert [s["name"] for s in call(base + "/farm")[1]["sets"]] == ["Ender 3"]
     assert call(base + "/farm/sets", {"remove": "Ender 3"}) == (200, {"removed": True})
+
+
+# ------------------------------------------------------------- the farm queue
+class Now:
+    """Runs a thread's work at once, so a test sees what it did."""
+
+    def __init__(self, target=None, args=(), daemon=None):
+        self.target, self.args = target, args
+
+    def start(self):
+        self.target(*self.args)
+
+
+@pytest.fixture
+def queue_farm(monkeypatch, tmp_path):
+    monkeypatch.setattr(farm, "QUEUE_DIR", str(tmp_path / "queue"))
+    monkeypatch.setattr(farm.threading, "Thread", Now)
+    sent = []
+    refuse = ["10.0.0.9"]                    # this one refuses its first copy
+
+    def upload(base, name, fileobj, size, start=False, timeout=600, folder=""):
+        sent.append((base, folder + "/" + name, start, fileobj.read()))
+        if any(host in base for host in refuse):
+            refuse.clear()
+            raise RuntimeError("Klipper is busy")
+        return {"print_started": True}
+    monkeypatch.setattr(farm, "upload_file", upload)
+    f = farm.Farm(FakeMoonraker())
+    ids = f.add([{"host": "10.0.0.%d" % i, "port": 7125, "name": "p%d" % i} for i in (1, 2, 3, 9)])
+    for pid in ids:
+        f.printers[pid].card = {"phase": "idle", "auto_eject": True, "jobs": 0}
+        f.printers[pid].updated = 1000.0
+    f.clock = lambda: 1001.0
+    return f, ids, sent
+
+
+def card(f, pid, at, **c):
+    p = f.find(pid)
+    p.card = dict({"auto_eject": True, "jobs": 0}, **c)
+    p.updated = at
+
+
+def test_the_material_a_file_was_sliced_for(tmp_path):
+    a = tmp_path / "a.gcode"
+    a.write_bytes(b"G28\n" * 40000 + b"; filament_type = PETG;PLA\n")
+    assert farm.gcode_material(str(a)) == "PETG"
+    b = tmp_path / "b.gcode"
+    b.write_bytes(b"G28\n")
+    assert farm.gcode_material(str(b)) == ""
+    assert farm.same_material("PLA", "PLA+") and farm.same_material("", "PETG")
+    assert not farm.same_material("PLA", "PETG") and not farm.same_material("PLA", "PLA-CF")
+
+
+def test_the_farm_queue_sends_each_copy_to_the_next_free_printer(queue_farm):
+    import io
+    f, (a, b, c, bad), sent = queue_farm
+    card(f, b, 1000.0, phase="printing", state="printing", filename="other.gcode")
+    card(f, c, 1000.0, phase="idle", jobs=2)                       # its own queue has work: left alone
+    job = f.queue_add("part.gcode", io.BytesIO(b"G28\n; filament_type = PLA\n"), 26, 3, [a, b, c])
+    assert f.queue["jobs"][0]["material"] == "PLA"
+    f.dispatch(1001.0)
+    assert [(s[1], s[2]) for s in sent] == [("farm/part.gcode", True)]   # into farm/, never over its own files
+    assert f.queue_view()["jobs"][0]["now"] == [{"printer": a, "state": "printing"}]
+    assert f.dispatch(1002.0) == []                                  # nobody else is free
+    # a prints it, ends well, auto-eject clears its bed: the next copy
+    card(f, a, 1010.0 + 5, phase="printing", state="printing", filename="farm/part.gcode")
+    f.track_queue(1015.0)
+    card(f, a, 2000.0, phase="idle", state="complete", filename="farm/part.gcode")
+    f.track_queue(2000.0)
+    view = f.queue_view()["jobs"][0]
+    assert (view["done"], view["left"]) == (1, 2) and a not in f.need_clear
+    f.dispatch(2001.0)
+    assert len(sent) == 2 and sent[1][0].startswith("http://10.0.0.1")
+    card(f, a, 2005.0, phase="printing", state="printing", filename="farm/part.gcode")
+    # b gets free; without auto-eject it waits for its bed to be cleared after
+    card(f, b, 2002.0, phase="idle", state="standby", filename="", auto_eject=False)
+    f.dispatch(2003.0)
+    card(f, b, 2010.0, phase="printing", state="printing", filename="farm/part.gcode", auto_eject=False)
+    f.track_queue(2010.0)
+    card(f, b, 3000.0, phase="needs", state="complete", filename="farm/part.gcode", auto_eject=False)
+    f.track_queue(3000.0)
+    assert b in f.need_clear and f.queue_view()["need_clear"] == [b]
+    card(f, b, 3001.0, phase="idle", state="standby", filename="", auto_eject=False)
+    view = f.queue_view()["jobs"][0]
+    assert (view["done"], view["left"], len(view["now"])) == (2, 0, 1)
+    assert f.queue_change({"id": job, "copies": 4})
+    f.dispatch(3002.0)
+    assert len(sent) == 3                                            # not to b: someone clears it first
+    f.queue_change({"cleared": b})
+    f.dispatch(3003.0)
+    assert len(sent) == 4 and "10.0.0.2" in sent[3][0]
+    assert farm.Farm(f.moonraker).queue["jobs"][0]["copies"] == 4    # kept in Moonraker
+
+
+def test_the_farm_queue_never_forces_a_printer(queue_farm):
+    import io
+    f, (a, b, c, bad), sent = queue_farm
+    f.find(a).spool = {"material": "PETG"}                          # the wrong filament
+    card(f, c, 1000.0, phase="needs", reason="parts")
+    job = f.queue_add("part.gcode", io.BytesIO(b"; filament_type = PLA\n"), 22, 5, [a, c, bad])
+    f.dispatch(1001.0)
+    run = f.queue["jobs"][0]["runs"][0]
+    assert [s[0] for s in sent] == ["http://10.0.0.9:7125"] and run["state"] == "failed"
+    assert f.queue_view()["jobs"][0]["error"] == "Klipper is busy" and f.queue_view()["jobs"][0]["left"] == 5
+    f.dispatch(1010.0)
+    assert len(sent) == 1                                            # tried again only after a while
+    # paused: nothing goes out
+    f.queue_change({"running": False})
+    f.find(bad).updated = 2000.0
+    assert f.dispatch(2000.0) == []
+    f.queue_change({"running": True})
+    # a copy that never shows up printing, and one cancelled: stopped, and the bed is checked first
+    f.dispatch(1000.0 + farm.QUEUE_RETRY + 1)
+    assert f.queue["jobs"][0]["runs"][-1]["state"] == "printing"
+    card(f, bad, 1500.0, phase="idle", state="standby", filename="")
+    f.track_queue(1000.0 + farm.QUEUE_RETRY + 1 + farm.QUEUE_START + 1)
+    assert f.queue["jobs"][0]["runs"][-1]["state"] == "stopped" and bad in f.need_clear
+    view = f.queue_view()["jobs"][0]
+    assert (view["stopped"], view["left"]) == (1, 4)
+    # the queue cannot go below what is made or under way, and a removed job takes its file
+    with pytest.raises(ValueError):
+        f.queue_change({"id": job, "copies": 0})
+    assert f.queue_change({"id": job, "move": -1}) and f.queue_change({"id": job, "remove": True})
+    assert f.queue["jobs"] == [] and not any(os.listdir(farm.QUEUE_DIR))
+    with pytest.raises(LookupError):
+        f.queue_change({"id": job, "copies": 2})
+    with pytest.raises(ValueError):
+        f.queue_add("part.gcode", io.BytesIO(b"G28"), 3, 1, ["nobody"])
+
+
+def test_api_farm_queue(api, monkeypatch, tmp_path):
+    f, base = api
+    monkeypatch.setattr(farm, "QUEUE_DIR", str(tmp_path / "queue"))
+    pid = list(f.printers)[0]
+    req = urllib.request.Request(base + "/farm/queue/upload?name=part.gcode&copies=2&printers=%s,gone" % pid, data=b"G28\n",
+                                 headers={"Content-Type": "application/octet-stream"})
+    with urllib.request.urlopen(req, timeout=5) as r:
+        job = json.load(r)["added"]
+    q = call(base + "/farm")[1]["queue"]
+    assert q["running"] is True and [(j["id"], j["copies"], j["printers"]) for j in q["jobs"]] == [(job, 2, [pid])]
+    assert call(base + "/farm/queue", {"id": job, "copies": 5}) == (200, {"saved": True})
+    assert call(base + "/farm/queue", {"id": "nope", "copies": 5})[0] == 404
+    assert call(base + "/farm/queue", {"id": job, "copies": "lots"})[0] == 400
+    assert call(base + "/farm/queue", {"running": False}) == (200, {"saved": True})
+    bad = urllib.request.Request(base + "/farm/queue/upload?name=notes.txt&copies=1&printers=%s" % pid, data=b"x")
+    with pytest.raises(urllib.error.HTTPError) as e:
+        urllib.request.urlopen(bad, timeout=5)
+    assert e.value.code == 400

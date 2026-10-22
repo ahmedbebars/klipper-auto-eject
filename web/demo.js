@@ -1047,6 +1047,13 @@
     if (f.kind === "offline") return Object.assign(base, { phase: "offline" });
     if (f.kind === "off") return Object.assign(base, { phase: "off" });
     const card = Object.assign(base, { state: "standby", filename: f.file || "", message: "", bed: 23, bed_target: 0, nozzle: 24, progress: 0, eta: null });
+    if (f.kind === "printing" && f.once && (now - f.start) * 40 >= f.time) {
+      // a copy from the farm queue ends: auto-eject clears the bed, or it waits for someone
+      f.once.state = "done";
+      f.once = null;
+      f.kind = f.auto_eject ? "idle" : "done";
+      if (!f.auto_eject) this.farmQ.need_clear.add(f.id);
+    }
     if (f.kind === "printing") {
       // a print that runs 40 times faster than a real one, then starts again
       const p = (f.at + (now - (f.start || this.farmStart)) * 40 / f.time) % 1;
@@ -1065,7 +1072,6 @@
     return Object.assign(card, { phase: "idle", reason: "", filename: "" });
   };
 
-  // What the farm API (push/farm.py) answers, for the demo's Farm tab.
   // A pretend printer's settings: this printer's defaults with its own
   // changes; a copy sets only what differs, as the farm does.
   Demo.prototype.farmSettings = function (id, body) {
@@ -1095,6 +1101,79 @@
     return later({ result: out });
   };
 
+  // The farm queue as push/farm.py runs it: each copy to the next free
+  // printer of its job, and a pretend print 40 times faster than a real one.
+  Demo.prototype.farmQueue = function () {
+    if (!this.farmQ) {
+      const done = (printer) => ({ printer, state: "done" });
+      this.farmQ = { running: true, need_clear: new Set(), jobs: [
+        { id: "q1", name: "cookie_cutter_star_PLA.gcode", size: 1834000, copies: 12, printers: ["f1", "f2", "f6"], material: "PLA",
+          runs: [done("f1"), done("f2"), done("f6"), done("f1"), done("f2")] },
+        { id: "q2", name: "bracket_PETG_2h5m.gcode", size: 4215000, copies: 4, printers: ["f3", "f4"], material: "PETG", runs: [done("f3")] }] };
+      this.farmQ.need_clear.add("f3");
+    }
+    return this.farmQ;
+  };
+  Demo.prototype.farmQueueView = function () {
+    const q = this.farmQueue();
+    const now = Date.now() / 1000;
+    const cards = {};
+    [this.farmLocal()].concat(this.farmList.map((f) => this.farmCard(f))).forEach((c) => { cards[c.id] = c; });
+    const busy = new Set();
+    q.jobs.forEach((j) => j.runs.forEach((r) => { if (r.state === "printing") busy.add(r.printer); }));
+    const count = (j, s) => j.runs.filter((r) => r.state === s).length;
+    const left = (j) => Math.max(0, j.copies - count(j, "done") - count(j, "stopped") - count(j, "printing"));
+    if (q.running) {
+      for (const j of q.jobs) {
+        let n = left(j);
+        for (const id of j.printers) {
+          const f = this.farmList.find((x) => x.id === id);
+          const c = cards[id];
+          const spool = f && f.spool && f.spool.material;
+          if (n <= 0 || !f || !c || busy.has(id) || c.phase !== "idle" || q.need_clear.has(id) || (spool && j.material && spool !== j.material)) continue;
+          const run = { printer: id, state: "printing" };
+          j.runs.push(run);
+          Object.assign(f, { kind: "printing", file: "farm/" + j.name, time: 1800, at: 0, layers: 80, start: now, once: run });
+          busy.add(id);
+          n -= 1;
+        }
+      }
+    }
+    return { running: q.running, need_clear: Array.from(q.need_clear),
+      jobs: q.jobs.map((j) => ({ id: j.id, name: j.name, size: j.size, copies: j.copies, printers: j.printers, material: j.material,
+        done: count(j, "done"), stopped: count(j, "stopped"), left: left(j), error: "",
+        now: j.runs.filter((r) => r.state === "printing").map((r) => ({ printer: r.printer, state: r.state })) })) };
+  };
+  Demo.prototype.farmQueueAdd = function (body) {
+    const q = this.farmQueue();
+    if (!/\.(gcode|g|gco|bgcode)$/i.test(body.name || "")) return Promise.reject(new Error("not a G-code file: " + body.name));
+    if (!(body.printers || []).length) return Promise.reject(new Error("which printers may print it?"));
+    const id = "q" + Date.now().toString(36);
+    const m = /(PLA|PETG|ABS|ASA|TPU)/i.exec(body.name);
+    q.jobs.push({ id, name: body.name, size: body.size, copies: body.copies, printers: body.printers, material: m ? m[1].toUpperCase() : "", runs: [] });
+    return new Promise((resolve) => setTimeout(() => resolve({ added: id }), 400));
+  };
+  Demo.prototype.farmQueueChange = function (body) {
+    const q = this.farmQueue();
+    const later = (v) => new Promise((resolve) => setTimeout(() => resolve(v), 120));
+    if ("running" in body) { q.running = !!body.running; return later({ saved: true }); }
+    if ("cleared" in body) { q.need_clear.delete(body.cleared); return later({ saved: true }); }
+    const i = q.jobs.findIndex((j) => j.id === body.id);
+    if (i < 0) return Promise.reject(new Error("no such job"));
+    const j = q.jobs[i];
+    if (body.remove) q.jobs.splice(i, 1);
+    else if ("copies" in body) {
+      const under = j.runs.filter((r) => r.state !== "failed").length;
+      if (!(body.copies >= under && body.copies <= 999)) return Promise.reject(new Error(under + " copies at least: they are made or under way"));
+      j.copies = body.copies;
+    } else if ("move" in body) {
+      const to = Math.max(0, Math.min(q.jobs.length - 1, i + body.move));
+      q.jobs.splice(to, 0, q.jobs.splice(i, 1)[0]);
+    }
+    return later({ saved: true });
+  };
+
+  // What the farm API (push/farm.py) answers, for the demo's Farm tab.
   Demo.prototype.farm = function (path, body) {
     const ok = (v) => new Promise((resolve) => setTimeout(() => resolve(v), 120));
     const fail = (msg) => new Promise((resolve, reject) => setTimeout(() => reject(new Error(msg)), 120));
@@ -1105,8 +1184,10 @@
     if (!this.farmSets) this.farmSets = { "Voron 2.4 350": { values: { cool_temp: 38, push_z: 0.6, push_speed: 2400, verify: true }, from: "voron-01", saved: 0 } };
     if (path === "") return ok({ printers: [this.farmLocal()].concat(this.farmList.map((f) => this.farmCard(f))), scan: this.farmScan,
       settings: { report: this.farmReport || "" },
-      sets: Object.keys(this.farmSets).sort().map((n) => Object.assign({ name: n }, this.farmSets[n])) });
+      sets: Object.keys(this.farmSets).sort().map((n) => Object.assign({ name: n }, this.farmSets[n])), queue: this.farmQueueView() });
     if (path === "/settings") { this.farmReport = body.report || ""; return ok({ saved: true }); }
+    if (path === "/queue/upload") return this.farmQueueAdd(body);
+    if (path === "/queue") return this.farmQueueChange(body);
     if (path === "/sets") {
       if (!this.farmSets) this.farmSets = {};
       if (body.remove) { const had = body.remove in this.farmSets; delete this.farmSets[body.remove]; return ok({ removed: had }); }
@@ -1243,7 +1324,7 @@
       }
       const f = this.farmList.find((x) => x.id === m[1]);
       if (!f) return fail("not found");
-      if (m[2] === "clear") f.kind = "idle";
+      if (m[2] === "clear") { f.kind = "idle"; if (this.farmQ) this.farmQ.need_clear.delete(f.id); }
       if (m[2] === "bin_empty") { f.kind = "idle"; f.bin = 0; }
       if (m[2] === "pause" && f.kind === "printing") { f.kind = "paused"; f.pausedAt = Date.now() / 1000; }
       if (m[2] === "resume" && f.kind === "paused") { f.kind = "printing"; f.start = (f.start || this.farmStart) + (Date.now() / 1000 - f.pausedAt); }

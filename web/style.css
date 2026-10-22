@@ -1002,6 +1002,28 @@ html[dir="rtl"] .file-row .name, html[dir="rtl"] .fc-job .fc-file { text-align: 
   box-shadow: var(--shadow-lg); }
 .bulk-n { white-space: nowrap; }
 
+/* the farm queue */
+.fq-jobs { display: grid; gap: 0; }
+.fq-job { display: flex; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); }
+.fq-job:first-child { border-top: 0; }
+.fq-main { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.fq-name { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.fq-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-md); }
+.fq-bar { height: 6px; }
+.fq-facts, .fq-on { font-size: var(--text-sm); }
+.fq-finished .fq-bar i { background: var(--ok); }
+.fq-acts { display: flex; gap: 4px; align-items: center; flex: none; }
+.fq-count { display: inline-flex; align-items: center; gap: 2px; padding: 0 4px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.fq-count b { min-width: 2.2em; text-align: center; font-variant-numeric: tabular-nums; }
+.fq-wait { margin: 4px 0 8px; }
+.fq-wait .toolbar { margin-top: 6px; }
+.fq-group { background: var(--surface-2); }
+.fq-hint { font-size: var(--text-sm); }
+@media (max-width: 640px) {
+  .fq-job { flex-wrap: wrap; }
+  .fq-acts { width: 100%; justify-content: flex-end; }
+}
+
 /* settings from another printer */
 .copy-list { display: grid; gap: 2px; max-height: 42vh; overflow: auto; margin: 8px 0; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px; }
 .copy-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; padding: 6px 8px; border-radius: var(--radius-sm); cursor: pointer; }

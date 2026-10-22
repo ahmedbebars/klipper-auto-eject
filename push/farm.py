@@ -18,6 +18,7 @@ import ipaddress
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
 import tempfile
@@ -78,6 +79,14 @@ THUMBS_KEPT = 200      # pictures the farm keeps in memory (a few KB each)
 SETTING_MACROS = ("_AUTO_EJECT_DEFAULTS", "_AUTO_EJECT_SETTINGS", "_AUTO_EJECT_OVERRIDES")
 SETTING_KEY = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 SETS_MAX = 100         # saved sets of settings, one for each kind of printer
+# the farm queue: files kept on this printer's card until their job is
+# removed, each copy sent to the next free printer the job may go to
+QUEUE_DIR = os.path.join(UPLOADS, "queue")
+QUEUE_FOLDER = "farm"  # where a copy lands on a printer: never over one of its own files
+QUEUE_RETRY = 120      # seconds before a printer that refused a copy is tried again
+QUEUE_START = 120      # seconds a copy has to show up printing on its printer
+COPIES_MAX = 999
+RUNS_KEPT = 300        # copies remembered for each job
 
 
 def safe_name(name):
@@ -89,14 +98,16 @@ def safe_name(name):
     return name[:200]
 
 
-def upload_file(base, name, fileobj, size, start=False, timeout=600):
+def upload_file(base, name, fileobj, size, start=False, timeout=600, folder=""):
     """Send a file to a Moonraker (POST /server/files/upload), streamed from
-    fileobj; start=True prints it at once."""
+    fileobj; start=True prints it at once; folder: under gcodes/."""
     b = "----autoeject" + uuid.uuid4().hex
     head = ""
     if start:
         head += '--%s\r\nContent-Disposition: form-data; name="print"\r\n\r\ntrue\r\n' % b
     head += '--%s\r\nContent-Disposition: form-data; name="root"\r\n\r\ngcodes\r\n' % b
+    if folder:
+        head += '--%s\r\nContent-Disposition: form-data; name="path"\r\n\r\n%s\r\n' % (b, folder)
     head += ('--%s\r\nContent-Disposition: form-data; name="file"; filename="%s"\r\n'
              "Content-Type: application/octet-stream\r\n\r\n" % (b, name))
     head, tail = head.encode("utf-8"), ("\r\n--%s--\r\n" % b).encode()
@@ -123,6 +134,32 @@ def upload_file(base, name, fileobj, size, start=False, timeout=600):
         raise RuntimeError((data.get("error") or {}).get("message") or "HTTP %d" % resp.status)
     # unlike its other answers, Moonraker sends the upload's without {"result": ...}
     return data.get("result", data)
+
+
+def gcode_material(path):
+    """The filament a file was sliced for, as PrusaSlicer, SuperSlicer, Orca
+    and Bambu Studio write it (; filament_type = PETG), or ""."""
+    try:
+        with open(path, "rb") as f:
+            chunks = [f.read(1 << 16)]
+            size = f.seek(0, 2)
+            if size > 1 << 16:
+                f.seek(max(1 << 16, size - (1 << 18)))
+                chunks.append(f.read())
+    except OSError:
+        return ""
+    for chunk in reversed(chunks):           # the settings sit at the end, a few at the top
+        m = re.search(rb"^;\s*filament_type\s*=\s*([^\r\n;]+)", chunk, re.M)
+        if m:
+            return m.group(1).decode("utf-8", "replace").strip()[:20]
+    return ""
+
+
+def same_material(a, b):
+    """PLA and PLA+ are the same; PLA and PETG, or PLA and PLA-CF, are not.
+    Either one unknown: nothing to say against it."""
+    a, b = (re.sub(r"[^A-Z0-9]", "", str(x or "").upper()) for x in (a, b))
+    return not a or not b or a == b
 
 
 def pick_thumb(thumbs, want):
@@ -675,6 +712,10 @@ class Farm:
         self.restarted = False               # after starting: Klipper restarted for an own update, if needed
         self.settings = {}                   # the whole farm's: {"report": "20:00", "report_sent": "2026-10-20"}
         self.sets = {}                       # saved settings, by name: {"values": {...}, "from": "voron-01", "saved": 1761000000}
+        self.queue = {"running": True, "jobs": []}   # the farm queue: jobs in order, each with its copies sent ("runs")
+        self.need_clear = set()              # printers whose farm copy ended or stopped: someone clears the bed first
+        self.retry_at = {}                   # printer -> when to offer it a copy again after it refused one
+        self.clock = time.time               # when a copy reached its printer (a test sets its own)
         self.cache_lock = threading.Lock()
         self.metas = {}                      # (printer, file) -> (when, Moonraker's metadata)
         self.thumbs = collections.OrderedDict()   # (printer, picture, modified) -> (type, bytes)
@@ -691,6 +732,7 @@ class Farm:
             skipped = self.moonraker.get("skipped", namespace=NAMESPACE) or []
             settings = self.moonraker.get("settings", namespace=NAMESPACE) or {}
             sets = self.moonraker.get("sets", namespace=NAMESPACE) or {}
+            queue = self.moonraker.get("queue", namespace=NAMESPACE) or {}
         except Exception:
             return False
         with self.lock:
@@ -708,6 +750,12 @@ class Farm:
             self.skipped = list(skipped)
             self.settings = dict(settings)
             self.sets = dict(sets)
+            self.queue = {"running": queue.get("running", True) is not False, "jobs": list(queue.get("jobs") or [])}
+            self.need_clear = set(queue.get("need_clear") or [])
+            for job in self.queue["jobs"]:
+                for run in job.get("runs", []):
+                    if run.get("state") == "sending":   # cut short by a restart: it may not have arrived
+                        run.update(state="failed", error="the farm restarted while sending it")
             self.loaded = True
         return True
 
@@ -738,6 +786,8 @@ class Farm:
                 p.retry_at = now + min(60, 10 * p.down)
         if not self.restarted:
             self.restarted = self.restart_after_own_update(now) or not os.path.exists(RESTART_FLAG)
+        self.track_queue(now)
+        self.dispatch(now)
         report = self.report_due(now)
         if report and self.on_events:
             self.on_events(None, [("report", report)])
@@ -774,7 +824,8 @@ class Farm:
     def view(self):
         return {"printers": [p.public() for p in self.all()], "scan": self.scan_state,
                 "settings": {"report": self.settings.get("report") or ""},
-                "sets": [dict(s, name=n) for n, s in sorted(self.sets.items(), key=lambda x: x[0].lower())]}
+                "sets": [dict(s, name=n) for n, s in sorted(self.sets.items(), key=lambda x: x[0].lower())],
+                "queue": self.queue_view()}
 
     def report(self, period, now=None):
         """Every printer's production over a period, from each one's history."""
@@ -1279,6 +1330,204 @@ class Farm:
         self.moonraker.put("sets", self.sets, namespace=NAMESPACE)
         return True
 
+    # ------------------------------------------------------- the farm queue
+    def _queue_path(self, job):
+        return os.path.join(QUEUE_DIR, job["id"] + ".gcode")
+
+    def _queue_record(self):
+        return {"running": self.queue["running"], "jobs": self.queue["jobs"], "need_clear": sorted(self.need_clear)}
+
+    def _put_queue(self, record=None):
+        if record is None:
+            with self.lock:
+                record = json.loads(json.dumps(self._queue_record()))
+        self.moonraker.put("queue", record, namespace=NAMESPACE)
+
+    @staticmethod
+    def _counts(job):
+        runs = job.get("runs", [])
+        n = {s: sum(1 for r in runs if r["state"] == s) for s in ("sending", "printing", "done", "stopped")}
+        n["left"] = max(0, job["copies"] - n["done"] - n["stopped"] - n["sending"] - n["printing"])
+        return n
+
+    def queue_view(self):
+        with self.lock:
+            jobs = []
+            for job in self.queue["jobs"]:
+                n = self._counts(job)
+                failed = [r for r in job.get("runs", []) if r["state"] == "failed"]
+                jobs.append({"id": job["id"], "name": job["name"], "size": job["size"], "copies": job["copies"],
+                             "printers": [pid for pid in job["printers"] if self.find(pid)], "material": job.get("material", ""),
+                             "added": job.get("added"), "done": n["done"], "stopped": n["stopped"], "left": n["left"],
+                             "now": [{"printer": r["printer"], "state": r["state"]} for r in job.get("runs", []) if r["state"] in ("sending", "printing")],
+                             "error": failed[-1]["error"] if failed and failed[-1]["at"] > self.clock() - 600 else ""})
+            return {"running": self.queue["running"], "jobs": jobs, "need_clear": sorted(p for p in self.need_clear if self.find(p))}
+
+    def queue_add(self, name, fileobj, size, copies, printers):
+        """A file for the farm queue: kept here, printed `copies` times on the
+        printers given, each copy on the next of them that is free."""
+        name = safe_name(name)
+        copies = int(copies)
+        if not 1 <= copies <= COPIES_MAX:
+            raise ValueError("1 to %d copies" % COPIES_MAX)
+        printers = [p for p in dict.fromkeys(printers or []) if self.find(p)]
+        if not printers:
+            raise ValueError("which printers may print it?")
+        os.makedirs(QUEUE_DIR, exist_ok=True)
+        if shutil.disk_usage(QUEUE_DIR).free < size + 200 * 1024 * 1024:
+            raise ValueError("not enough room on this printer's card for the file")
+        job = {"id": uuid.uuid4().hex[:12], "name": name, "size": int(size), "copies": copies, "printers": printers,
+               "added": int(time.time()), "runs": []}
+        path = self._queue_path(job)
+        fileobj.seek(0)
+        with open(path, "wb") as out:
+            shutil.copyfileobj(fileobj, out, 1 << 20)
+        job["material"] = gcode_material(path)
+        with self.lock:
+            self.queue["jobs"].append(job)
+        self._put_queue()
+        return job["id"]
+
+    def queue_change(self, body):
+        """Start or pause the queue, change a job's copies or printers, move it,
+        remove it, or say a printer's bed is clear."""
+        with self.lock:
+            jobs = self.queue["jobs"]
+            job = next((j for j in jobs if j["id"] == body.get("id")), None)
+            if "running" in body:
+                self.queue["running"] = bool(body["running"])
+            elif "cleared" in body:
+                self.need_clear.discard(str(body["cleared"]))
+            elif job is None:
+                raise LookupError("no such job")
+            elif body.get("remove"):
+                if any(r["state"] == "sending" for r in job["runs"]):
+                    raise PermissionError("a copy of it is on its way to a printer")
+                jobs.remove(job)
+                try:
+                    os.remove(self._queue_path(job))
+                except OSError:
+                    pass
+            elif "copies" in body:
+                n = self._counts(job)
+                copies = int(body["copies"])
+                if not n["done"] + n["stopped"] + n["sending"] + n["printing"] <= copies <= COPIES_MAX:
+                    raise ValueError("%d copies at least: they are made or under way" % (n["done"] + n["stopped"] + n["sending"] + n["printing"]))
+                job["copies"] = copies
+            elif "printers" in body:
+                printers = [p for p in dict.fromkeys(body["printers"] or []) if self.find(p)]
+                if not printers:
+                    raise ValueError("which printers may print it?")
+                job["printers"] = printers
+            elif "move" in body:
+                i = jobs.index(job)
+                to = max(0, min(len(jobs) - 1, i + int(body["move"])))
+                jobs.insert(to, jobs.pop(i))
+            else:
+                raise ValueError("nothing to change")
+            record = json.loads(json.dumps(self._queue_record()))
+        self._put_queue(record)
+        return True
+
+    def _free_for_queue(self, p, job, now):
+        """A printer that may take a copy now: free with an empty bed, nothing
+        in its own job queue, answering, the filament the file wants."""
+        c = p.card
+        return (c.get("phase") == "idle" and not c.get("jobs") and now - p.updated < 30
+                and p.id not in self.need_clear and self.retry_at.get(p.id, 0) <= now
+                and same_material(job.get("material"), (p.spool or {}).get("material")))
+
+    def dispatch(self, now=None):
+        """The next copy of the first job with one left, to each free printer
+        it may go to; the jobs higher in the list first."""
+        if not self.loaded:
+            return []
+        now = now or time.time()
+        sends = []
+        with self.lock:
+            if not self.queue["running"]:
+                return []
+            busy = {r["printer"] for j in self.queue["jobs"] for r in j["runs"] if r["state"] in ("sending", "printing")}
+            for job in self.queue["jobs"]:
+                left = self._counts(job)["left"]
+                for pid in job["printers"]:
+                    p = self.find(pid)
+                    if left <= 0:
+                        break
+                    if p is None or pid in busy or not self._free_for_queue(p, job, now):
+                        continue
+                    run = {"printer": pid, "state": "sending", "at": now, "error": "", "file": QUEUE_FOLDER + "/" + job["name"]}
+                    job["runs"] = job["runs"][-RUNS_KEPT:] + [run]
+                    busy.add(pid)
+                    left -= 1
+                    sends.append((job, run, p))
+            record = json.loads(json.dumps(self._queue_record())) if sends else None
+        if record:
+            self._put_queue(record)
+        for job, run, p in sends:
+            threading.Thread(target=self._send_copy, args=(job, run, p), daemon=True).start()
+        return sends
+
+    def _send_copy(self, job, run, p):
+        try:
+            with open(self._queue_path(job), "rb") as f:
+                answer = upload_file(p.base, job["name"], f, job["size"], start=True, folder=QUEUE_FOLDER) or {}
+            if answer.get("print_started") is False:
+                raise RuntimeError("%s did not start it" % p.name)
+            state, error = "printing", ""
+        except Exception as e:
+            state, error = "failed", str(e) or e.__class__.__name__
+        with self.lock:
+            run.update(state=state, error=error, at=self.clock())
+            if state == "failed":
+                self.retry_at[run["printer"]] = run["at"] + QUEUE_RETRY
+            record = json.loads(json.dumps(self._queue_record()))
+        self._put_queue(record)
+
+    def track_queue(self, now=None):
+        """Where each copy sent is now, from its printer's card: printing,
+        ended well, or stopped. After either, a printer without auto-eject
+        waits for its bed to be cleared, and any printer after a stop."""
+        now = now or time.time()
+        changed = False
+        with self.lock:
+            for job in self.queue["jobs"]:
+                for run in job["runs"]:
+                    if run["state"] != "printing":
+                        continue
+                    p = self.find(run["printer"])
+                    if p is None:
+                        run.update(state="stopped", error="no longer in the farm")
+                        changed = True
+                        continue
+                    c = p.card
+                    if c.get("phase") in ("offline", "off") or p.updated < run["at"]:
+                        continue                          # it says once it answers again
+                    mine, state = c.get("filename") == run["file"], c.get("state")
+                    if mine and state in ("printing", "paused"):
+                        if not run.get("seen"):
+                            run["seen"] = True
+                            changed = True
+                        continue
+                    end = None
+                    if run.get("seen") and mine and state == "complete":
+                        end = ("done", "")
+                    elif run.get("seen") and mine and state in ("cancelled", "error"):
+                        end = ("stopped", c.get("message") or state)
+                    elif c.get("phase") == "stopped":
+                        end = ("stopped", c.get("message") or "Klipper stopped")
+                    elif run.get("seen") or now - run["at"] > QUEUE_START:
+                        end = ("stopped", "another print, or a restart, took its place" if run.get("seen") else "it did not start")
+                    if end:
+                        run.update(state=end[0], error=end[1], at=now)
+                        if end[0] == "stopped" or not c.get("auto_eject"):
+                            self.need_clear.add(run["printer"])
+                        changed = True
+            record = json.loads(json.dumps(self._queue_record())) if changed else None
+        if record:
+            self._put_queue(record)
+        return changed
+
     def act(self, pid, action):
         p = self.find(pid)
         if p is None or action not in ("continue", "clear", "estop", "bin_empty", "pause", "resume", "cancel", "push"):
@@ -1290,7 +1539,12 @@ class Farm:
         if action == "bin_empty" and not p.card.get("auto_eject"):
             return None
         method, path, data = ACTIONS[action]
-        return http_json(p.base + path, data=data, method=method, timeout=10)
+        answer = http_json(p.base + path, data=data, method=method, timeout=10)
+        if action in ("clear", "clear_plain") and p.id in self.need_clear:
+            with self.lock:
+                self.need_clear.discard(p.id)
+            self._put_queue()
+        return answer
 
 
 # -------------------------------------------------------------------- the API
@@ -1354,6 +1608,27 @@ def make_handler(farm):
                         answer = (409, {"error": str(e)})
             return self._send(*answer)
 
+        def _queue_upload(self, query):
+            """A file for the farm queue, as the request body."""
+            length = int(self.headers.get("Content-Length") or 0)
+            os.makedirs(UPLOADS, exist_ok=True)
+            with tempfile.TemporaryFile(dir=UPLOADS) as tmp:
+                left = length
+                while left > 0:
+                    chunk = self.rfile.read(min(left, 1 << 20))
+                    if not chunk:
+                        break
+                    tmp.write(chunk)
+                    left -= len(chunk)
+                if left:
+                    return self._send(400, {"error": "the upload was cut short"})
+                try:
+                    job = farm.queue_add(query.get("name", [""])[0], tmp, length, query.get("copies", ["1"])[0],
+                                         [x for x in query.get("printers", [""])[0].split(",") if x])
+                except ValueError as e:
+                    return self._send(400, {"error": str(e)})
+            return self._send(200, {"added": job})
+
         def _file_info(self, pid, what, query):
             """A file's facts (meta) or its slicer picture (thumb)."""
             name = query.get("file", [""])[0]
@@ -1378,6 +1653,13 @@ def make_handler(farm):
             url = urllib.parse.urlsplit(self.path)
             path = url.path.rstrip("/")
             parts = [x for x in path.split("/") if x]
+            if method == "POST" and parts == ["farm", "queue", "upload"]:
+                if not trusted(self._client()):
+                    return self._send(403, {"error": "not allowed from this network"})
+                try:
+                    return self._queue_upload(urllib.parse.parse_qs(url.query))
+                except Exception as e:
+                    return self._send(502, {"error": str(e)})
             if method == "POST" and len(parts) == 3 and parts[0] == "farm" and parts[2] == "upload":
                 if not trusted(self._client()):
                     return self._send(403, {"error": "not allowed from this network"})
@@ -1419,6 +1701,15 @@ def make_handler(farm):
                         return self._send(200, {"saved": farm.set_auto_off(body.get("id"), body["auto_off"], body.get("device", ""))})
                     if "service_every" in body or "service_done" in body:
                         return self._send(200, {"saved": farm.set_service(body.get("id"), body.get("service_every"), bool(body.get("service_done")))})
+                if parts == ["farm", "queue"] and method == "POST":
+                    try:
+                        return self._send(200, {"saved": farm.queue_change(body)})
+                    except LookupError as e:
+                        return self._send(404, {"error": str(e)})
+                    except PermissionError as e:
+                        return self._send(409, {"error": str(e)})
+                    except (TypeError, ValueError) as e:
+                        return self._send(400, {"error": str(e)})
                 if parts == ["farm", "sets"] and method == "POST":
                     try:
                         if "remove" in body:

@@ -12,6 +12,11 @@ All notable changes to this project are documented here. The format is based on
   **Push now**, **Pause**, **Resume**, **Turn on**, **Turn off**, **Cancel the print** or
   **Emergency stop**, each only to the printers it suits now; and **Send a file** to every free
   printer selected, printed on each if you ask.
+- **One queue for the whole farm** ([farm.md](docs/farm.md#one-queue-for-the-whole-farm)): files
+  printed so many times, each copy sent to the next free printer it may go to (bed empty, nothing
+  in its own queue, the file's filament on its spool), into a `farm/` folder. A printer without
+  auto-eject waits for **Bed is clear**, and any printer after a copy that stopped. Move jobs,
+  change their copies, pause the queue; it is kept across restarts.
 - **The spool on each farm printer's card**, from Moonraker's `[spoolman]`: colour, filament and
   grams left, in orange when it runs low.
 - **Production** at the foot of the farm: what each printer made today, in 7 or 30 days (prints,

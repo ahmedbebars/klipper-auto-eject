@@ -155,13 +155,37 @@ The versions are read from each printer's Moonraker every 5 minutes, and right a
 
 Tick printers (a box on each card and line), a whole group (the box by its title) or **Select
 all shown** (what the filters and the search show now). A bar then offers what can be done on
-them: **Bed is clear**, **Start the queue**, **Push now**, **Pause**, **Resume**, **Send a file**,
+them: **Bed is clear**, **Start the queue**, **Push now**, **Pause**, **Resume**, **Send a file**, **Farm queue**,
 **Turn on**, **Turn off**, **Copy settings**, **QR labels**, **Cancel the print** and **Emergency stop**, each with how many printers
 it reaches. A command goes only to the selected printers it suits now (pause to the ones printing,
 turn off never to one printing), and the confirmation names the ones left out.
 
 **Send a file** sends one G-code file from your phone or computer to every free printer selected,
 one after another, and starts it on each if you ask. Each printer keeps the file.
+
+### One queue for the whole farm
+
+**Farm queue**, under the printers, holds files to print many times over: **Add a file** (or tick
+printers and choose **Farm queue** in the bar), say how many **Copies**, and tick the printers it
+may print on. Each copy goes to the next of them that is free: printing nothing, its bed empty (no
+parts, no finished print waiting), nothing in its own job queue. The jobs higher in the list go
+first; ↑ ↓ move a job, − + change its copies, and the bin removes it (a copy printing goes on).
+**Paused** stops sending copies; the ones under way finish.
+
+- A copy lands in a `farm/` folder on its printer, so it never takes the place of one of its own files.
+- A printer with auto-eject takes the next copy as soon as its bed is clear. One without it waits
+  for **Bed is clear** on its card, as after any print.
+- When a copy stops (cancelled, an error, Klipper stopped), its printer gets no other until someone
+  says its bed is clear: the queue shows which ones wait.
+- A file sliced for one filament (PrusaSlicer, Orca and Bambu Studio say which) skips a printer
+  whose [spool](spoolman.md) holds another: no PETG on a printer loaded with PLA.
+- Tick only printers the file was sliced for: the queue does not know a Voron's G-code from an
+  Ender's.
+
+The files stay on the farm printer's card until their job is removed. The queue and what each copy
+did are kept across restarts.
+
+<p align="center"><img src="images/farm-queue.png" alt="The farm queue: three files, how many of each are made, where a copy is printing, and the buttons to move a job, change its copies and remove it" width="900"></p>
 
 ### The spool on each printer
 
@@ -283,6 +307,8 @@ nginx publishes that at `/auto-eject/api/`:
 | `GET /auto-eject/api/farm/<id>/snapshot` | That printer's camera picture |
 | `GET /auto-eject/api/farm/<id>/settings` | Its auto-eject settings: `values`, the `changed` ones, and whether a change is `kept` after a restart |
 | `POST /auto-eject/api/farm/<id>/settings` | `{"values": {"cool_temp": 40, …}}`: sets the ones that differ; answers what `changed`, what was the `same`, and what was `skipped` |
+| `POST /auto-eject/api/farm/queue/upload?name=…&copies=3&printers=id1,id2` | A file for the farm queue, as the request body |
+| `POST /auto-eject/api/farm/queue` | `{"running": false}`, `{"id": …, "copies": n}`, `{"id": …, "move": -1}`, `{"id": …, "remove": true}`, `{"cleared": printer}`; `GET …/farm` shows it in `queue` |
 | `POST /auto-eject/api/farm/sets` | `{"name": …, "values": {…}, "from": …}` saves a set, `{"remove": name}` deletes it; `GET …/farm` lists them in `sets` |
 
 Its log: `journalctl -u klipper-auto-eject`. Try it without printers in the

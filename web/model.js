@@ -603,7 +603,7 @@
 
   // One command for several printers: for each, the selected printers it can
   // be done on now (what each one's card offers), so the rest are left out.
-  const FARM_BULK = ["clear", "continue", "push", "pause", "resume", "send", "power_on", "power_off", "settings", "labels", "cancel", "estop"];
+  const FARM_BULK = ["clear", "continue", "push", "pause", "resume", "send", "queue", "power_on", "power_off", "settings", "labels", "cancel", "estop"];
   function farmBulk(printers, ids) {
     const chosen = new Set(ids || []);
     const selected = (printers || []).filter((p) => chosen.has(p.id));
@@ -613,6 +613,8 @@
       const can = farmActions(p);
       for (const a of can) if (actions[a]) actions[a].push(p);
       if (can.includes("print")) actions.send.push(p);
+      // the farm queue: any of them, each copy waits for one to be free
+      actions.queue.push(p);
       const devs = p.power || [];
       if (devs.some((d) => d.status !== "on")) actions.power_on.push(p);
       // never off while it prints or clears its bed: the farm refuses it too
