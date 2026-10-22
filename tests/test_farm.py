@@ -266,6 +266,22 @@ def test_rename_and_remove():
     assert not f.rename("nope", "x")
 
 
+def test_a_group_for_each_printer():
+    mr = FakeMoonraker()
+    f = farm.Farm(mr)
+    pid = f.add([{"host": "10.1.1.2", "port": 7125, "name": "v1"}])[0]
+    assert f.set_group(pid, "  Rack   A  ")
+    assert mr.db[(farm.NAMESPACE, "printers")][pid]["group"] == "Rack A"
+    assert f.set_group("local", "Vorons")
+    assert mr.db[(farm.NAMESPACE, "local")]["group"] == "Vorons"
+    again = farm.Farm(mr)                                        # after a restart
+    assert again.printers[pid].group == "Rack A" and again.local.group == "Vorons"
+    assert again.printers[pid].public()["group"] == "Rack A"
+    assert f.set_group(pid, "") and "group" not in mr.db[(farm.NAMESPACE, "printers")][pid]
+    assert f.set_group(pid, "x" * 50) and len(f.printers[pid].group) == 30
+    assert not f.set_group("nope", "A")
+
+
 def test_bed_is_clear_depends_on_the_printer(monkeypatch):
     sent = []
     monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0: sent.append((url, data)) or "ok")
@@ -329,6 +345,68 @@ def test_an_offline_printer(monkeypatch):
     monkeypatch.setattr(farm, "http_json", down)
     p = farm.Printer("10.9.9.9", 7125)
     assert p.poll()["phase"] == "offline"
+
+
+def farm_of(hosts, answer):
+    """A farm with printers at hosts; answer(host, url) gives Moonraker's reply or raises."""
+    asked = []
+
+    def fake(url, data=None, method=None, timeout=0):
+        host = url.split("//", 1)[1].split(":", 1)[0]
+        asked.append(host)
+        return answer(host, url)
+    farm.http_json = fake
+    f = farm.Farm(FakeMoonraker())
+    for h in hosts:
+        f.printers[h] = farm.Printer(h, 7125, pid=h)
+    return f, asked
+
+
+def test_a_printer_that_does_not_answer_is_asked_less_often(monkeypatch):
+    monkeypatch.setattr(farm, "http_json", farm.http_json)       # put back after the test
+    away = {"10.0.0.9"}
+
+    def answer(host, url):
+        if host in away:
+            raise urllib.error.URLError("timed out")
+        if "/printer/objects/query" in url:
+            return {"status": status()}
+        return {}
+    f, asked = farm_of(["10.0.0.2", "10.0.0.9"], answer)
+    f.poll(now=1000)
+    assert asked.count("10.0.0.9") == 1                            # once: no power devices asked for
+    assert f.printers["10.0.0.9"].card["phase"] == "offline"
+    asked.clear()
+    f.poll(now=1003)
+    assert "10.0.0.9" not in asked and "10.0.0.2" in asked        # the others go on every round
+    f.poll(now=1010)
+    assert "10.0.0.9" in asked                                     # tried again after 10 s
+    asked.clear()
+    f.poll(now=1025)
+    assert "10.0.0.9" not in asked                                 # then 20 s: not before 1030
+    f.poll(now=1030)
+    assert "10.0.0.9" in asked
+    away.clear()                                                   # switched on again
+    f.poll(now=1060)
+    asked.clear()
+    f.poll(now=1063)
+    assert "10.0.0.9" in asked and f.printers["10.0.0.9"].card["phase"] != "offline"
+
+
+def test_a_printer_whose_klipper_is_stopped_is_asked_every_round(monkeypatch):
+    monkeypatch.setattr(farm, "http_json", farm.http_json)
+
+    def answer(host, url):
+        if "/printer/objects/query" in url:
+            raise urllib.error.HTTPError(url, 503, "Klippy Host not connected", {}, None)
+        if "/machine/device_power/devices" in url:
+            return {"devices": []}
+        return {}
+    f, asked = farm_of(["10.0.0.3"], answer)
+    f.poll(now=1000)
+    asked.clear()
+    f.poll(now=1003)
+    assert "10.0.0.3" in asked and f.printers["10.0.0.3"].down == 0
 
 
 # ------------------------------------------------------------- the API
@@ -778,3 +856,103 @@ def test_api_maintenance_and_report(api):
     assert call(base + "/farm/settings", {"report": "21:30"}) == (200, {"saved": True})
     assert call(base + "/farm/settings", {"report": "9pm"})[0] == 400
     assert call(base + "/farm")[1]["settings"] == {"report": "21:30"}
+
+
+# ------------------------------------------------------- updating the farm
+VERSION_INFO = {"system": {"package_count": 3},
+                "klipper": {"configured_type": "git_repo", "version": "v0.13.0-809", "remote_version": "v0.13.0-816",
+                            "commits_behind": [{"sha": "a"}] * 7},
+                "klipper-auto-eject": {"configured_type": "git_repo", "version": "v0.15.0-1", "remote_version": "v0.15.0-4",
+                                       "commits_behind_count": 3, "commits_behind": []},
+                "mainsail": {"configured_type": "web", "version": "v2.19.0", "remote_version": "v2.20.0"}}
+
+
+def updater(monkeypatch, state="standby", idle="Idle"):
+    """A printer whose Moonraker answers updates; every request is recorded."""
+    sent = []
+
+    def fake(url, data=None, method=None, timeout=0):
+        sent.append((url.split(":7125", 1)[1], data))
+        if "/machine/update/status" in url:
+            return {"version_info": VERSION_INFO}
+        if "print_stats=state&idle_timeout=state" in url:
+            return {"status": {"print_stats": {"state": state}, "idle_timeout": {"state": idle}}}
+        if "/printer/info" in url:
+            return {"software_version": "v0.13.0-809-gc63b2951"}
+        if "/printer/objects/list" in url:
+            return {"objects": ["mcu", "mcu toolhead", "extruder"]}
+        if "mcu=mcu_version" in url:
+            return {"status": {"mcu": {"mcu_version": "v0.13.0-800-g9cb99754"}, "mcu toolhead": {"mcu_version": "v0.13.0-809-gc63b2951"}}}
+        return "ok"
+    monkeypatch.setattr(farm, "http_json", fake)
+    monkeypatch.setattr(farm.threading, "Thread", lambda target, args, daemon: type("T", (), {"start": lambda self: target(*args)})())
+    f = farm.Farm(FakeMoonraker())
+    p = farm.Printer("10.1.1.2", 7125, pid="v1")
+    f.printers["v1"] = p
+    p.card = {"phase": "idle"}
+    p.updates, p.firmware = p._updates(), p._firmware()
+    sent.clear()
+    return f, p, sent
+
+
+def test_what_each_printer_runs(monkeypatch):
+    f, p, sent = updater(monkeypatch)
+    assert p.updates == {"klipper": {"version": "v0.13.0-809", "remote": "v0.13.0-816", "behind": 7, "type": "git_repo"},
+                         "klipper-auto-eject": {"version": "v0.15.0-1", "remote": "v0.15.0-4", "behind": 3, "type": "git_repo"},
+                         "mainsail": {"version": "v2.19.0", "remote": "v2.20.0", "behind": 0, "type": "web"}}
+    assert p.firmware == {"klipper": "v0.13.0-809-gc63b2951",
+                          "boards": [["mcu", "v0.13.0-800-g9cb99754"], ["mcu toolhead", "v0.13.0-809-gc63b2951"]]}
+    assert p.public()["updates"] and p.public()["firmware"] and p.public()["job"] is None
+
+
+def test_an_update_checks_again_then_restarts_klipper_for_the_macros(monkeypatch):
+    f, p, sent = updater(monkeypatch)
+    assert f.update("v1", "klipper-auto-eject")
+    paths = [s[0] for s in sent]
+    assert paths[0].startswith("/printer/objects/query?print_stats")             # idle, checked right before
+    assert ("/machine/update/upgrade", {"name": "klipper-auto-eject"}) in sent
+    assert paths[-1] == "/printer/firmware_restart"                             # the new macros
+    assert p.job["state"] == "done" and p.updates_at == 0.0                     # versions read again soon
+    sent.clear()
+    assert f.update("v1", "mainsail")
+    assert ("/machine/update/upgrade", {"name": "mainsail"}) in sent and "/printer/firmware_restart" not in [s[0] for s in sent]
+
+
+def test_no_update_while_it_works(monkeypatch):
+    f, p, sent = updater(monkeypatch, state="printing", idle="Printing")
+    p.card = {"phase": "printing"}
+    with pytest.raises(PermissionError):
+        f.update("v1", "klipper")
+    assert sent == []
+    p.card = {"phase": "idle"}                       # the card says idle, but it has just started a print
+    f.update("v1", "klipper")
+    assert p.job["state"] == "failed" and "busy" in p.job["error"]
+    assert not [s for s in sent if s[0] == "/machine/update/upgrade"]
+    with pytest.raises(LookupError):
+        f.update("v1", "nothing-such")
+    assert f.update("nope", "klipper") is None
+
+
+def test_this_printer_restarts_klipper_once_the_service_is_back(monkeypatch, tmp_path):
+    f, p, sent = updater(monkeypatch)
+    flag = tmp_path / "restart-klipper"
+    monkeypatch.setattr(farm, "RESTART_FLAG", str(flag))
+    assert not f.restart_after_own_update(now=1000)                             # nothing pending
+    flag.write_text("990")
+    assert f.restart_after_own_update(now=1000)
+    assert sent[-1][0] == "/printer/firmware_restart" and not flag.exists()
+    sent.clear()
+    flag.write_text("10")                                                       # an old one: dropped, no restart
+    assert f.restart_after_own_update(now=5000) and not flag.exists()
+    assert "/printer/firmware_restart" not in [s[0] for s in sent]
+
+
+def test_everything_at_once_in_a_safe_order(monkeypatch):
+    f, p, sent = updater(monkeypatch)
+    assert f.update("v1", ["klipper-auto-eject", "klipper", "mainsail"])
+    upgraded = [d["name"] for path, d in sent if path == "/machine/update/upgrade"]
+    assert upgraded == ["mainsail", "klipper", "klipper-auto-eject"]           # auto-eject last
+    assert sent[-1][0] == "/printer/firmware_restart"
+    assert p.job["done"] == upgraded and p.job["state"] == "done"
+    with pytest.raises(LookupError):
+        f.update("v1", [])

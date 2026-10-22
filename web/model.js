@@ -462,16 +462,55 @@
       (a.phase === "printing" ? (a.eta === null || a.eta === undefined ? 1e9 : a.eta) - (b.eta === null || b.eta === undefined ? 1e9 : b.eta) : 0) ||
       String(a.name).localeCompare(String(b.name), "en", { numeric: true }));
   }
+  // Which of the farm's filters a printer is under.
+  function farmKind(p) {
+    if (p.phase === "needs" || p.phase === "stopped" || p.phase === "paused") return "needs";
+    if (p.phase === "printing" || p.phase === "ejecting") return "printing";
+    if (p.phase === "idle") return "idle";
+    if (p.phase === "off") return "off";
+    return "offline";
+  }
   function farmCounts(printers) {
     const out = { needs: 0, printing: 0, idle: 0, off: 0, offline: 0 };
-    for (const p of printers) {
-      if (p.phase === "needs" || p.phase === "stopped" || p.phase === "paused") out.needs++;
-      else if (p.phase === "printing" || p.phase === "ejecting") out.printing++;
-      else if (p.phase === "idle") out.idle++;
-      else if (p.phase === "off") out.off++;
-      else out.offline++;
-    }
+    for (const p of printers) out[farmKind(p)]++;
     return out;
+  }
+  // The printers a filter ("all", "needs"...) and a search show: the search
+  // looks in the name, the address, the group and the file.
+  function farmFilter(printers, kind, query) {
+    const q = String(query || "").trim().toLowerCase();
+    return (printers || []).filter((p) => (!kind || kind === "all" || farmKind(p) === kind) &&
+      (!q || [p.name, p.host, p.group, p.filename].some((v) => String(v || "").toLowerCase().includes(q))));
+  }
+  // The printers under their groups, in name order, and those without one last.
+  function farmGroups(printers) {
+    const by = new Map();
+    for (const p of printers || []) {
+      const g = String(p.group || "");
+      if (!by.has(g)) by.set(g, []);
+      by.get(g).push(p);
+    }
+    return Array.from(by.entries())
+      .sort((a, b) => (a[0] === "") - (b[0] === "") || a[0].localeCompare(b[0], "en", { numeric: true }))
+      .map(([group, list]) => ({ group, printers: list }));
+  }
+  // What a farm printer can update, from its {name: {version, remote, behind,
+  // type}}: a git repository when it is behind (a local change only differs
+  // in its name), anything else when its version is not the latest.
+  function farmPending(updates) {
+    const u = updates || {};
+    return Object.keys(u).filter((k) => u[k].type === "git_repo" ? u[k].behind > 0
+      : u[k].behind > 0 || !!(u[k].remote && u[k].version && u[k].remote !== u[k].version && u[k].remote !== "?")).sort();
+  }
+  // The board that is furthest behind Klipper on a farm printer, as firmwareAge says.
+  function farmFirmware(fw) {
+    let worst = null;
+    const rank = (a) => a.state === "older" ? (a.by === null ? 1e9 : a.by) : a.state === "unknown" ? -2 : -1;
+    for (const [, v] of (fw && fw.boards) || []) {
+      const age = firmwareAge(v, fw.klipper);
+      if (!worst || rank(age) > rank(worst)) worst = age;
+    }
+    return worst;
   }
   // Where Open goes: through Tailscale when this page is opened through it
   // (a phone away from the printers' network), if that printer has it.
@@ -991,7 +1030,7 @@
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, notifierKind, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
+    noticeFor, ntfyTopic, notifierKind, farmOrder, farmKind, farmCounts, farmFilter, farmGroups, farmPending, farmFirmware, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
     hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft,
     lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, parseVersion, firmwareAge, boardCode, configNotes, updateArea, updateAreas, scrubReport, supportReport, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText, macroSet

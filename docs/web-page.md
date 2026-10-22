@@ -120,8 +120,9 @@ manager sees it, and what that means for this printer:
   ones with a new version first.
 
 When Klipper is up to date, it lists the latest updates you have. What each update changes is read
-from GitHub by your browser and kept there; without internet the list still shows. Updating stays
-in Mainsail or Fluidd.
+from GitHub by your browser and kept there; without internet the list still shows. Updating this
+printer stays in Mainsail or Fluidd. With the [printer farm](farm.md#updating-the-whole-farm), a
+**The whole farm** card at the top shows every printer's versions and updates the free ones.
 
 <p align="center"><img src="images/updates.png" alt="The Updates tab: Klipper seven updates behind, three of them changing board firmware, the list in Klipper's words, and everything else Moonraker updates" width="900"></p>
 

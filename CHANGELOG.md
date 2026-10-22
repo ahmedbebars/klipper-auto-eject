@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **The farm, for one printer or a hundred** ([farm.md](docs/farm.md#a-big-farm)): filters with
+  counts (needs you, printing, free, switched off, not answering), a search by name, address,
+  group or file, a list with one line for each printer (by itself above 12 printers, or by
+  choice), and groups (**Shelf A**, **Room 2**) set in each printer's ✎.
+- **Update the whole farm** from the **Updates** tab: every printer's version of auto-eject,
+  Klipper, Moonraker and its web page, and its boards against its Klipper. **Update** one printer
+  or **Update the free ones**: only printers that do nothing, checked again before each software,
+  everything in a safe order with auto-eject last, and Klipper restarted once at the end when
+  configs or macros changed. Boards are not flashed from here.
 - **Notifications on Telegram or Discord**: `install.sh --notify` asks where they should go (the
   ntfy app, Telegram or Discord), and the plain install asks too. For Telegram it checks the bot's
   token with Telegram and finds your chat by itself from a message you send the bot; for Discord it
@@ -24,6 +33,15 @@ All notable changes to this project are documented here. The format is based on
 - **In your slicer** finds DEMON Klipper Essentials by itself: it says to keep DEMON's start lines
   as they are with `AUTO_EJECT_GUARD` above them, why `HOME=1` stays after `DEMON_END`, warns when
   `home_method` is `"g28"`, and says when DEMON's auto power-off is on and how the eject holds it.
+
+### Changed
+- The farm asks all printers at once (up to 32 at a time), and a printer that does not answer is
+  asked again after 10 seconds, then less often, up to once a minute: 100 printers take about as
+  long as one, and printers switched off no longer slow the others.
+
+### Fixed
+- A farm printer showed as offline when only its print history, camera or power switch could not
+  be read; now only a printer that does not answer at all is offline.
 
 ## [0.15.0] - 2026-10-22
 

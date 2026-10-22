@@ -731,3 +731,49 @@ def test_where_the_notifications_go_without_the_token():
     assert js("notifierKind", cfg("mailto://me@example.com")) == "other"
     assert js("notifierKind", {"notifier telegram": {"url": "tgram://x/y"}}) == ""   # someone else's notifier
     assert js("notifierKind", None) == ""
+
+
+@needs_node
+def test_the_farm_filters_searches_and_groups():
+    printers = [{"name": "voron-01", "host": "192.168.1.21", "group": "Shelf A", "phase": "printing", "filename": "clips.gcode"},
+                {"name": "voron-02", "host": "192.168.1.22", "group": "Shelf A", "phase": "needs"},
+                {"name": "ender", "host": "192.168.1.30", "group": "", "phase": "paused"},
+                {"name": "prusa", "host": "192.168.1.31", "group": "Shelf B", "phase": "idle"},
+                {"name": "kobra", "host": "192.168.1.34", "phase": "off"},
+                {"name": "sovol", "host": "192.168.1.33", "phase": "offline"}]
+    assert [js("farmKind", p) for p in printers] == ["printing", "needs", "needs", "idle", "off", "offline"]
+    names = lambda ps: [p["name"] for p in ps]
+    assert names(js("farmFilter", printers, "needs", "")) == ["voron-02", "ender"]           # paused needs you too
+    assert names(js("farmFilter", printers, "all", "SHELF a")) == ["voron-01", "voron-02"]    # the group, any case
+    assert names(js("farmFilter", printers, "all", "clips")) == ["voron-01"]                # the file
+    assert names(js("farmFilter", printers, "all", "1.33")) == ["sovol"]                    # the address
+    assert names(js("farmFilter", printers, "idle", "voron")) == []
+    groups = js("farmGroups", printers)
+    assert [(g["group"], names(g["printers"])) for g in groups] == [
+        ("Shelf A", ["voron-01", "voron-02"]), ("Shelf B", ["prusa"]), ("", ["ender", "kobra", "sovol"])]
+    assert js("farmCounts", printers) == {"needs": 2, "printing": 1, "idle": 1, "off": 1, "offline": 1}
+
+
+@needs_node
+def test_what_a_farm_printer_can_update():
+    def v(version, remote, behind=0, kind="git_repo"):
+        return {"version": version, "remote": remote, "behind": behind, "type": kind}
+    updates = {"klipper": v("v0.13.0-809", "v0.13.0-816", 7),
+               "moonraker": v("v0.11.0-4-dirty", "v0.11.0-4"),            # a local change, nothing new
+               "klipper-auto-eject": v("v0.15.0-4", "v0.15.0-4"),
+               "mainsail": v("v2.19.0", "v2.20.0", kind="web"),
+               "fluidd": v("v1.34.4", "v1.34.4", kind="web"),
+               "moonraker-timelapse": v("v0.0.1", "?", kind="zip")}         # Moonraker does not know the latest
+    assert js("farmPending", updates) == ["klipper", "mainsail"]
+    assert js("farmPending", None) == []
+
+
+@needs_node
+def test_the_board_furthest_behind_on_a_farm_printer():
+    host = "v0.13.0-816-gee2c6fb6"
+    assert js("farmFirmware", {"klipper": host, "boards": [["mcu", host], ["mcu ebb", "v0.13.0-800-g9cb99754"]]}) == {"state": "older", "by": 16}
+    assert js("farmFirmware", {"klipper": host, "boards": [["mcu", "v0.13.0-800-g9cb99754"], ["mcu ebb", "v0.12.0-300-gabcdef12"]]}) == {"state": "older", "by": None}
+    assert js("farmFirmware", {"klipper": host, "boards": [["mcu", host]]}) == {"state": "same", "by": 0}
+    assert js("farmFirmware", {"klipper": host, "boards": [["mcu", ""], ["mcu ebb", host]]}) == {"state": "same", "by": 0}
+    assert js("farmFirmware", {"klipper": host, "boards": []}) is None
+    assert js("farmFirmware", None) is None

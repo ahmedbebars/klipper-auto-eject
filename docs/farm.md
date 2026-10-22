@@ -107,6 +107,58 @@ A printer with auto-eject also shows its parts box (**Box: 32 / 40**) once
 
 Both are off until you choose them.
 
+## A big farm
+
+The same page works for one printer and for a hundred.
+
+- **Filters** at the top: **All**, **Needs you**, **Printing**, **Free**, **Switched off**, **Not
+  answering**, each with its count. A paused print counts as **Needs you**.
+- **Search**: a printer's name, its address, its group or the file it prints.
+- **Cards or a list**: with more than 12 printers the page shows one line for each printer, with
+  its state, its file and progress, the bed and its buttons. The two buttons next to the search
+  switch between cards and the list; this browser remembers your choice.
+- **Groups**: in a printer's ✎, give it a group, such as `Shelf A` or `Room 2`. The page shows each
+  group under its own title, groups by name and printers without a group last. A group is kept on
+  the farm printer only; nothing changes on the printer itself.
+
+<p align="center"><img src="images/farm-list.png" alt="The farm as a list: filters with counts, a search, two groups, one line for each printer with its state, file and buttons" width="900"></p>
+
+### Updating the whole farm
+
+The **Updates** tab shows a **The whole farm** card when the farm has more than one printer: each
+printer's version of auto-eject, Klipper, Moonraker and its web page (Mainsail or Fluidd), the
+latest of each, and how far its boards' firmware is behind its Klipper. Press **Update** on one
+printer, or **Update the free ones** for every printer that has something new and is doing
+nothing.
+
+<p align="center"><img src="images/farm-updates.png" alt="The whole farm on the Updates tab: each printer's versions, the new ones in orange, its boards against Klipper, and Update buttons only on the free printers" width="900"></p>
+
+- **Only while it does nothing.** A printer that prints, is paused, clears its bed, is stopped,
+  switched off or not answering is not updated. The farm asks again right before each software, so
+  one that starts a print on the way stops updating there. Moonraker refuses too while it prints.
+- **Everything at once, in a safe order:** the others first (the web page, crowsnest, a macro
+  set), then Klipper, then Moonraker (the farm waits for it to come back), auto-eject last.
+- **Klipper restarts once at the end** when something with configs or macros was updated
+  (auto-eject, a macro set), and only if the printer is still doing nothing. Klipper and Moonraker
+  restart by themselves when they are updated.
+- **The farm printer itself:** updating its own auto-eject restarts the farm on the way. When it is
+  back, it restarts that printer's Klipper, once and only while it does nothing, so the new macros
+  load.
+- **The boards are not flashed from here.** Flashing needs the right options for each board, and
+  some boards need a button pressed. The **Boards** column says how far they are behind: open that
+  printer's own **Updates** tab, which tells whether the board code changed since, and so whether
+  they need a reflash at all.
+
+The versions are read from each printer's Moonraker every 5 minutes, and right after an update.
+
+### Many printers, without waiting
+
+Every 3 seconds the farm asks all printers at once, up to 32 at a time, so 100 printers take about
+as long as one. A printer that does not answer is asked again after 10 seconds, then 20, up to once
+a minute, and shows **Not answering** meanwhile: ten printers switched off at the wall do not slow
+the others. A printer whose Klipper stopped still answers through Moonraker and shows **Stopped**
+with Klipper's message.
+
 ## From your phone, anywhere
 
 Set up [remote access](remote-access.md) on the farm printer only:
@@ -162,7 +214,8 @@ nginx publishes that at `/auto-eject/api/`:
 | `GET /auto-eject/api/farm/<id>/files` | Its G-code files, newest first |
 | `POST /auto-eject/api/farm/<id>/print` | `{"filename": …}`: starts it, only on a free printer |
 | `POST /auto-eject/api/farm/<id>/upload?name=…&print=1` | The file as the request body; the farm printer passes it on to that printer's Moonraker |
-| `POST /auto-eject/api/farm/printers` | also `{"id": …, "auto_off": minutes, "device": …}` |
+| `POST /auto-eject/api/farm/printers` | also `{"id": …, "auto_off": minutes, "device": …}` and `{"id": …, "group": …}` |
+| `POST /auto-eject/api/farm/<id>/update` | `{"names": ["klipper", "moonraker", …]}`: updates them in the background, only while that printer does nothing. Its card then shows `job`: `{"names", "done", "state", "error"}` |
 | `GET /auto-eject/api/farm/<id>/snapshot` | That printer's camera picture |
 
 Its log: `journalctl -u klipper-auto-eject`. Try it without printers in the

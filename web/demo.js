@@ -918,21 +918,38 @@
   // A pretend farm for the Farm tab: this demo printer and five others,
   // two more to find when the network is searched.
   const FARM = [
-    { id: "f1", name: "voron-01", host: "192.168.1.21", auto_eject: true, kind: "printing", file: "clips_x12_PLA_1h40m.gcode", time: 6000, at: 0.35, layers: 120,
+    { id: "f1", group: "Shelf A · Vorons", name: "voron-01", host: "192.168.1.21", auto_eject: true, kind: "printing", file: "clips_x12_PLA_1h40m.gcode", time: 6000, at: 0.35, layers: 120,
       stats: { hours: 842.5, jobs: 611, recent: 50, recent_ok: 49, today_ok: 6, today_bad: 0 }, service_every: 500, service_at: 300 },
-    { id: "f2", name: "voron-02", host: "192.168.1.22", auto_eject: true, kind: "leftover", file: "hooks_x8_PETG.gcode", left: ["hook_3"],
+    { id: "f2", group: "Shelf A · Vorons", name: "voron-02", host: "192.168.1.22", auto_eject: true, kind: "leftover", file: "hooks_x8_PETG.gcode", left: ["hook_3"],
       stats: { hours: 1210, jobs: 903, recent: 50, recent_ok: 46, today_ok: 4, today_bad: 1 }, service_every: 1000, service_at: 760 },
-    { id: "f3", name: "ender3-s1", host: "192.168.1.30", auto_eject: false, kind: "done", file: "bracket_PETG_2h5m.gcode",
+    { id: "f3", group: "Shelf B", name: "ender3-s1", host: "192.168.1.30", auto_eject: false, kind: "done", file: "bracket_PETG_2h5m.gcode",
       power: [{ device: "printer", status: "on", locked: false }],
       stats: { hours: 356.2, jobs: 188, recent: 50, recent_ok: 44, today_ok: 2, today_bad: 0 } },
-    { id: "f4", name: "prusa-mk3s", host: "192.168.1.31", auto_eject: false, kind: "printing", file: "vase_PLA_4h.gcode", time: 14400, at: 0.82, layers: 610,
+    { id: "f4", group: "Shelf B", name: "prusa-mk3s", host: "192.168.1.31", auto_eject: false, kind: "printing", file: "vase_PLA_4h.gcode", time: 14400, at: 0.82, layers: 610,
       stats: { hours: 2034, jobs: 1240, recent: 50, recent_ok: 47, today_ok: 1, today_bad: 1 } },
-    { id: "f5", name: "sovol-sv06", host: "192.168.1.33", auto_eject: false, kind: "offline" },
-    { id: "f6", name: "voron-03", host: "192.168.1.23", auto_eject: true, kind: "bin", bin: 40, bin_cap: 40,
+    { id: "f5", group: "Shelf B", name: "sovol-sv06", host: "192.168.1.33", auto_eject: false, kind: "offline" },
+    { id: "f6", group: "Shelf A · Vorons", name: "voron-03", host: "192.168.1.23", auto_eject: true, kind: "bin", bin: 40, bin_cap: 40,
       power: [{ device: "printer", status: "on", locked: true }],
       stats: { hours: 655, jobs: 480, recent: 50, recent_ok: 50, today_ok: 7, today_bad: 0 } },
-    { id: "f7", name: "kobra-2", host: "192.168.1.34", auto_eject: false, kind: "off", power: [{ device: "psu", status: "off", locked: true }] }
+    { id: "f7", group: "Shelf B", name: "kobra-2", host: "192.168.1.34", auto_eject: false, kind: "off", power: [{ device: "psu", status: "off", locked: true }] }
   ];
+  // What each one's Moonraker tells of its versions, as push/farm.py reads them
+  const V = (version, remote, behind, type) => ({ version, remote, behind: behind || 0, type: type || "git_repo" });
+  const AE_V = "v0.15.0-4", KL_V = "v0.13.0-816", KL_FULL = "v0.13.0-816-gee2c6fb6", MR_V = "v0.11.0-4";
+  const FARM_VERSIONS = {
+    f1: { updates: { "klipper-auto-eject": V("v0.15.0-1", AE_V, 3), klipper: V(KL_V, KL_V), moonraker: V(MR_V, MR_V), mainsail: V("v2.20.0", "v2.20.0", 0, "web") },
+      firmware: { klipper: KL_FULL, boards: [["mcu", KL_FULL], ["mcu EBBCan", KL_FULL]] } },
+    f2: { updates: { "klipper-auto-eject": V("v0.15.0-1", AE_V, 3), klipper: V("v0.13.0-809", KL_V, 7), moonraker: V("v0.11.0-2", MR_V, 2), mainsail: V("v2.19.0", "v2.20.0", 0, "web") },
+      firmware: { klipper: "v0.13.0-809-gc63b2951", boards: [["mcu", "v0.13.0-800-g9cb99754"], ["mcu EBBCan", "v0.13.0-809-gc63b2951"]] } },
+    f3: { updates: { klipper: V("v0.13.0-809", KL_V, 7), moonraker: V(MR_V, MR_V), fluidd: V("v1.34.3", "v1.34.4", 0, "web") },
+      firmware: { klipper: "v0.13.0-809-gc63b2951", boards: [["mcu", "v0.12.0-302-g87ac69363"]] } },
+    f4: { updates: { klipper: V(KL_V, KL_V), moonraker: V("v0.11.0-2", MR_V, 2), mainsail: V("v2.20.0", "v2.20.0", 0, "web") },
+      firmware: { klipper: KL_FULL, boards: [["mcu", KL_FULL]] } },
+    f5: { updates: { klipper: V("v0.13.0-790", KL_V, 26), moonraker: V(MR_V, MR_V), mainsail: V("v2.18.1", "v2.20.0", 0, "web") },
+      firmware: { klipper: "v0.13.0-790-g1a2b3c4d", boards: [["mcu", "v0.13.0-790-g1a2b3c4d"]] } },
+    f6: { updates: { "klipper-auto-eject": V(AE_V, AE_V), klipper: V(KL_V, KL_V), moonraker: V(MR_V, MR_V), mainsail: V("v2.20.0", "v2.20.0", 0, "web") },
+      firmware: { klipper: KL_FULL, boards: [["mcu", KL_FULL], ["mcu EBBCan", KL_FULL]] } }
+  };
   const FARM_FOUND = [{ host: "192.168.1.40", port: 7125, name: "trident-300", klippy: "ready" },
                       { host: "192.168.1.41", port: 7125, name: "ender5-plus", klippy: "ready" }];
 
@@ -948,25 +965,66 @@
     else if (this.queue.state === "paused" && this.queue.jobs.length) { phase = "needs"; reason = "queue"; }
     const progress = st.virtual_sdcard.progress || 0;
     const info = ps.info || {};
-    return { id: "local", name: this.farmLocalName || "demo-printer", host: "127.0.0.1", local: true, auto_eject: true, camera: false,
+    return { id: "local", name: this.farmLocalName || "demo-printer", host: "127.0.0.1", group: this.farmLocalGroup === undefined ? "Shelf A · Vorons" : this.farmLocalGroup,
+      local: true, auto_eject: true, camera: false,
       phase, reason, state: ps.state, filename: ps.filename, message: phase === "stopped" ? st.webhooks.state_message : ps.message,
       progress, eta: phase === "printing" && progress > 0.01 ? Math.round(ps.print_duration * (1 - progress) / progress) : null,
       layer: info.current_layer, layers: info.total_layer, bed: st.heater_bed.temperature, bed_target: st.heater_bed.target,
       nozzle: st.extruder.temperature, parts: (ae.objects || []).length, leftover: ae.leftover || [],
       jobs: this.queue.jobs.length, queue: this.queue.state,
       stats: { hours: 128.4, jobs: 97, recent: 50, recent_ok: 48, today_ok: 3, today_bad: 0 },
-      bin: ae.bin || 0, bin_cap: this.settings().bin_capacity || 0, power: null };
+      bin: ae.bin || 0, bin_cap: this.settings().bin_capacity || 0, power: null,
+      updates: this.farmLocalUpdates(), firmware: { klipper: this.localKlipper || KLIPPER_VERSION, boards: [["mcu", "v0.13.0-800-g9cb99754"], ["mcu toolhead", KLIPPER_VERSION]] },
+      job: this.farmLocalJob || null };
+  };
+  Demo.prototype.farmLocalUpdates = function () {
+    if (!this.localVersions) {
+      this.localVersions = {};
+      for (const [k, v] of Object.entries(DEMO_UPDATES)) {
+        if (k !== "system") this.localVersions[k] = V(v.version, v.remote_version, v.commits_behind_count || (v.commits_behind || []).length, v.configured_type);
+      }
+    }
+    return this.localVersions;
+  };
+  // An update asked through the farm: one software every two seconds, in the
+  // order push/farm.py keeps.
+  Demo.prototype.farmUpdate = function (id, names) {
+    const local = id === "local";
+    const f = local ? null : this.farmList.find((x) => x.id === id);
+    if (!local && !f) return Promise.reject(new Error("not found"));
+    const card = local ? this.farmLocal() : this.farmCard(f);
+    const versions = local ? this.farmLocalUpdates() : f.updates || {};
+    names = [].concat(names || []);
+    if (!names.length || names.some((n) => !versions[n])) return Promise.reject(new Error(card.name + " has no such software to update"));
+    if (["printing", "paused", "ejecting", "stopped", "offline", "off"].includes(card.phase)) return Promise.reject(new Error(card.name + " cannot update now (" + card.phase + ")"));
+    const order = { klipper: 1, moonraker: 2, "klipper-auto-eject": 3 };
+    names = Array.from(new Set(names)).sort((a, b) => (order[a] || 0) - (order[b] || 0) || a.localeCompare(b));
+    const job = { names, done: [], state: "running", error: "", at: Date.now() / 1000 };
+    if (local) this.farmLocalJob = job; else f.job = job;
+    const step = () => {
+      const name = names[job.done.length];
+      if (!name) { job.state = "done"; job.at = Date.now() / 1000; return; }
+      versions[name].version = versions[name].remote;
+      versions[name].behind = 0;
+      // the boards stay as they were: further behind the new Klipper
+      if (name === "klipper") { if (local) this.localKlipper = KL_FULL; else if (f.firmware) f.firmware.klipper = KL_FULL; }
+      job.done.push(name);
+      setTimeout(step, 2000);
+    };
+    setTimeout(step, 2000);
+    return new Promise((resolve) => setTimeout(() => resolve({ started: true }), 120));
   };
 
   Demo.prototype.farmCard = function (f) {
     const now = Date.now() / 1000;
     if (!this.farmStart) this.farmStart = now;
-    const base = { id: f.id, name: f.name, host: f.host, local: false, auto_eject: f.auto_eject, camera: false,
+    const base = { id: f.id, name: f.name, host: f.host, group: f.group || "", local: false, auto_eject: f.auto_eject, camera: false,
       page: "http://" + f.host + (f.auto_eject ? "/auto-eject/" : "/"), parts: 0, leftover: [], jobs: f.jobs || 0, queue: "ready",
       stats: f.stats || null, power: f.power ? f.power.map((d) => Object.assign({}, d)) : null,
       auto_off: f.auto_off || 0, auto_off_device: f.auto_off_device || "", bin: f.bin || 0, bin_cap: f.bin_cap || 0,
       service_every: f.service_every || 0,
-      service_since: f.service_every && f.stats ? Math.round((f.stats.hours - (f.service_at || 0)) * 10) / 10 : null };
+      service_since: f.service_every && f.stats ? Math.round((f.stats.hours - (f.service_at || 0)) * 10) / 10 : null,
+      updates: f.updates || null, firmware: f.firmware || null, job: f.job || null };
     if (f.kind === "offline") return Object.assign(base, { phase: "offline" });
     if (f.kind === "off") return Object.assign(base, { phase: "off" });
     const card = Object.assign(base, { state: "standby", filename: f.file || "", message: "", bed: 23, bed_target: 0, nozzle: 24, progress: 0, eta: null });
@@ -992,7 +1050,10 @@
   Demo.prototype.farm = function (path, body) {
     const ok = (v) => new Promise((resolve) => setTimeout(() => resolve(v), 120));
     const fail = (msg) => new Promise((resolve, reject) => setTimeout(() => reject(new Error(msg)), 120));
-    if (!this.farmList) { this.farmList = FARM.map((f) => Object.assign({}, f)); this.farmScan = { running: false, found: [], finished: null }; }
+    if (!this.farmList) {
+      this.farmList = FARM.map((f) => Object.assign({}, f, FARM_VERSIONS[f.id] ? JSON.parse(JSON.stringify(FARM_VERSIONS[f.id])) : {}));
+      this.farmScan = { running: false, found: [], finished: null };
+    }
     if (path === "") return ok({ printers: [this.farmLocal()].concat(this.farmList.map((f) => this.farmCard(f))), scan: this.farmScan,
       settings: { report: this.farmReport || "" } });
     if (path === "/settings") { this.farmReport = body.report || ""; return ok({ saved: true }); }
@@ -1035,6 +1096,12 @@
         if (f) { f.auto_off = body.auto_off; f.auto_off_device = body.device || ""; }
         return ok({ saved: !!f });
       }
+      if (body.group !== undefined) {
+        const f = body.id === "local" ? null : this.farmList.find((x) => x.id === body.id);
+        if (body.id === "local") this.farmLocalGroup = String(body.group || "").trim();
+        else if (f) f.group = String(body.group || "").trim();
+        return ok({ saved: true });
+      }
       if (body.rename) {
         const f = body.rename === "local" ? null : this.farmList.find((x) => x.id === body.rename);
         if (body.rename === "local") this.farmLocalName = String(body.name || "").trim();
@@ -1072,6 +1139,8 @@
       }
       return ok({ result: "ok" });
     }
+    const up = /^\/([^/]+)\/update$/.exec(path);
+    if (up) return this.farmUpdate(up[1], body.names || body.name);
     const pw = /^\/([^/]+)\/power$/.exec(path);
     if (pw) {
       const f = this.farmList.find((x) => x.id === pw[1]);

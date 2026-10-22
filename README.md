@@ -141,7 +141,9 @@ even while it is closed ([docs/notifications.md](docs/notifications.md)).
 
 `install.sh --farm` on one printer puts every Klipper printer of your network on one page, the
 ones that need you first. **Search the network** finds them and adds them; the other printers
-need nothing installed ([docs/farm.md](docs/farm.md)).
+need nothing installed ([docs/farm.md](docs/farm.md)). It is made for one printer or a hundred:
+filters, a search, a list with a line for each printer, groups by shelf or room, and the whole
+farm updated from one place, only the printers that do nothing.
 
 ### The machine's hardware
 
