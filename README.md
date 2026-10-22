@@ -32,10 +32,11 @@
   <a href="https://docs.fluidd.xyz/" title="Fluidd"><img src="docs/images/logos/fluidd.svg" alt="Fluidd" height="44"></a>&emsp;
   <a href="https://github.com/SoftFever/OrcaSlicer" title="OrcaSlicer"><img src="docs/images/logos/orcaslicer.svg" alt="OrcaSlicer" height="44"></a>&emsp;
   <a href="https://github.com/prusa3d/PrusaSlicer" title="PrusaSlicer"><img src="docs/images/logos/prusaslicer.svg" alt="PrusaSlicer" height="44"></a>&emsp;
-  <a href="https://github.com/Donkie/Spoolman" title="Spoolman"><img src="docs/images/logos/spoolman.svg" alt="Spoolman" height="44"></a>
+  <a href="https://github.com/Donkie/Spoolman" title="Spoolman"><img src="docs/images/logos/spoolman.svg" alt="Spoolman" height="44"></a>&emsp;
+  <a href="https://github.com/3DPrintDemon/Demon_Klipper_Essentials_Unified" title="DEMON Klipper Essentials"><img src="docs/images/logos/demon.png" alt="DEMON Klipper Essentials" height="44"></a>
 </p>
 <p align="center"><sub>Works with Klipper and Moonraker, Mainsail or Fluidd, and OrcaSlicer, PrusaSlicer, SuperSlicer or Cura.
-Phone access through Tailscale; the spool checked with Spoolman. (<a href="docs/images/logos/README.md">about these logos</a>)</sub></p>
+Phone access through Tailscale; the spool checked with Spoolman; DEMON and other macro sets. (<a href="docs/images/logos/README.md">about these logos</a>)</sub></p>
 
 ---
 

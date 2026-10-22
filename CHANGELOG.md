@@ -8,7 +8,8 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 - DEMON in [integration.md](docs/integration.md#demon-klipper-essentials): the start G-code, the
-  auto power-off, the shared variables file, the purge and the heat soak before each job.
+  auto power-off, the shared variables file, the purge and the heat soak before each job. DEMON's
+  logo joins the "works with" row.
 - **Spoolman** ([docs/spoolman.md](docs/spoolman.md)): with Moonraker's `[spoolman]`, the queue is
   checked against what is left on the spool on the printer. The print queue gets a **Spool** card
   (the spool, the grams left, whether the queue fits, **Change the spool**) and the grams each job

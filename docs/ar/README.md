@@ -34,10 +34,11 @@
   <a href="https://docs.fluidd.xyz/" title="Fluidd"><img src="../images/logos/fluidd.svg" alt="Fluidd" height="44"></a>&emsp;
   <a href="https://github.com/SoftFever/OrcaSlicer" title="OrcaSlicer"><img src="../images/logos/orcaslicer.svg" alt="OrcaSlicer" height="44"></a>&emsp;
   <a href="https://github.com/prusa3d/PrusaSlicer" title="PrusaSlicer"><img src="../images/logos/prusaslicer.svg" alt="PrusaSlicer" height="44"></a>&emsp;
-  <a href="https://github.com/Donkie/Spoolman" title="Spoolman"><img src="../images/logos/spoolman.svg" alt="Spoolman" height="44"></a>
+  <a href="https://github.com/Donkie/Spoolman" title="Spoolman"><img src="../images/logos/spoolman.svg" alt="Spoolman" height="44"></a>&emsp;
+  <a href="https://github.com/3DPrintDemon/Demon_Klipper_Essentials_Unified" title="DEMON Klipper Essentials"><img src="../images/logos/demon.png" alt="DEMON Klipper Essentials" height="44"></a>
 </p>
 <p align="center"><sub>تعمل مع Klipper وMoonraker، ومع Mainsail أو Fluidd، ومع OrcaSlicer أو PrusaSlicer أو SuperSlicer أو Cura.
-والوصول من الهاتف عبر Tailscale، وفحص البكرة مع Spoolman. (<a href="../images/logos/README.md">عن هذه الشعارات</a>)</sub></p>
+والوصول من الهاتف عبر Tailscale، وفحص البكرة مع Spoolman، ومع DEMON وغيره من مجموعات الماكرو. (<a href="../images/logos/README.md">عن هذه الشعارات</a>)</sub></p>
 
 ---
 
