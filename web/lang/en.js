@@ -731,6 +731,12 @@ window.AE_LANG("en", "English", "ltr", {
   "c.skip": "Skip to the content",
   "c.lang": "Language",
   "c.theme": "Light or dark",
+  "c.reload": "Reload",
+  "c.update_ready": "This printer has a new version of this page.",
+  "c.wake": "Keep the screen on",
+  "c.wake_desc": "Keep this device's screen on while this page is open",
+  "c.wake_on": "The screen stays on while this page is open",
+  "c.wake_off": "The screen goes off as usual",
   "c.mm": "{v} mm",
   "c.bed": "Bed",
 

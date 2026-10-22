@@ -113,7 +113,7 @@ Each line is a shortcut to its page.
 | | In short |
 |---|---|
 | [From anywhere](docs/remote-access.md) | Tailscale, a free private network between your devices: nothing is opened to the internet |
-| [As an app](docs/web-page.md#on-your-phone-as-an-app) | The page installs on the phone with its own icon |
+| [As an app](docs/web-page.md#on-your-phone-as-an-app) | Installs with its own icon, shortcuts, and a number on the icon for the printers that need you |
 | [Notifications](docs/notifications.md) | When the printer needs you, with the page closed: in the app, ntfy, Telegram or Discord |
 | [Spoolman](docs/spoolman.md) | The queue stops before a job the spool on the printer cannot finish |
 

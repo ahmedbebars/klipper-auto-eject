@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **A more complete app** ([web-page.md](docs/web-page.md#on-your-phone-as-an-app)): an install
+  button at the top of the page when the browser offers it; pictures of the app in the install
+  dialog; shortcuts on the icon (farm, print queue, check a file); the number of printers that
+  need you on the icon; splash screens on iPhone and iPad; a monochrome notification icon for
+  Android; a notice with **Reload** when the printer has a newer page than the one open; and
+  **Keep the screen on** for a tablet by the printers. A shortcut or a notification opens the app
+  already open, which also starts faster.
 - **The farm, for one printer or a hundred** ([farm.md](docs/farm.md#a-big-farm)): filters with
   counts (needs you, printing, free, switched off, not answering), a search by name, address,
   group or file, a list with one line for each printer (by itself above 12 printers, or by

@@ -238,7 +238,7 @@ Set up [remote access](remote-access.md) with HTTPS (`install.sh --remote`), ope
 
 | Phone | How |
 |---|---|
-| Android (Chrome, Edge, Samsung Internet) | **Install the app** on the page's **Blade and setup** tab, or the browser menu: **Install app** |
+| Android, and Chrome or Edge on a computer | The install button at the top of the page (a phone with an arrow), the **Install the app** button on **Blade and setup**, or the browser menu: **Install app** |
 | iPhone and iPad (Safari) | **Share**, then **Add to Home Screen** |
 
 The **Phone and remote access** card on the **Blade and setup** tab says which applies to the
@@ -246,6 +246,22 @@ device you hold. The app keeps a copy of its own files, so it opens and says the
 reachable when there is no connection; everything about the printer always comes live from
 Moonraker. Over plain HTTP (the home address) browsers do not install pages as apps; adding the
 page to the home screen still works as a shortcut.
+
+Once installed:
+
+- **Its own window and icon**, with a splash screen while it opens on iPhone and iPad. The
+  install dialog of Chrome, Edge and Android shows pictures of the app.
+- **Shortcuts on the icon:** a long press (on a computer, a right click) opens the farm, the
+  print queue or **Check a file** directly.
+- **A number on the icon:** how many printers need you, like unread messages, where the system
+  shows such badges (Android, Windows, macOS, iPhone with notifications on).
+- **Notifications** with the page closed ([notifications.md](notifications.md)). A tap opens the
+  app already open, on the tab the notification is about.
+- **A new version of the page:** after the printer is updated, a page left open says so, with
+  **Reload**, instead of staying on the old one.
+- **Keep the screen on:** the ☀ button in the farm's tools (or the switch on the **Phone and
+  remote access** card) keeps this device's screen on while the page is open, for a tablet on
+  the wall by the printers. It needs HTTPS too.
 
 ## Changing a setting from the console
 

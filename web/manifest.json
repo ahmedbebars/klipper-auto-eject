@@ -1,7 +1,9 @@
 {
   "name": "Auto-eject",
   "short_name": "Auto-eject",
-  "description": "Klipper auto-eject: the bed, the print queue and the eject, live.",
+  "description": "Klipper auto-eject: the bed, the print queue and the eject, live, and every printer of the farm on one page.",
+  "lang": "en",
+  "dir": "auto",
   "id": "./",
   "start_url": "./",
   "scope": "./",
@@ -9,11 +11,118 @@
   "orientation": "any",
   "background_color": "#0d1117",
   "theme_color": "#e65c00",
-  "categories": ["utilities", "productivity"],
+  "categories": [
+    "utilities",
+    "productivity"
+  ],
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": [
+      "focus-existing",
+      "auto"
+    ]
+  },
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/badge-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "monochrome"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Printer farm",
+      "short_name": "Farm",
+      "description": "Every printer on one page",
+      "url": "./#/farm",
+      "icons": [
+        {
+          "src": "icons/shortcut-farm.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Print queue",
+      "short_name": "Queue",
+      "description": "The jobs waiting to print",
+      "url": "./#/queue",
+      "icons": [
+        {
+          "src": "icons/shortcut-queue.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Check a file",
+      "short_name": "Check",
+      "description": "Can a file be cleared by itself?",
+      "url": "./#/check",
+      "icons": [
+        {
+          "src": "icons/shortcut-check.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "icons/screens/wide-overview.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "The bed, its parts and the push lanes, live"
+    },
+    {
+      "src": "icons/screens/wide-farm.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Every printer on one page, the ones that need you first"
+    },
+    {
+      "src": "icons/screens/narrow-overview.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "The printer on your phone"
+    },
+    {
+      "src": "icons/screens/narrow-farm.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "The farm on your phone"
+    }
   ]
 }

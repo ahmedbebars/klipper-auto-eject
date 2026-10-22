@@ -88,6 +88,7 @@
     wand: "M15 4V2 M15 16v-2 M8 9h2 M20 9h2 M17.8 11.8L19 13 M17.8 6.2L19 5 M12.2 6.2L11 5 M12.2 11.8L3 21",
     box: "M21 8l-9-5-9 5v8l9 5 9-5z M3 8l9 5 9-5 M12 13v8",
     dots: "M5 12h.01 M12 12h.01 M19 12h.01",
+    install: "M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M12 6v8 M9 11l3 3 3-3 M11 18h2",
     farm: "M2 4h9v16H2z M13 4h9v16h-9z M2 9h9 M13 9h9 M5 9v3h3V9 M16 9v3h3V9",
     edit: "M4 20h4L19 9l-4-4L4 16z M13.5 6.5l4 4",
     copy: "M9 9h11v11H9z M5 15H4V4h11v1",
@@ -653,7 +654,7 @@
   function renderChrome() {
     const ph = phase();
     const id = route();
-    const sig = [lang, id, navMore, app.conn, app.klippy, ph, app.host, app.hasQueue, app.queue.jobs.length, leftover().length, app.hasMacros,
+    const sig = [lang, id, navMore, appMode(), app.pageUpdate, app.conn, app.klippy, ph, app.host, app.hasQueue, app.queue.jobs.length, leftover().length, app.hasMacros,
       farmShown(), farmNeeds(), (app.objects || []).length > 0].join("|");
     if (sig === chromeSig) return;
     chromeSig = sig;
@@ -698,6 +699,16 @@
       chromeSig = "";
       refresh();
     };
+    // 3. the app can be installed: say so where it is seen
+    const mode = appMode();
+    const inst = $("#install");
+    inst.hidden = DEMO || !(mode === "prompt" || mode === "ios");
+    inst.replaceChildren(icon("install"));
+    inst.title = t("remote.install");
+    inst.setAttribute("aria-label", t("remote.install"));
+    inst.onclick = () => mode === "prompt" ? installApp() : confirm(t("remote.install"), t("remote.install_ios"), t("c.ok"));
+    // 6. the number of printers that need you, on the app's icon
+    appBadge(DEMO ? 0 : farmShown() ? farmNeeds() : ph === "waiting" ? 1 : 0);
     const back = $("#back");
     back.hidden = DEMO;          // the demo has no printer dashboard to go back to
     back.replaceChildren(icon("home"));
@@ -726,6 +737,8 @@
     // one banner for the most important thing
     const b = $("#banner");
     let banner = null;
+    if (app.pageUpdate) banner = ["demo", "download", t("c.update_ready"),
+      h("button", { type: "button", class: "btn sm primary", onclick: () => location.reload() }, icon("restart"), t("c.reload"))];
     if (app.conn === "unauthorized") banner = ["bad", "alert", t("conn.unauthorized")];
     else if (app.conn === "online" && (app.klippy === "shutdown" || app.klippy === "error")) {
       banner = ["bad", "alert", t("conn.shutdown", { msg: app.klippyMsg || app.klippy }),
@@ -1603,6 +1616,59 @@
     refresh();
   }
 
+  // 6. The app's icon shows how many printers need you (installed apps,
+  // where the system has such badges).
+  let badgeShown = -1;
+  function appBadge(n) {
+    if (n === badgeShown || !("setAppBadge" in navigator)) return;
+    badgeShown = n;
+    (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+  }
+
+  // 7. A page left open (a tablet by the farm) learns that the printer got a
+  // new version of it: the files' tags change when the files do.
+  const PAGE_FILES = ["index.html", "app.js", "model.js", "style.css", "lang/en.js", "lang/ar.js"];
+  let pageTags = null;
+  function pageVersion() {
+    return Promise.all(PAGE_FILES.map((f) => fetch(f, { method: "HEAD", cache: "no-store" })
+      .then((r) => r.ok ? (r.headers.get("etag") || r.headers.get("last-modified") || "") : "")))
+      .then((tags) => tags.join("|"));
+  }
+  function checkPageVersion() {
+    if (DEMO || document.hidden || app.pageUpdate) return;
+    pageVersion().then((tag) => {
+      if (!tag.replace(/\|/g, "")) return;                 // the server gives no tags
+      if (pageTags === null) pageTags = tag;
+      else if (tag !== pageTags) { app.pageUpdate = true; chromeSig = ""; refresh(); }
+    }).catch(() => {});
+  }
+
+  // 8. Keep the screen on while this page is open, on this device: a tablet
+  // on the wall by the printers. Browsers allow it over HTTPS.
+  const wake = { on: store("ae.wake") === "1", lock: null };
+  function wakeSupported() { return "wakeLock" in navigator && window.isSecureContext; }
+  function wakeApply() {
+    if (!wakeSupported()) return;
+    if (wake.on && !wake.lock && !document.hidden) {
+      navigator.wakeLock.request("screen").then((l) => {
+        wake.lock = l;
+        l.addEventListener("release", () => { wake.lock = null; });
+      }).catch(() => {});
+    } else if (!wake.on && wake.lock) {
+      wake.lock.release().catch(() => {});
+      wake.lock = null;
+    }
+  }
+  function wakeToggle() {
+    wake.on = !wake.on;
+    store("ae.wake", wake.on ? "1" : "0");
+    wakeApply();
+    toast(t(wake.on ? "c.wake_on" : "c.wake_off"), "ok");
+    refresh();
+  }
+  // the lock is let go whenever the page is hidden: take it again
+  document.addEventListener("visibilitychange", () => { wakeApply(); if (!document.hidden) checkPageVersion(); });
+
   // Installing the page as an app. Chrome and Edge offer a prompt the page
   // can open; Safari on iPhone and iPad has Add to Home Screen in its share
   // menu. Browsers allow it only over HTTPS.
@@ -1654,6 +1720,8 @@
       r.app === "prompt" ? h("div", { class: "toolbar", style: { marginTop: "10px" } },
         h("button", { type: "button", class: "btn primary", onclick: installApp }, icon("download"), t("remote.install"))) : null,
       r.app === "ios" || r.app === "menu" ? h("p", { class: "note", style: { marginTop: "10px" } }, icon("phone"), h("span", { text: t("remote.install_" + r.app) })) : null,
+      wakeSupported() ? h("label", { class: "switch-row", style: { marginTop: "10px" } },
+        h("input", { type: "checkbox", checked: wake.on, onchange: wakeToggle }), h("span", { text: t("c.wake_desc") })) : null,
       // notifications
       h("h3", { class: "sub-head", text: t("remote.notify_title") }),
       h("dl", { class: "kv" },
@@ -2232,6 +2300,8 @@
       h("div", { class: "search farm-search" }, icon("search"),
         h("input", { class: "input", type: "search", placeholder: t("farm.search_ph"), "aria-label": t("farm.search_ph"), value: farmUi.search, "data-keep": "f-search",
           oninput: (e) => { farmUi.search = e.target.value; refresh("farm"); } })),
+      wakeSupported() ? h("button", { type: "button", class: "icon-btn wake-btn" + (wake.on ? " on" : ""), "aria-pressed": wake.on ? "true" : "false",
+        title: t("c.wake"), "aria-label": t("c.wake"), onclick: wakeToggle }, icon("sun")) : null,
       h("div", { class: "seg", role: "group", "aria-label": t("farm.view.title") }, [["cards", "overview"], ["list", "queue"]].map(([v, ic]) =>
         h("button", { type: "button", class: "seg-btn" + (asList === (v === "list") ? " active" : ""), title: t("farm.view." + v), "aria-label": t("farm.view." + v),
           onclick: () => { farmUi.view = v; store("ae.farmView", v); refresh("farm"); } }, icon(ic))))) : null;
@@ -2250,7 +2320,7 @@
   }
   viewFarm.sig = function () {
     if (!farmShown()) return String(farm.available);
-    const report = ((farm.data.settings || {}).report || "") + "|" + farmUi.filter + "|" + farmUi.search + "|" + farmUi.view + "|";
+    const report = ((farm.data.settings || {}).report || "") + "|" + farmUi.filter + "|" + farmUi.search + "|" + farmUi.view + "|" + wake.on + "|";
     return report + JSON.stringify(farm.data.printers.map((p) => [p.id, p.name, p.group, p.phase, p.reason, p.filename, Math.round((p.progress || 0) * 100),
       p.eta === null || p.eta === undefined ? null : Math.round(p.eta / 60), p.layer, Math.round(p.bed || 0), p.bed_target, p.jobs, p.queue,
       p.parts, p.leftover, p.camera, p.message, p.page, p.page_remote, p.auto_eject, p.service_every, p.service_since, p.stats, p.bin, p.bin_cap, p.power, p.auto_off, p.auto_off_device]));
@@ -3400,6 +3470,14 @@
     if (route() === "farm" || route() === "updates" || farm.scanOpen || ++farm.tick % 5 === 0) loadFarm();
   }, 3000);
   setInterval(farmCamTick, 250);
+  if ("launchQueue" in window) {
+    window.launchQueue.setConsumer((params) => {
+      try { const hash = new URL(params.targetURL).hash; if (hash && hash !== location.hash) location.hash = hash; } catch (e) { /* no address */ }
+    });
+  }
+  wakeApply();
+  checkPageVersion();
+  setInterval(checkPageVersion, 5 * 60 * 1000);
   if ("serviceWorker" in navigator && window.isSecureContext && !DEMO) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
     // a tapped notification names the tab to show

@@ -11,7 +11,8 @@ const CACHE = "auto-eject-v1";
 const SHELL = [
   "./", "index.html", "style.css", "app.js", "model.js", "moonraker.js", "demo.js",
   "lang/en.js", "lang/ar.js", "manifest.json",
-  "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"
+  "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png",
+  "icons/badge-96.png", "icons/shortcut-farm.png", "icons/shortcut-queue.png", "icons/shortcut-check.png"
 ];
 // the page's files sit under /auto-eject/: web/, config/, docs/images/;
 // the farm's live answers and camera pictures (api/) are never kept
@@ -25,6 +26,8 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(caches.keys()
     .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    // the page's request goes out while the service worker starts, not after
+    .then(() => self.registration.navigationPreload && self.registration.navigationPreload.enable())
     .then(() => self.clients.claim()));
 });
 
@@ -34,8 +37,11 @@ self.addEventListener("push", (event) => {
   let note = {};
   try { note = event.data ? event.data.json() : {}; } catch (e) { note = { body: event.data ? event.data.text() : "" }; }
   event.waitUntil(self.registration.showNotification(note.title || "Auto-eject", {
-    body: note.body || "", icon: "icons/icon-192.png", badge: "icons/icon-192.png",
+    body: note.body || "", icon: "icons/icon-192.png", badge: "icons/badge-96.png",
     tag: note.tag || "auto-eject", renotify: true, data: { url: note.url || self.registration.scope }
+  }).then(() => {
+    // a dot on the app's icon; the app puts the number there once it opens
+    if (self.navigator.setAppBadge) return self.navigator.setAppBadge().catch(() => {});
   }));
 });
 
@@ -59,7 +65,8 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== self.location.origin || !url.pathname.startsWith(ROOT) || url.pathname.startsWith(API)) return;
-  event.respondWith(fetch(request).then((response) => {
+  const preload = request.mode === "navigate" && event.preloadResponse ? event.preloadResponse : Promise.resolve();
+  event.respondWith(preload.then((early) => early || fetch(request)).then((response) => {
     if (response.ok && response.type === "basic" && !request.headers.has("range")) {
       const copy = response.clone();
       caches.open(CACHE).then((cache) => cache.put(request, copy));
