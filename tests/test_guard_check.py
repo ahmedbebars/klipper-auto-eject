@@ -174,3 +174,25 @@ def test_the_next_print_can_show_it_again():
                                "total_duration": 1.0, "info": {"current_layer": 1, "total_layer": 2}}
     p.execute("_AUTO_EJECT_TRACK_STEP")
     assert p.status["gcode_macro _AUTO_EJECT_STATE"]["notified"] is False
+
+
+# ------------------------------------------------- an eject stopped by an error
+def test_an_eject_stopped_by_an_error_says_so_and_keeps_the_parts():
+    p = fresh()
+    p.status["print_stats"] = {"state": "printing", "filename": "stencil.gcode",
+                               "total_duration": 10.0, "info": {"current_layer": 1, "total_layer": 2}}
+    p.execute("_AUTO_EJECT_TRACK_STEP")
+    p.status["gcode_macro _AUTO_EJECT_STATE"]["busy"] = True     # AUTO_EJECT set it
+    # the eject runs in the end G-code: the tracker leaves it alone
+    p.execute("_AUTO_EJECT_TRACK_STEP")
+    assert not any("an error stopped" in m for m in p.messages)
+    assert p.status["gcode_macro _AUTO_EJECT_STATE"]["busy"] is True
+    # a probe timed out: the print ended in error with the flag still set
+    p.status["print_stats"] = {"state": "error", "filename": "stencil.gcode", "total_duration": 20.0}
+    lines = p.execute("_AUTO_EJECT_TRACK_STEP")
+    assert any("an error stopped the eject" in m for m in p.messages)
+    assert any("prompt_begin Auto-eject - parts on the bed" in l for l in lines)
+    st = p.status["gcode_macro _AUTO_EJECT_STATE"]
+    assert st["busy"] is False and st["cooling"] is False
+    assert len(stored(p)) == 1                                  # still there for the next print's check
+    assert p.execute("_AUTO_EJECT_TRACK_STEP") == []            # said once

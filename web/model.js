@@ -494,6 +494,14 @@
       .sort((a, b) => (a[0] === "") - (b[0] === "") || a[0].localeCompare(b[0], "en", { numeric: true }))
       .map(([group, list]) => ({ group, printers: list }));
   }
+  // Is an eject really running? The macro's busy flag stays set when an
+  // error stops it; Klipper itself is busy (idle_timeout "Printing") while
+  // a macro runs, and an eject in the end G-code is part of the print.
+  function ejectRunning(st, status) {
+    if (!st || !st.busy) return false;
+    const s = status || {};
+    return (s.print_stats || {}).state === "printing" || (s.idle_timeout || {}).state === "Printing";
+  }
   // What a farm printer can update, from its {name: {version, remote, behind,
   // type}}: a git repository when it is behind (a local change only differs
   // in its name), anything else when its version is not the latest.
@@ -1030,7 +1038,7 @@
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, notifierKind, farmOrder, farmKind, farmCounts, farmFilter, farmGroups, farmPending, farmFirmware, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
+    noticeFor, ntfyTopic, notifierKind, farmOrder, farmKind, farmCounts, farmFilter, farmGroups, farmPending, ejectRunning, farmFirmware, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
     hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft,
     lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, parseVersion, firmwareAge, boardCode, configNotes, updateArea, updateAreas, scrubReport, supportReport, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText, macroSet

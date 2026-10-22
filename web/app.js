@@ -246,7 +246,7 @@
     if (app.klippy !== "ready" || !app.loaded) return "offline";
     const st = aeState();
     const ps = app.status.print_stats || {};
-    if (st.busy) {
+    if (M.ejectRunning(st, app.status)) {
       const bed = app.status.heater_bed;
       const set = sv();
       if (!st.swept && bed && set.cool_mode === "temperature" && bed.target === 0 && bed.temperature > set.cool_temp + 0.3) return "cooling";
@@ -1933,7 +1933,7 @@
   // command until the eject has finished, so a change made then waits.
   function send(key, script, value, doneKey) {
     if (settingsUi.sending[key]) return;
-    const later = !!aeState().busy;
+    const later = M.ejectRunning(aeState(), app.status);
     const ask = later ? confirm(t("settings.busy_title"), t("settings.busy_body"), t("settings.busy_ok")) : Promise.resolve(true);
     ask.then((ok) => {
       // a switch or a list already shows the new value: draw it again

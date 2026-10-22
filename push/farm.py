@@ -207,7 +207,8 @@ def summarize(status, queue=None, now=None):
     state = ps.get("state", "")
     if wh.get("state") in ("shutdown", "error"):
         phase, reason = "stopped", "shutdown"
-    elif ae and ae.get("busy"):
+    elif ae and ae.get("busy") and (state == "printing" or status.get("idle_timeout", {}).get("state") == "Printing"):
+        # the flag alone stays set when an error stops the eject
         phase, reason = "ejecting", ""
     elif state == "printing":
         phase, reason = "printing", ""

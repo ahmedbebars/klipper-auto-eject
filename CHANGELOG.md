@@ -55,6 +55,10 @@ All notable changes to this project are documented here. The format is based on
   long as one, and printers switched off no longer slow the others.
 
 ### Fixed
+- An eject stopped by an error (a probe that timed out, say) left its "ejecting" flag set: the
+  page and the farm showed the printer clearing its bed until someone cleared it by hand, the
+  page's buttons stayed off, and the parts-left dialog and notification never came. Now the
+  printer says the eject stopped, keeps the parts for the next print's check, and asks.
 - The Updates section had no short name on a phone and showed `navs.updates` in the bar.
 - A farm printer showed as offline when only its print history, camera or power switch could not
   be read; now only a printer that does not answer at all is offline.

@@ -820,3 +820,14 @@ def test_every_section_has_its_names_in_every_language():
             for key in ("nav." + v, "navs." + v):        # the menu, and the phone's short name
                 assert '"%s":' % key in text, (code, key)
         assert '"navs.more":' in text and '"c.skip":' in text
+
+
+@needs_node
+def test_an_eject_is_running_only_while_klipper_is_busy_with_it():
+    busy = {"busy": True}
+    assert js("ejectRunning", busy, {"print_stats": {"state": "printing"}, "idle_timeout": {"state": "Printing"}}) is True
+    assert js("ejectRunning", busy, {"print_stats": {"state": "standby"}, "idle_timeout": {"state": "Printing"}}) is True
+    # an error stopped it and left the flag set
+    assert js("ejectRunning", busy, {"print_stats": {"state": "error"}, "idle_timeout": {"state": "Ready"}}) is False
+    assert js("ejectRunning", {"busy": False}, {"print_stats": {"state": "printing"}, "idle_timeout": {"state": "Printing"}}) is False
+    assert js("ejectRunning", None, {}) is False

@@ -63,7 +63,8 @@ def test_a_finished_print_that_auto_eject_cleared_is_free():
 @pytest.mark.parametrize("st, ae, queue, phase, reason", [
     (status("complete", ae=tracker(3, leftover=["p1"])), None, None, "needs", "leftover"),
     (status("complete", ae=tracker(3)), None, None, "needs", "parts"),
-    (status("complete", ae=tracker(3, busy=True)), None, None, "ejecting", ""),
+    (status("complete", ae=tracker(3, busy=True), idle_timeout={"state": "Printing"}), None, None, "ejecting", ""),
+    (status("complete", ae=tracker(3, busy=True)), None, None, "needs", "parts"),        # the flag outlived it
     (status("paused", ae=tracker()), None, None, "paused", "paused"),
     (status("printing", webhooks="shutdown"), None, None, "stopped", "shutdown"),
     (status("error"), None, None, "needs", "error"),
@@ -956,3 +957,12 @@ def test_everything_at_once_in_a_safe_order(monkeypatch):
     assert p.job["done"] == upgraded and p.job["state"] == "done"
     with pytest.raises(LookupError):
         f.update("v1", [])
+
+
+def test_an_eject_stopped_by_an_error_is_not_ejecting_forever():
+    running = farm.summarize(status("printing", ae=tracker(objects=1, busy=True), idle_timeout={"state": "Printing"}))
+    assert running["phase"] == "ejecting"                       # in the print's end G-code
+    by_hand = farm.summarize(status("standby", ae=tracker(objects=1, busy=True), idle_timeout={"state": "Printing"}))
+    assert by_hand["phase"] == "ejecting"                       # run from the console
+    stopped = farm.summarize(status("error", ae=tracker(objects=1, busy=True), idle_timeout={"state": "Ready"}))
+    assert (stopped["phase"], stopped["reason"]) == ("needs", "error")   # the flag outlived the eject
