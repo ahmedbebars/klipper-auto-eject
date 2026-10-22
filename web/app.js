@@ -250,6 +250,8 @@
     if (M.ejectRunning(st, app.status)) {
       const bed = app.status.heater_bed;
       const set = sv();
+      // in the background the macro says itself whether it still cools
+      if (st.bg) return st.cooling ? "cooling" : "working";
       if (!st.swept && bed && set.cool_mode === "temperature" && bed.target === 0 && bed.temperature > set.cool_temp + 0.3) return "cooling";
       return "working";
     }
@@ -878,7 +880,15 @@
     // ----- actions
     const ejectWhy = why || (n ? "" : "act.why_empty");
     const mainLabel = homed() ? t("act.eject") : t("act.home_eject");
-    const actions = h("section", { class: "card" },
+    const st0 = aeState();
+    const bgCool = !!(st0.bg && st0.cooling);
+    const actions = bgCool ? h("section", { class: "card" },
+      h("h2", null, icon("push"), t("act.title")),
+      h("div", { class: "act-main" },
+        h("button", { type: "button", class: "btn primary lg block", disabled: !!st0.push_now, onclick: doPushNow }, icon("push"), t("act.push_now")),
+        h("div", { class: "desc", text: st0.push_now ? t("act.push_soon") : t("act.bg_desc") })),
+      h("div", { class: "act-list" },
+        actRow("hand", t("act.clear"), t("act.bg_clear_desc"), "", doClear))) : h("section", { class: "card" },
       h("h2", null, icon("push"), t("act.title")),
       h("div", { class: "act-main" },
         h("button", { type: "button", class: "btn primary lg block", disabled: !!ejectWhy, onclick: doEject }, icon("push"), mainLabel),
@@ -957,7 +967,7 @@
     return JSON.stringify([phase(), parts().map((r) => r.slice(0, 5)), st.leftover, st.height, homed(), blocked(), ps.filename,
       m && m.values, app.queue.state, app.queue.jobs.length, app.hasQueue, Object.keys(app.config).length, app.webcams.length,
       Array.from(app.lanesDone), Object.keys(polygons()).length, farmShown() && farm.data.printers.length, farmNeeds(), st.bin,
-      !!(ps.filename && app.meta[ps.filename]), spoolSig()]);
+      !!(ps.filename && app.meta[ps.filename]), spoolSig(), !!st.push_now]);
   };
 
   function camUrl(cam) {
@@ -992,6 +1002,10 @@
   function doDry() {
     confirm(t("act.dry"), t("act.dry_confirm"), t("act.dry"))
       .then((ok) => { if (ok) gcode(homed() ? "AUTO_EJECT DRY=1" : "AUTO_EJECT DRY=1 HOME=1"); });
+  }
+  function doPushNow() {
+    confirm(t("act.push_now"), t("act.push_confirm"), t("act.push_now"))
+      .then((ok) => { if (ok) gcode("AUTO_EJECT_PUSH_NOW"); });
   }
   function doClear() {
     confirm(t("act.clear"), t("act.clear_confirm"), t("act.clear"), "danger")
@@ -2001,7 +2015,7 @@
   // command until the eject has finished, so a change made then waits.
   function send(key, script, value, doneKey) {
     if (settingsUi.sending[key]) return;
-    const later = M.ejectRunning(aeState(), app.status);
+    const later = M.ejectRunning(aeState(), app.status) && !aeState().bg;     // in the background, Klipper is free
     const ask = later ? confirm(t("settings.busy_title"), t("settings.busy_body"), t("settings.busy_ok")) : Promise.resolve(true);
     ask.then((ok) => {
       // a switch or a list already shows the new value: draw it again
@@ -2069,7 +2083,7 @@
     }
     if (p.phase === "stopped") return p.message || t("farm.why.stopped");
     if (p.phase === "paused") return p.message || t("farm.why.paused");
-    if (p.phase === "ejecting") return t("farm.why.ejecting");
+    if (p.phase === "ejecting") return t(p.reason === "cooling" ? "farm.why.cooling" : "farm.why.ejecting");
     if (p.phase === "idle") return p.jobs ? t("farm.why.idle_jobs", { n: num(p.jobs, 0) }) : t("farm.why.idle");
     if (p.phase === "off") return t("farm.why.off");
     return t("farm.why.offline");
@@ -2080,6 +2094,7 @@
     const go = () => farmCall("/" + p.id + "/" + action, {})
       .then(() => { toast(t("farm.sent", { name: p.name }), "ok"); setTimeout(loadFarm, 700); })
       .catch((e) => toast(cleanError(e.message), "bad"));
+    if (action === "push") return confirm(t("act.push_now"), t("act.push_confirm"), t("act.push_now")).then((ok) => { if (ok) go(); });
     if (action === "continue") return confirm(t("farm.continue"), t("farm.continue_confirm", { name: p.name }), t("farm.continue")).then((ok) => { if (ok) go(); });
     if (action === "estop") return confirm(t("act.estop"), t("farm.estop_confirm", { name: p.name }), t("act.estop"), "danger").then((ok) => { if (ok) go(); });
     if (action === "cancel") return confirm(t("farm.cancel"), t("farm.cancel_confirm", { name: p.name, file: p.filename || "" }), t("farm.cancel"), "danger", t("farm.keep_printing"))
@@ -2197,6 +2212,7 @@
   }
 
   const FARM_ACT = { clear: ["hand", "farm.clear", "primary"], continue: ["play", "farm.continue", "primary"], estop: ["stop", "act.estop", "stop"],
+    push: ["push", "act.push_now", "primary"],
     bin_empty: ["tray", "bin.empty", "primary"], print: ["file", "farm.print", "primary"], pause: ["pause", "farm.pause", ""],
     resume: ["play", "farm.resume", "primary"], cancel: ["bad", "farm.cancel", "stop"] };
 

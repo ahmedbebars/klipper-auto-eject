@@ -282,7 +282,7 @@ def test_page_only_sends_known_commands():
     known = {"AUTO_EJECT", "AUTO_EJECT_SET", "AUTO_EJECT_SETUP", "AUTO_EJECT_CALIBRATE",
              "AUTO_EJECT_CLEAR", "AUTO_EJECT_CONTINUE", "AUTO_EJECT_NOTIFY_TEST", "RESPOND",
              "AUTO_EJECT_GUARD",            # only shown, to paste into the slicer
-             "AUTO_EJECT_BIN_EMPTY"}
+             "AUTO_EJECT_BIN_EMPTY", "AUTO_EJECT_PUSH_NOW"}
     assert sent <= known, sent - known
     macros = Printer().macros
     for name in known - {"RESPOND"}:
@@ -831,3 +831,12 @@ def test_an_eject_is_running_only_while_klipper_is_busy_with_it():
     assert js("ejectRunning", busy, {"print_stats": {"state": "error"}, "idle_timeout": {"state": "Ready"}}) is False
     assert js("ejectRunning", {"busy": False}, {"print_stats": {"state": "printing"}, "idle_timeout": {"state": "Printing"}}) is False
     assert js("ejectRunning", None, {}) is False
+
+
+@needs_node
+def test_an_eject_cooling_in_the_background_runs_with_klipper_free():
+    st = {"busy": True, "bg": True, "cooling": True}
+    assert js("ejectRunning", st, {"print_stats": {"state": "complete"}, "idle_timeout": {"state": "Ready"}}) is True
+    acts = js("farmActions", {"phase": "ejecting", "reason": "cooling"})
+    assert acts[:2] == ["push", "clear"] and "estop" in acts
+    assert "push" not in js("farmActions", {"phase": "ejecting", "reason": ""})

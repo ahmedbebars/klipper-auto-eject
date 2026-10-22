@@ -408,20 +408,29 @@
         this.status.extruder.target = 0;
         this.status.fan.speed = s.cool_fan_speed;
         this.touch("heater_bed"); this.touch("extruder"); this.touch("fan");
-        this.say("// AUTO_EJECT: waiting for the bed to reach " + s.cool_temp + " C, fan over the parts");
-        this.state({ cooling: true, cool_start: Date.now() / 1000 - T0 });
+        // cool_background: the printer takes commands while the bed cools
+        const bg = !!s.cool_background;
+        const live = () => this.status["gcode_macro _AUTO_EJECT_STATE"];
+        const stop = () => bg && (live().push_now || !live().bg);
+        this.say(bg ? "// AUTO_EJECT: cooling the bed to " + s.cool_temp + " C with the printer free. AUTO_EJECT_PUSH_NOW pushes at once; AUTO_EJECT_CLEAR if you take the parts off."
+                    : "// AUTO_EJECT: waiting for the bed to reach " + s.cool_temp + " C, fan over the parts");
+        this.state({ cooling: true, cool_start: Date.now() / 1000 - T0, bg, push_now: false });
+        if (bg) this.busy(false);
         const gap = (st.height || 0) + s.cool_tour_gap;
         await this.moveTo(null, null, gap, 500);
         let guard = 0;
-        while (this.status.heater_bed.temperature > s.cool_temp && guard++ < 40) {
+        while (this.status.heater_bed.temperature > s.cool_temp && guard++ < 40 && !stop()) {
           for (const r of st.objects) {
             await this.moveTo(r[5], r[6], null, 350);
             await this.sleep(250);
-            if (this.status.heater_bed.temperature <= s.cool_temp) break;
+            if (this.status.heater_bed.temperature <= s.cool_temp || stop()) break;
           }
         }
         this.status.fan.speed = 0;
         this.touch("fan");
+        if (bg && !live().bg) { this.state({ cooling: false }); return; }      // taken off by hand
+        if (bg && live().push_now) this.say("// AUTO_EJECT: pushing now, as asked");
+        if (bg) this.busy(true);
         this.state({ cooling: false });
       }
       await this.moveTo(null, null, zsafe, 400);
@@ -461,7 +470,7 @@
       this.setParts([]);
       await this.moveTo(PARK[0], PARK[1], PARK[2], 900);
     } finally {
-      this.state({ busy: false });
+      this.state({ busy: false, bg: false, push_now: false });
       this.busy(false);
     }
     this.nextJobSoon();
@@ -640,8 +649,17 @@
     switch (cmd.toUpperCase()) {
       case "AUTO_EJECT":
         if (busy) throw new Error("AUTO_EJECT: the printer is busy");
+        if (this.status["gcode_macro _AUTO_EJECT_STATE"].bg) throw new Error("AUTO_EJECT: the bed is already cooling before its eject. AUTO_EJECT_PUSH_NOW pushes at once.");
         return this.autoEject(params);
+      case "AUTO_EJECT_PUSH_NOW": {
+        const st = this.status["gcode_macro _AUTO_EJECT_STATE"];
+        if (!(st.bg && st.cooling)) throw new Error("AUTO_EJECT_PUSH_NOW: no eject is waiting for the bed to cool");
+        this.state({ push_now: true });
+        this.say("// AUTO_EJECT: pushing once this cooling step ends, in a few seconds");
+        return;
+      }
       case "AUTO_EJECT_CLEAR":
+        if (this.status["gcode_macro _AUTO_EJECT_STATE"].bg) this.state({ bg: false, cooling: false, push_now: false, busy: false });
         this.state({ objects: [], height: 0, leftover: [] });
         this.setParts([]);
         this.say("// AUTO_EJECT: stored parts forgotten, the bed is treated as clear");
@@ -661,7 +679,7 @@
         return;
       case "AUTO_EJECT_SET":
         // as in Klipper, a command sent during the eject waits for its end
-        while (this.status["gcode_macro _AUTO_EJECT_STATE"].busy) await this.sleep(200);
+        while (this.status["gcode_macro _AUTO_EJECT_STATE"].busy && !this.status["gcode_macro _AUTO_EJECT_STATE"].bg) await this.sleep(200);
         return this.set(params);
       case "AUTO_EJECT_SETUP": return this.setup(String(params.STEP || "start").toLowerCase(), params.VALUE);
       case "AUTO_EJECT_CALIBRATE": return this.setup("calibrate");

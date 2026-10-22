@@ -97,10 +97,31 @@ Choose `push_current` so that a part that won't move makes the motor skip. Start
 | `cool_tour` | `True` | While waiting, circle over the parts so the fan blows on each one in turn |
 | `cool_tour_gap` | `8.0` | Gap in mm between the nozzle and the tallest part while circling. With an unknown print height the toolhead stays at `min_safe_z` |
 | `cool_tour_dwell` | `5.0` | Seconds over each part per pass |
+| `cool_background` | `False` | Cool with the printer free: **Push now** and **I took the parts off** work while it cools ([below](#cooling-with-the-printer-free)) |
 
 The bed is a heavy plate and its sensor cools at its own pace, but the air on the parts cools them
 and the sheet right under them, which is what makes them let go. Each pass checks the bed
 temperature (or the time) again, so the toolhead stops circling as soon as cooling is done.
+
+### Cooling with the printer free
+
+Without `cool_background`, `AUTO_EJECT` waits for the bed inside the print's end G-code, and
+Klipper takes no other command until the eject ends: no button can say "push now" or "I already
+took them off". With `cool_background: True`:
+
+1. The print ends, and the job queue waits (it is paused for the eject).
+2. The bed cools in steps of a few seconds, the fan over one part at a time; between the steps
+   the printer is free.
+3. **Push now** (`AUTO_EJECT_PUSH_NOW`) pushes once the current step ends, without waiting for
+   the bed. **I took the parts off** (`AUTO_EJECT_CLEAR`) stops the cooling, pushes nothing and
+   lets the queue go on. Both are on the web page's **Overview** and on the printer's farm card.
+4. Otherwise, once the bed is cool (or `cool_timeout` has passed), the eject goes on as always:
+   push, check the bed, and start the job queue again.
+
+`AUTO_EJECT_GUARD` in the start G-code holds a print started by hand while the bed still cools.
+A part left on the bed after the eject leaves the queue paused, as without this setting. If
+Klipper restarts while the bed cools, the parts stay stored for the next print's check, and the
+queue stays paused until you start it.
 
 ## After the sweep
 

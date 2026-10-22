@@ -496,9 +496,11 @@
   }
   // Is an eject really running? The macro's busy flag stays set when an
   // error stops it; Klipper itself is busy (idle_timeout "Printing") while
-  // a macro runs, and an eject in the end G-code is part of the print.
+  // a macro runs, and an eject in the end G-code is part of the print. An
+  // eject cooling in the background (cool_background) runs with Klipper free.
   function ejectRunning(st, status) {
     if (!st || !st.busy) return false;
+    if (st.bg) return true;
     const s = status || {};
     return (s.print_stats || {}).state === "printing" || (s.idle_timeout || {}).state === "Printing";
   }
@@ -542,6 +544,8 @@
   function farmActions(p) {
     const out = [];
     if (p.phase === "needs" && ["leftover", "parts", "done", "cancelled", "error"].includes(p.reason)) out.push("clear");
+    // cooling with the printer free: push now, or the parts went by hand
+    if (p.phase === "ejecting" && p.reason === "cooling") out.push("push", "clear");
     if (p.phase === "needs" && p.reason === "bin") out.push("bin_empty");
     if (p.queue === "paused" && p.jobs > 0 && ["idle", "needs"].includes(p.phase) && !["leftover", "parts", "done", "cancelled", "error", "bin"].includes(p.reason)) out.push("continue");
     // print one of its files: only a free printer (the farm checks it again)

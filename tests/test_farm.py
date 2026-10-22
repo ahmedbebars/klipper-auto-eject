@@ -966,3 +966,11 @@ def test_an_eject_stopped_by_an_error_is_not_ejecting_forever():
     assert by_hand["phase"] == "ejecting"                       # run from the console
     stopped = farm.summarize(status("error", ae=tracker(objects=1, busy=True), idle_timeout={"state": "Ready"}))
     assert (stopped["phase"], stopped["reason"]) == ("needs", "error")   # the flag outlived the eject
+
+
+def test_a_printer_cooling_with_klipper_free_takes_push_now():
+    ae = dict(tracker(objects=2, busy=True), bg=True, cooling=True)
+    card = farm.summarize(status("complete", ae=ae, idle_timeout={"state": "Ready"}))
+    assert (card["phase"], card["reason"]) == ("ejecting", "cooling")
+    ae = dict(tracker(objects=2, busy=True), bg=True, cooling=False)       # pushing now
+    assert farm.summarize(status("complete", ae=ae))["phase"] == "ejecting"

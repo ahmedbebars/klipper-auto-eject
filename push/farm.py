@@ -34,7 +34,7 @@ PORTS = (7125, 80)
 QUERY = ("/printer/objects/query?print_stats=state,filename,print_duration,info,message"
          "&virtual_sdcard=progress&heater_bed=temperature,target&extruder=temperature,target"
          "&webhooks=state,state_message&idle_timeout=state"
-         "&gcode_macro%20_AUTO_EJECT_STATE=objects,busy,swept,leftover,height,bin"
+         "&gcode_macro%20_AUTO_EJECT_STATE=objects,busy,swept,leftover,height,bin,bg,cooling"
          "&gcode_macro%20_AUTO_EJECT_DEFAULTS=bin_capacity&gcode_macro%20_AUTO_EJECT_SETTINGS=bin_capacity"
          "&gcode_macro%20_AUTO_EJECT_OVERRIDES=data")
 NOZZLE_COOL = 50.0     # turning the power off stops the hotend fan: never above this
@@ -48,6 +48,8 @@ ACTIONS = {
     "clear": ("POST", "/printer/gcode/script", {"script": "AUTO_EJECT_CLEAR"}),
     "clear_plain": ("POST", "/printer/gcode/script", {"script": "SDCARD_RESET_FILE"}),
     "bin_empty": ("POST", "/printer/gcode/script", {"script": "AUTO_EJECT_BIN_EMPTY"}),
+    # cooling with the printer free (cool_background): push without waiting
+    "push": ("POST", "/printer/gcode/script", {"script": "AUTO_EJECT_PUSH_NOW"}),
     "pause": ("POST", "/printer/print/pause", None),
     "resume": ("POST", "/printer/print/resume", None),
     "cancel": ("POST", "/printer/print/cancel", None),
@@ -207,6 +209,9 @@ def summarize(status, queue=None, now=None):
     state = ps.get("state", "")
     if wh.get("state") in ("shutdown", "error"):
         phase, reason = "stopped", "shutdown"
+    elif ae and ae.get("busy") and ae.get("bg"):
+        # cooling with the printer free: it takes "push now" and "bed is clear"
+        phase, reason = "ejecting", "cooling" if ae.get("cooling") else ""
     elif ae and ae.get("busy") and (state == "printing" or status.get("idle_timeout", {}).get("state") == "Printing"):
         # the flag alone stays set when an error stops the eject
         phase, reason = "ejecting", ""
@@ -1095,8 +1100,10 @@ class Farm:
 
     def act(self, pid, action):
         p = self.find(pid)
-        if p is None or action not in ("continue", "clear", "estop", "bin_empty", "pause", "resume", "cancel"):
+        if p is None or action not in ("continue", "clear", "estop", "bin_empty", "pause", "resume", "cancel", "push"):
             return None
+        if action == "push" and not (p.card.get("phase") == "ejecting" and p.card.get("reason") == "cooling"):
+            raise PermissionError("%s is not cooling before an eject" % p.name)
         if action == "clear" and not p.card.get("auto_eject"):
             action = "clear_plain"
         if action == "bin_empty" and not p.card.get("auto_eject"):
@@ -1256,7 +1263,10 @@ def make_handler(farm):
                     except (LookupError, PermissionError) as e:
                         return self._send(409, {"error": str(e)})
                 if len(parts) == 3 and parts[0] == "farm" and method == "POST":
-                    result = farm.act(parts[1], parts[2])
+                    try:
+                        result = farm.act(parts[1], parts[2])
+                    except PermissionError as e:
+                        return self._send(409, {"error": str(e)})
                     return self._send(200 if result is not None else 404, {"result": result})
                 if len(parts) == 3 and parts[0] == "farm" and parts[2] == "snapshot" and method == "GET":
                     p = farm.find(parts[1])
