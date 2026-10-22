@@ -37,14 +37,25 @@ All notable changes to this project are documented here. The format is based on
 ### Changed
 - **The web page's look comes from design tokens**, in three layers: the raw palette and scales,
   what each value is for (per theme), and each control's measures. Text sizes are on one scale
-  (from 20 sizes to 9), corners on one (from 15 to 8), and no rule writes a colour of its own.
-  A printer's state has one colour everywhere. Some small text is half a pixel larger. With the
-  system's *reduce motion* setting, nothing on the page pulses, spins or slides.
+  (from 20 sizes to 7, none under 12 px), corners on one (from 15 to 8), and no rule writes a
+  colour of its own. A printer's state has one colour everywhere. With the system's *reduce
+  motion* setting, nothing on the page pulses, spins or slides.
+- **The web page is easier to read and to use**, after a check of every tab in both languages
+  and themes, on a computer and a phone:
+  - Text passes WCAG AA contrast (4.5:1) in both themes. The light theme's orange is deeper, so
+    white on the orange buttons and orange links can be read; grey text is a little darker; on a
+    dark page, the red and green badges and messages take dark text.
+  - On a phone, the bar at the bottom holds four sections and **More** for the rest, instead of
+    ten that scrolled off the screen; every button, box and switch is at least 44 px.
+  - The search boxes are named for screen readers, headings no longer skip a level, and a
+    **Skip to the content** button comes first for the keyboard.
+  - A farm printer that is offline is no longer faded, which made its text hard to read.
 - The farm asks all printers at once (up to 32 at a time), and a printer that does not answer is
   asked again after 10 seconds, then less often, up to once a minute: 100 printers take about as
   long as one, and printers switched off no longer slow the others.
 
 ### Fixed
+- The Updates section had no short name on a phone and showed `navs.updates` in the bar.
 - A farm printer showed as offline when only its print history, camera or power switch could not
   be read; now only a printer that does not answer at all is offline.
 

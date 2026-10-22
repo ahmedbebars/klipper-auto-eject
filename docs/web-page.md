@@ -228,8 +228,9 @@ printer with no internet access.
 
 <p align="center"><img src="images/phone-app.png" alt="The auto-eject app on a phone: clearing the bed, the printer farm in Arabic, the blade" width="820"></p>
 
-On a phone the sections move to a tab bar at the bottom, and the page keeps clear of notches,
-rounded corners and the home indicator, on any phone, folding phones and tablets included.
+On a phone the sections move to a tab bar at the bottom: the first four, and **More** for the
+rest. Every button and box is at least 44 px, big enough for a finger. The page keeps clear of
+notches, rounded corners and the home indicator, on any phone, folding phones and tablets included.
 
 Over HTTPS, the page installs as an app with its own icon and opens without the browser's bars.
 Set up [remote access](remote-access.md) with HTTPS (`install.sh --remote`), open
@@ -316,8 +317,11 @@ rules below them use only the last two, so a colour or a size is changed in one 
 | Semantic | What a value is for, once for the light theme and once for the dark one | `--surface`, `--text`, `--muted`, `--accent`, `--ok`, `--warn`, `--bad` |
 | Component | One control's measures | `--btn-h`, `--input-h`, `--card-pad`, `--modal-radius`, `--focus-ring` |
 
-- **Text sizes** come from one scale: `--text-2xs` (10 px) to `--text-3xl` (24 px), with
-  `--text-base` (14 px) for body text.
+- **Text sizes** come from one scale: `--text-sm` (12 px) to `--text-3xl` (24 px), with
+  `--text-base` (14 px) for body text. Nothing is smaller than 12 px.
+- **Contrast:** text and its background pass WCAG AA (4.5:1) in both themes, the orange buttons
+  and links included; that is why the light theme's orange is a deep one.
+- **Targets:** on a phone every control is at least `--touch` (44 px).
 - **A printer's state** has one colour everywhere: an element with `data-state="printing"`,
   `"paused"`, `"needs"`… gets `--state` and `--state-soft`, whether it is the overview, a farm
   card, a farm line or the farm's versions.

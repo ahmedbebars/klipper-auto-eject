@@ -809,3 +809,14 @@ def test_both_dark_themes_are_the_same():
     names = lambda block: set(re.findall(r"(--[\w-]+)\s*:", block))
     assert names(system) <= names(light)
     assert {"--bg", "--surface", "--text", "--muted", "--accent", "--ok", "--warn", "--bad"} <= names(system)
+
+
+def test_every_section_has_its_names_in_every_language():
+    views = re.findall(r'\{ id: "(\w+)", icon: "', (WEB / "app.js").read_text(encoding="utf-8"))
+    assert "overview" in views and "updates" in views
+    for code in ("en", "ar"):
+        text = (WEB / "lang" / (code + ".js")).read_text(encoding="utf-8")
+        for v in views:
+            for key in ("nav." + v, "navs." + v):        # the menu, and the phone's short name
+                assert '"%s":' % key in text, (code, key)
+        assert '"navs.more":' in text and '"c.skip":' in text

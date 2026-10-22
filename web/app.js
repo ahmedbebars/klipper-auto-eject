@@ -87,6 +87,7 @@
     restart: "M21 12a9 9 0 1 1-3-6.7L21 8 M21 3v5h-5",
     wand: "M15 4V2 M15 16v-2 M8 9h2 M20 9h2 M17.8 11.8L19 13 M17.8 6.2L19 5 M12.2 6.2L11 5 M12.2 11.8L3 21",
     box: "M21 8l-9-5-9 5v8l9 5 9-5z M3 8l9 5 9-5 M12 13v8",
+    dots: "M5 12h.01 M12 12h.01 M19 12h.01",
     farm: "M2 4h9v16H2z M13 4h9v16h-9z M2 9h9 M13 9h9 M5 9v3h3V9 M16 9v3h3V9",
     edit: "M4 20h4L19 9l-4-4L4 16z M13.5 6.5l4 4",
     copy: "M9 9h11v11H9z M5 15H4V4h11v1",
@@ -640,15 +641,19 @@
     }
   }
 
-  window.addEventListener("hashchange", () => { refresh(); $("#main").focus({ preventScroll: true }); window.scrollTo(0, 0); });
+  window.addEventListener("hashchange", () => { navMore = false; refresh(); $("#main").focus({ preventScroll: true }); window.scrollTo(0, 0); });
 
   /* ============================================================= chrome */
 
   let chromeSig = "";
+  let navMore = false;          // the phone's More sheet is open
+  function closeMore() { if (navMore) { navMore = false; chromeSig = ""; renderChrome(); } }
+  document.addEventListener("click", (e) => { if (navMore && (!e.target.closest("#nav") || e.target.closest(".nav-extra a"))) closeMore(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMore(); });
   function renderChrome() {
     const ph = phase();
     const id = route();
-    const sig = [lang, id, app.conn, app.klippy, ph, app.host, app.hasQueue, app.queue.jobs.length, leftover().length, app.hasMacros,
+    const sig = [lang, id, navMore, app.conn, app.klippy, ph, app.host, app.hasQueue, app.queue.jobs.length, leftover().length, app.hasMacros,
       farmShown(), farmNeeds(), (app.objects || []).length > 0].join("|");
     if (sig === chromeSig) return;
     chromeSig = sig;
@@ -657,6 +662,7 @@
     document.documentElement.dir = dir;
     document.title = t("app.title") + (app.host ? " · " + app.host : "");
     document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = t(el.dataset.t); });
+    $("#skip").onclick = () => $("#main").focus();
     $("#host").textContent = DEMO ? "demo-printer" : (app.host || location.hostname);
 
     const pill = $("#conn");
@@ -699,13 +705,23 @@
     back.setAttribute("aria-label", t("app.back"));
 
     const nav = $("#nav");
-    nav.replaceChildren(...VIEWS.filter((v) => (v.id !== "queue" || app.hasQueue || DEMO) && (v.id !== "farm" || farmShown() || id === "farm") &&
+    const links = VIEWS.filter((v) => (v.id !== "queue" || app.hasQueue || DEMO) && (v.id !== "farm" || farmShown() || id === "farm") &&
       (v.id !== "hardware" || (app.objects || []).length || id === "hardware")).map((v) => {
       let count = v.id === "queue" && app.queue.jobs.length ? h("span", { class: "count", text: num(app.queue.jobs.length, 0) }) : null;
       if (v.id === "farm" && farmNeeds()) count = h("span", { class: "count bad", text: num(farmNeeds(), 0) });
       return h("a", { href: "#/" + v.id, class: v.id === id ? "active" : "", "aria-current": v.id === id ? "page" : null },
         icon(v.icon), h("span", { class: "lbl", text: t("nav." + v.id) }), h("span", { class: "lbl-s", text: t("navs." + v.id) }), count);
-    }), h("div", { class: "foot" }, h("a", { href: DOCS, target: "_blank", rel: "noopener", text: "klipper-auto-eject" })));
+    });
+    // on a phone the bar holds the first four; More opens the rest
+    const extra = links.slice(4);
+    const moreHere = extra.some((a) => a.classList.contains("active"));
+    nav.classList.toggle("more-open", navMore && extra.length > 0);
+    nav.replaceChildren(...links.slice(0, 4),
+      extra.length ? h("div", { class: "nav-extra", id: "nav-extra" }, extra) : null,
+      extra.length ? h("button", { type: "button", class: "nav-more" + (moreHere ? " active" : ""), "aria-expanded": navMore ? "true" : "false",
+        "aria-controls": "nav-extra", onclick: (e) => { e.stopPropagation(); navMore = !navMore; chromeSig = ""; renderChrome(); } },
+        icon("dots", "dots"), h("span", { text: t("navs.more") })) : null,
+      h("div", { class: "foot" }, h("a", { href: DOCS, target: "_blank", rel: "noopener", text: "klipper-auto-eject" })));
 
     // one banner for the most important thing
     const b = $("#banner");
@@ -1119,7 +1135,7 @@
         }))
       : h("div", { class: "empty" }, icon("file"), h("p", { text: t("check.no_files") }));
     const search = h("div", { class: "search" }, icon("search"),
-      h("input", { class: "input", type: "search", placeholder: t("check.search"), value: queueUi.filter, "data-keep": "q-search",
+      h("input", { class: "input", type: "search", placeholder: t("check.search"), "aria-label": t("check.search"), value: queueUi.filter, "data-keep": "q-search",
         oninput: (e) => { queueUi.filter = e.target.value; refresh("queue"); } }));
     const copies = h("input", { class: "input", type: "number", min: 1, max: 50, value: 1, "data-keep": "q-copies", style: { width: "90px" } });
 
@@ -1272,7 +1288,7 @@
     const q = check.filter.toLowerCase();
     const files = (app.files || []).filter((f) => !q || f.path.toLowerCase().includes(q));
     const search = h("div", { class: "search" }, icon("search"),
-      h("input", { class: "input", type: "search", placeholder: t("check.search"), value: check.filter, "data-keep": "c-search",
+      h("input", { class: "input", type: "search", placeholder: t("check.search"), "aria-label": t("check.search"), value: check.filter, "data-keep": "c-search",
         oninput: (e) => { check.filter = e.target.value; refresh("check"); } }));
     const watch = lazyRows(meta, (el, m) => fillFileRow(el, m, thumbSrc(el.dataset.file, m, 96)));
     const list = app.files === null ? h("div", { class: "empty" }, h("span", { class: "spinner" }))
@@ -1818,7 +1834,7 @@
       !persist ? h("div", { class: "banner" }, icon("info"), h("div", { text: t("settings.no_persist") })) : null,
       h("div", { class: "set-tools" },
         h("div", { class: "search" }, icon("search"),
-          h("input", { class: "input", type: "search", placeholder: t("settings.search"), value: settingsUi.filter, "data-keep": "s-search",
+          h("input", { class: "input", type: "search", placeholder: t("settings.search"), "aria-label": t("settings.search"), value: settingsUi.filter, "data-keep": "s-search",
             oninput: (e) => { settingsUi.filter = e.target.value; refresh("settings"); } })),
         h("label", { class: "switch" },
           h("input", { type: "checkbox", checked: settingsUi.changedOnly, onchange: (e) => { settingsUi.changedOnly = e.target.checked; refresh("settings"); } }),
@@ -2205,7 +2221,7 @@
     const groups = M.farmGroups(list);
     const body = !list.length ? h("div", { class: "card empty" }, icon("search"), h("p", { text: t("farm.none_match") }))
       : groups.length > 1 || groups[0].group ? h("div", { class: "stack" }, groups.map((g) => h("section", { class: "farm-group" },
-        h("h3", { class: "farm-group-h" }, icon("layers"), h("span", { dir: "auto", text: g.group || t("farm.no_group") }),
+        h("h2", { class: "farm-group-h" }, icon("layers"), h("span", { dir: "auto", text: g.group || t("farm.no_group") }),
           h("span", { class: "muted", text: num(g.printers.length, 0) })), items(g.printers))))
       : items(list);
     const tools = all.length > 1 ? h("div", { class: "farm-tools" },
@@ -2214,7 +2230,7 @@
           "aria-selected": farmUi.filter === k ? "true" : "false", onclick: () => { farmUi.filter = k; refresh("farm"); } },
           h("span", { text: t("farm.filter." + k) }), h("b", { text: num(k === "all" ? all.length : c[k], 0) })))),
       h("div", { class: "search farm-search" }, icon("search"),
-        h("input", { class: "input", type: "search", placeholder: t("farm.search_ph"), value: farmUi.search, "data-keep": "f-search",
+        h("input", { class: "input", type: "search", placeholder: t("farm.search_ph"), "aria-label": t("farm.search_ph"), value: farmUi.search, "data-keep": "f-search",
           oninput: (e) => { farmUi.search = e.target.value; refresh("farm"); } })),
       h("div", { class: "seg", role: "group", "aria-label": t("farm.view.title") }, [["cards", "overview"], ["list", "queue"]].map(([v, ic]) =>
         h("button", { type: "button", class: "seg-btn" + (asList === (v === "list") ? " active" : ""), title: t("farm.view." + v), "aria-label": t("farm.view." + v),
@@ -2369,7 +2385,7 @@
       const q = ui.filter.toLowerCase();
       const files = (ui.files || []).filter((f) => !q || f.path.toLowerCase().includes(q)).slice(0, 60);
       const watch = lazyRows(loadMeta, (el, m) => fillFileRow(el, m, picOf((ui.files || []).find((x) => x.path === el.dataset.file) || { path: el.dataset.file }, m)));
-      const search = h("input", { class: "input", type: "search", placeholder: t("check.search"), value: ui.filter, "data-keep": "pd-search" });
+      const search = h("input", { class: "input", type: "search", placeholder: t("check.search"), "aria-label": t("check.search"), value: ui.filter, "data-keep": "pd-search" });
       search.addEventListener("input", () => { ui.filter = search.value; draw(); const s = $(".modal-back.printd input[type=search]"); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } });
       const chosen = picker.files && picker.files[0];
       const body = h("div", null,
@@ -2682,9 +2698,9 @@
     const el = h("div", null, head("hw.title", "hw.intro", reportButton()),
       h("div", { class: "banner", "data-live": "hsum", hidden: true }),
       h("div", { class: "hw-kpis", "data-live": "kpis" }),
-      h("h3", { class: "hw-head", id: "hw-boards" }, icon("chip"), t("hw.boards")),
+      h("h2", { class: "hw-head", id: "hw-boards" }, icon("chip"), t("hw.boards")),
       h("div", { class: "hw-grid", "data-live": "boards" }),
-      list.length ? h("h3", { class: "hw-head", id: "hw-motors" }, icon("motor"), t("motors.title")) : null,
+      list.length ? h("h2", { class: "hw-head", id: "hw-motors" }, icon("motor"), t("motors.title")) : null,
       list.length ? h("div", { class: "motor-grid" }, list.map((m) => h("section", { class: "card mcard", "data-motor": m.stepper },
         h("div", { class: "mc-top" },
           h("div", { class: "mc-ic" }, icon("motor")),
@@ -2702,7 +2718,7 @@
           h("dt", { text: t("motors.current") }), h("dd", { "data-f": "current", text: "…" }),
           h("dt", { text: t("motors.temp") }), h("dd", { "data-f": "temp", text: "…" })),
         h("div", { class: "chips", "data-f": "flags" })))) : null,
-      P.heaters.length ? h("h3", { class: "hw-head", id: "hw-heaters" }, icon("thermo"), t("hw.heaters")) : null,
+      P.heaters.length ? h("h2", { class: "hw-head", id: "hw-heaters" }, icon("thermo"), t("hw.heaters")) : null,
       P.heaters.length ? h("div", { class: "hw-grid", "data-live": "heaters" }) : null,
       h("div", { class: "cols hw-cols" },
         h("div", { class: "stack" },
@@ -2896,7 +2912,7 @@
           [t("hw.klipper_load"), typeof ss.sysload === "number" ? num(ss.sysload, 2) : "—"],
           [t("hw.uptime"), typeof p.system_uptime === "number" ? duration(p.system_uptime) : "—"]], "roomy"),
         thr.length ? h("div", { class: "chips" }, thr.map((f) => chip(f.level, throttleText(f.flag)))) : null,
-        nets.length ? h("h4", { class: "hw-sub", text: t("hw.network") }) : null,
+        nets.length ? h("h3", { class: "hw-sub", text: t("hw.network") }) : null,
         nets.length ? h("div", { class: "list" }, nets.map(([iface, n]) => {
           const can = ((sys.canbus || {})[iface]) || null;
           const errs = (n.rx_errs || 0) + (n.tx_errs || 0), drops = (n.rx_drop || 0) + (n.tx_drop || 0);
@@ -2946,7 +2962,7 @@
         hw.events.length ? h("div", { class: "list" }, hw.events.slice(0, 12).map((e) => h("div", { class: "row hw-row" },
           h("span", { class: "badge " + (e.level === "info" ? "" : e.level), text: new Date(e.time * 1000).toLocaleTimeString([], { hour12: false }) }),
           h("div", { class: "grow", dir: "auto", text: e.text })))) : h("p", { class: "muted", text: t("hw.events_none") }),
-        h("h4", { class: "hw-sub", text: t("hw.failed") }),
+        h("h3", { class: "hw-sub", text: t("hw.failed") }),
         hw.jobs === null ? h("p", { class: "muted", text: "…" }) : failed.length ? h("div", { class: "list" }, failed.map((j) => h("div", { class: "row hw-row" },
           h("div", { class: "grow" }, h("div", { class: "name ltr", text: j.filename }),
             h("div", { class: "sub", text: fmtDate(j.start_time, true) + " · " + t("hw.job." + j.status) }))))) : h("p", { class: "muted", text: t("hw.failed_none") }));
