@@ -535,6 +535,17 @@
     }
     return found;
   }
+  // A macro set the printer runs, from its config sections, for what the
+  // slicer card says differently: DEMON Klipper Essentials checks its own
+  // start lines, and can switch the printer off after a print. null for none.
+  function macroSet(sections) {
+    const entries = Object.entries(sections || {}).map(([k, v]) => [k.toLowerCase(), v || {}]);
+    const has = (name) => entries.some(([k]) => k === name);
+    if (!has("gcode_macro demon_start") && !has("gcode_macro _demon_version")) return null;
+    const hw = (entries.find(([k]) => k === "gcode_macro _hardware_variables") || [null, {}])[1];
+    const relay = /^true$/i.test(String(hw.variable_shutdown_relay || "").trim());
+    return { name: "demon", autoOff: relay && has("output_pin printer_auto_off") };
+  }
   // Which slicer wrote a file (Moonraker's metadata "slicer"): orca, prusa, cura or null.
   function slicerKind(name) {
     const s = String(name || "");
@@ -852,7 +863,7 @@
     noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
     hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft,
     lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
-    PromptParser, formatDuration, settingArg, validSettingText
+    PromptParser, formatDuration, settingArg, validSettingText, macroSet
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AEModel = api;

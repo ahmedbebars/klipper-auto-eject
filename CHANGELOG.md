@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **In your slicer** finds DEMON Klipper Essentials by itself: it says to keep DEMON's start lines
+  as they are with `AUTO_EJECT_GUARD` above them, why `HOME=1` stays after `DEMON_END`, warns when
+  `home_method` is `"g28"`, and says when DEMON's auto power-off is on and how the eject holds it.
+
 ## [0.15.0] - 2026-10-22
 
 ### Added

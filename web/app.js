@@ -1712,6 +1712,9 @@
     const macro = found.macro || macros[0] || null;
     const source = found.macro ? t("slicer.macro_file", { macro: found.macro, file: found.file })
       : macro ? t("slicer.macro_config", { macro }) : t("slicer.macro_none");
+    // DEMON Klipper Essentials: its start lines stay as they are, and its end macro turns the motors off
+    const demon = (M.macroSet(app.config) || {}).name === "demon";
+    const set = sv();
     const tabs = h("div", { class: "seg", role: "tablist" }, ["orca", "prusa", "cura"].map((k) =>
       h("button", { type: "button", role: "tab", class: "seg-btn" + (k === kind ? " active" : ""), "aria-selected": k === kind ? "true" : "false",
         onclick: () => { slicerUi.kind = k; refresh("setup"); } }, t("slicer.name_" + k), found.kind === k ? h("span", { class: "dot", title: t("slicer.found") }) : null)));
@@ -1720,14 +1723,19 @@
       h("p", { class: "muted", text: t("slicer.intro") }),
       tabs,
       found.kind === kind ? h("p", { class: "note", style: { marginTop: "8px" } }, icon("ok"), h("span", { text: t("slicer.found_file", { file: found.file }) })) : null,
+      demon ? h("p", { class: "note", style: { marginTop: "8px" } }, icon("info"), h("span", null, t("slicer.demon"), " ",
+        h("a", { href: DOCS + "/blob/main/docs/integration.md#demon-klipper-essentials", target: "_blank", rel: "noopener", text: t("slicer.demon_link") }))) : null,
       h("ol", { class: "slicer-steps" },
         h("li", null, h("b", { text: t("slicer.labels") }), menuPath(SLICER_PATHS[kind].labels), h("p", { text: t("slicer.labels_" + kind) })),
         h("li", null, h("b", { text: t("slicer.end") }), menuPath(SLICER_PATHS[kind].end),
           h("p", { text: macro ? t("slicer.end_how", { macro }) : t("slicer.end_how_none") }),
           codeCopy(M.slicerEndGcode(kind, macro)),
-          h("p", { class: "muted small", text: source })),
+          h("p", { class: "muted small", text: source }),
+          demon ? h("p", { class: "muted small", text: t("slicer.demon_end") }) : null,
+          demon && String(set.home_method || "").toLowerCase() === "g28" ? h("p", { class: "note warn" }, icon("alert"), h("span", { text: t("slicer.demon_g28") })) : null,
+          demon && (M.macroSet(app.config) || {}).autoOff ? h("p", { class: "note" }, icon("power"), h("span", { text: t("slicer.demon_off") })) : null),
         h("li", null, h("b", { text: t("slicer.start") }), menuPath(SLICER_PATHS[kind].start),
-          h("p", { text: t("slicer.start_how") }), codeCopy("AUTO_EJECT_GUARD"))),
+          h("p", { text: t(demon ? "slicer.start_how_demon" : "slicer.start_how") }), codeCopy("AUTO_EJECT_GUARD"))),
       h("div", { class: "toolbar", style: { marginTop: "12px" } },
         h("a", { class: "btn primary", href: "#/check" }, icon("check"), t("slicer.check")),
         h("a", { class: "btn", href: DOCS + "/blob/main/docs/slicer-setup.md", target: "_blank", rel: "noopener" }, icon("external"), t("slicer.docs"))));

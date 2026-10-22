@@ -652,3 +652,19 @@ def test_when_the_cooling_pushes_anyway():
     assert js("coolLeft", {"cooling": False, "cool_start": 1000.0}, {"cool_timeout": 1800}, 1600.0) is None
     assert js("coolLeft", st, {"cool_mode": "temperature", "cool_timeout": 0}, 1600.0) is None   # no limit
     assert js("coolLeft", st, {"cool_timeout": 1800}, None) is None                            # no print time yet
+
+
+@needs_node
+def test_the_slicer_card_knows_demon():
+    demon = {"gcode_macro DEMON_START": {"gcode": ""}, "gcode_macro DEMON_END": {"gcode": ""},
+             "gcode_macro _HARDWARE_VARIABLES": {"variable_shutdown_relay": "False"}}
+    assert js("macroSet", demon) == {"name": "demon", "autoOff": False}
+    # auto power-off: a relay, and the switch DEMON reads
+    demon["gcode_macro _HARDWARE_VARIABLES"]["variable_shutdown_relay"] = "True"
+    assert js("macroSet", demon)["autoOff"] is False
+    demon["output_pin PRINTER_AUTO_OFF"] = {"pin": "PA0"}
+    assert js("macroSet", demon)["autoOff"] is True
+    # found by its version macro too, in any case
+    assert js("macroSet", {"gcode_macro _demon_version": {}})["name"] == "demon"
+    assert js("macroSet", {"gcode_macro PRINT_START": {}, "gcode_macro PRINT_END": {}}) is None
+    assert js("macroSet", None) is None
