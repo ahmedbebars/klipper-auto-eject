@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-22
+
 ### Added
 - **A more complete app** ([web-page.md](docs/web-page.md#on-your-phone-as-an-app)): an install
   button at the top of the page when the browser offers it; pictures of the app in the install
@@ -537,7 +539,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.12.0...v0.13.0
