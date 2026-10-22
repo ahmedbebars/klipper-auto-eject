@@ -19,6 +19,7 @@ REMOTE=0
 NOTIFY=0
 PUSH=0
 FARM=0
+SPOOLMAN=0
 # Moonraker's update manager restarts a service after an update only when it
 # has the update_manager section's name, so the service is klipper-auto-eject
 PUSH_NAME="klipper-auto-eject"
@@ -55,6 +56,9 @@ Run it with no options from a terminal and it asks what to set up.
   -N, --notify            Also send notifications to your phone with ntfy: a
                           part still on the bed, a print that finished...
                           Asks before every step (docs/notifications.md)
+  -S, --spoolman          Link Moonraker to your Spoolman, so the queue stops
+                          before a job the spool cannot finish. Asks where
+                          Spoolman runs (docs/spoolman.md)
   -u, --uninstall         Remove links, includes, the update_manager section
                           and the web page
   -h, --help              Show this help
@@ -77,6 +81,7 @@ while [[ $# -gt 0 ]]; do
         -N|--notify)          NOTIFY=1; shift ;;
         -P|--push)            PUSH=1; shift ;;
         -F|--farm)            FARM=1; WEB=1; PUSH=1; shift ;;
+        -S|--spoolman)        SPOOLMAN=1; shift ;;
         -u|--uninstall)       UNINSTALL=1; shift ;;
         -h|--help)            usage; exit 0 ;;
         *) usage; die "Unknown option: $1" ;;
@@ -335,6 +340,54 @@ install_notify() {
             "https://ntfy.sh/${topic}" >/dev/null; then
             log "Test notification sent straight to ntfy"
         fi
+    fi
+}
+
+# --------------------------------------------------------------- Spoolman
+# Spoolman runs once for all the printers (Home Assistant, a NAS, a Pi...);
+# each printer's Moonraker only needs its address.
+install_spoolman() {
+    local tool now addr url version
+    tool="${REPO_DIR}/tools/moonraker_spoolman.py"
+    log "Spoolman: the queue stops before a job the spool cannot finish, see docs/spoolman.md"
+    if [[ ! -f "${MOONRAKER_CONF}" ]]; then
+        warn "moonraker.conf not found: add a [spoolman] section by hand (docs/spoolman.md)"
+        return
+    fi
+    now="$(python3 "${tool}" server "${MOONRAKER_CONF}")"
+    if [[ -n "${now}" ]] && ask "Moonraker is linked to Spoolman at ${now}. Keep it?" y; then
+        return
+    fi
+    if [[ ! -t 0 ]]; then
+        warn "Run install.sh --spoolman from a terminal: it asks where Spoolman runs."
+        return
+    fi
+    read -r -p "$(printf '\033[1;36m[auto-eject]\033[0m %s ' "Spoolman's address, as in your browser (e.g. 192.168.1.50:7912), or Enter to skip:")" addr
+    if [[ -z "${addr}" ]]; then
+        warn "Skipped. Run install.sh --spoolman when Spoolman is installed."
+        return
+    fi
+    url="$(python3 "${tool}" url "${addr}")"
+    if [[ -z "${url}" ]]; then
+        warn "That is not an address: ${addr}"
+        return
+    fi
+    version="$(python3 "${tool}" check "${url}")"
+    if [[ -n "${version}" ]]; then
+        log "Spoolman ${version} answers at ${url}"
+    elif ! ask "Spoolman does not answer at ${url}. Add it anyway?" n; then
+        return
+    fi
+    backup "${MOONRAKER_CONF}"
+    case "$(python3 "${tool}" add "${MOONRAKER_CONF}" "${url}")" in
+        added) log "Added [spoolman] to moonraker.conf"; restart_moonraker ;;
+        changed) log "Moonraker now uses Spoolman at ${url}"; restart_moonraker ;;
+        present) log "moonraker.conf already uses Spoolman at ${url}" ;;
+        *) warn "Could not change moonraker.conf: add [spoolman] by hand (docs/spoolman.md)"; return ;;
+    esac
+    log "Now choose the spool on this printer: the Spool card of the print queue, or Mainsail or Fluidd."
+    if [[ ! -f "${PUSH_UNIT}" && "${PUSH}" -ne 1 ]]; then
+        log "For the queue to stop by itself while the page is closed, also run install.sh --push."
     fi
 }
 
@@ -614,6 +667,9 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
         && [[ "$(python3 "${REPO_DIR}/tools/moonraker_notifier.py" remove "${MOONRAKER_CONF}")" == "removed" ]]; then
         log "Removed the [notifier auto_eject] sections from moonraker.conf (restart Moonraker to apply it)"
     fi
+    if [[ -f "${MOONRAKER_CONF}" ]] && grep -q '^\[spoolman\]' "${MOONRAKER_CONF}"; then
+        log "Kept [spoolman] in moonraker.conf: Mainsail and Fluidd use it too."
+    fi
     log "Kept ${CONFIG_DIR}/auto_eject_settings.cfg and ${REPO_DIR} (delete them by hand if you want)."
     log "Restart Klipper to finish: FIRMWARE_RESTART"
     exit 0
@@ -621,7 +677,7 @@ fi
 
 # ------------------------------------------------------------- questions
 # Run with no options from a terminal: ask what to set up, in plain words.
-if [[ -t 0 && $((WEB + REMOTE + NOTIFY + PUSH + FARM)) -eq 0 ]]; then
+if [[ -t 0 && $((WEB + REMOTE + NOTIFY + PUSH + FARM + SPOOLMAN)) -eq 0 ]]; then
     printf '\n  \033[1mklipper-auto-eject\033[0m: a few questions first. Press Enter to keep the answer in capitals.\n\n'
     if [[ "${ADD_INCLUDE}" -eq 1 ]] && ! ask "Will this printer push its prints off with the blade? (No: only the web page or the farm)" y; then
         ADD_INCLUDE=0
@@ -634,12 +690,14 @@ if [[ -t 0 && $((WEB + REMOTE + NOTIFY + PUSH + FARM)) -eq 0 ]]; then
     if [[ "${WEB}" -eq 1 ]]; then
         ask "More than one Klipper printer? See them all on one page (printer farm)?" n && { FARM=1; PUSH=1; }
     fi
+    ask "Do you use Spoolman, which knows what is left on each spool? (the queue stops before a spool runs out)" n && SPOOLMAN=1
     picked="macros"
     [[ "${ADD_INCLUDE}" -eq 1 ]] || picked="no macros"
     [[ "${WEB}" -eq 1 ]] && picked+=", web page"
     [[ "${REMOTE}" -eq 1 ]] && picked+=", phone access"
     [[ "${PUSH}" -eq 1 && "${FARM}" -eq 0 ]] && picked+=", notifications"
     [[ "${FARM}" -eq 1 ]] && picked+=", printer farm and notifications"
+    [[ "${SPOOLMAN}" -eq 1 ]] && picked+=", Spoolman"
     printf '\n'
     log "Setting up: ${picked}"
 fi
@@ -717,6 +775,10 @@ if [[ "${NOTIFY}" -eq 1 ]]; then
     install_notify
 fi
 
+if [[ "${SPOOLMAN}" -eq 1 ]]; then
+    install_spoolman
+fi
+
 if [[ "${PUSH}" -eq 1 ]]; then
     install_push
 fi
@@ -769,6 +831,16 @@ else
 fi
 if [[ -z "${NOTIFY_TOPIC}" ]] && [[ -f "${MOONRAKER_CONF}" ]] && command -v python3 >/dev/null; then
     NOTIFY_TOPIC="$(python3 "${REPO_DIR}/tools/moonraker_notifier.py" topic "${MOONRAKER_CONF}" 2>/dev/null || true)"
+fi
+SPOOLMAN_URL=""
+if [[ -f "${MOONRAKER_CONF}" ]] && command -v python3 >/dev/null; then
+    SPOOLMAN_URL="$(python3 "${REPO_DIR}/tools/moonraker_spoolman.py" server "${MOONRAKER_CONF}" 2>/dev/null || true)"
+fi
+if [[ -n "${SPOOLMAN_URL}" ]]; then
+    echo "  Spoolman: ${SPOOLMAN_URL} (the queue is checked against the spool, docs/spoolman.md)"
+else
+    echo "  Optional: with Spoolman, the queue stops before a spool runs out:"
+    echo "    ${REPO_DIR}/install.sh --spoolman (docs/spoolman.md)"
 fi
 if [[ -n "${NOTIFY_TOPIC}" ]]; then
     echo "  Notifications: install the ntfy app (Google Play, F-Droid or the App Store),"

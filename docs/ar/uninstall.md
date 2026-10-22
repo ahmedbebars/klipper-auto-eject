@@ -45,6 +45,7 @@ rm ~/printer_data/config/auto_eject_settings.cfg # إعداداتك
 - القيم المحفوظة من صفحة الويب موجودة في ملف `[save_variables]`، في الأسطر التي تبدأ بـ `auto_eject_`. لا تفعل
   شيئًا بدون الماكرو، ويمكنك حذفها.
 - يبقى Tailscale مثبّتًا، فقد تستخدمه أشياء أخرى ([من الهاتف](remote-access.md)).
+- يبقى قسم `[spoolman]` في `moonraker.conf`، فـ Mainsail وFluidd يستخدمانه أيضًا ([البكرة وSpoolman](spoolman.md)).
 - **الشفرة:** فك الذراع من حامل رأس الطباعة.
 
 ## مزرعة الطابعات

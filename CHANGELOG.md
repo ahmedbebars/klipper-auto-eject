@@ -18,6 +18,10 @@ All notable changes to this project are documented here. The format is based on
   and warns when the print running may run out. New settings `spool_low_action` (`"stop"`,
   `"notify"`, `"off"`) and `spool_reserve` (grams kept back, 10). Without Spoolman nothing
   changes. Spoolman's logo joins the "works with" row.
+- `install.sh --spoolman`, and a question in the plain install: it asks for Spoolman's address
+  (as typed in a browser), checks that Spoolman answers there, adds `[spoolman]` to
+  `moonraker.conf` and restarts Moonraker when the printer is idle. Removing auto-eject leaves
+  `[spoolman]`, which Mainsail and Fluidd use too.
 - **Removing it**, a page in English and Arabic ([docs/uninstall.md](docs/uninstall.md)): what to
   take out of the slicer first, the one line, what it removes, the restart, and what it leaves.
   Linked from the READMEs, the FAQ, the installation page and the website.

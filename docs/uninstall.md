@@ -46,6 +46,7 @@ rm ~/printer_data/config/auto_eject_settings.cfg # your settings
 - Values saved from the web page are in the file of `[save_variables]`, on lines that start with
   `auto_eject_`. They do nothing without the macros; delete them if you like.
 - Tailscale stays installed, as other things may use it ([remote-access.md](remote-access.md)).
+- `[spoolman]` stays in `moonraker.conf`: Mainsail and Fluidd use it too ([spoolman.md](spoolman.md)).
 - **The blade:** unscrew the arm from the toolhead mount ([hardware.md](hardware.md)).
 
 ## A printer farm

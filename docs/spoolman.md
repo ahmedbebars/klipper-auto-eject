@@ -58,14 +58,22 @@ Moonraker cannot reach Spoolman.
    page opens at `http://<that computer>:7912`.
 2. **Add your spools** in Spoolman's page. Give each filament its weight, and each spool what is
    on it: without a weight, Spoolman cannot say what is left.
-3. **Link each printer to it**: in each printer's `moonraker.conf`, the same address:
+3. **Link each printer to it**. The installer does it: on each printer, over SSH,
+
+   ```bash
+   ~/klipper-auto-eject/install.sh --spoolman
+   ```
+
+   It asks for Spoolman's address (as in your browser, for example `192.168.1.50:7912`), checks
+   that Spoolman answers there, adds the section and restarts Moonraker when the printer is idle.
+   By hand, it is the same address in each printer's `moonraker.conf`:
 
    ```ini
    [spoolman]
-   server: http://192.168.0.123:7912
+   server: http://192.168.1.50:7912
    ```
 
-   Then restart Moonraker (from the power menu of Mainsail or Fluidd, not while printing).
+   then restart Moonraker (from the power menu of Mainsail or Fluidd, not while printing).
 4. **Say which spool is on each printer**: in the **Spool** card of the print queue, or in Mainsail
    or Fluidd. Say it again each time you change the spool.
 

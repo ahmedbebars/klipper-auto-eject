@@ -76,6 +76,7 @@ set's values to another file.
 | `-P`, `--push` | | Also installing the `klipper-auto-eject` service: the auto-eject app gets notifications even while it is closed, and the printer farm works. Notifications need HTTPS (`--remote`); `sudo` once ([notifications.md](notifications.md)) |
 | `-F`, `--farm` | | All your printers on one page: the web page and the `klipper-auto-eject` service, which finds the other printers on the network. They need nothing installed ([farm.md](farm.md)) |
 | `-N`, `--notify` | | Also sending notifications to your phone with ntfy: a part still on the bed, a print that finished. Asks before every step ([notifications.md](notifications.md)) |
+| `-S`, `--spoolman` | | Linking Moonraker to your Spoolman, so the queue stops before a job the spool cannot finish. Asks for Spoolman's address and checks that Spoolman answers there ([spoolman.md](spoolman.md)) |
 | `-u`, `--uninstall` | | Removing the link, the includes, the update manager section, the web page and the Tailscale range it added to `trusted_clients` |
 
 Example for a second printer instance:
