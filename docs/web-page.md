@@ -51,7 +51,7 @@ The **Hardware** tab shows what Klipper and Moonraker report about the machine, 
 is open (Klipper once a second) and never changing anything. Each part shows only when the machine
 has it. The line at the top says **All hardware normal**, or what needs a look.
 
-<p align="center"><img src="images/hardware.png" alt="The Hardware tab: the boards and their links, the motors with their StallGuard line, the heaters" width="900"></p>
+<p align="center"><img src="images/hardware.png" alt="The Hardware tab: the boards and their links, each with its firmware against Klipper, the motors with their StallGuard line, the heaters" width="900"></p>
 
 | Section | What it shows | What it warns about |
 |---|---|---|
@@ -103,6 +103,37 @@ sensor_pin: PF6        # a free thermistor input on your board
 Names it finds: `motor_x`, `motor_y`, `motor_z`, `motor_e` (or `stepper_x`…), and `motor_a` and
 `motor_b` for CoreXY belt motors. The tab shows it on that motor's card, orange from 65 °C and red
 from 80 °C.
+
+### Updates
+
+The **Updates** tab lists what changed in Klipper since your version, as Moonraker's update
+manager sees it, and what that means for this printer:
+
+- each update in Klipper's own words, with what it is about: motion, heaters, input shaping,
+  board firmware, documentation…;
+- whether the updates change the code that runs on the boards: then reflash them after updating
+  Klipper. If none does, they need no reflash;
+- Klipper's own notes on config changes (`docs/Config_Changes.md`), when an update adds one;
+- each board's firmware against Klipper: how many updates behind, and whether the board code
+  changed since. The same line is under each board on **Hardware**;
+- everything else Moonraker updates (Moonraker, Mainsail or Fluidd, crowsnest, auto-eject…), the
+  ones with a new version first.
+
+When Klipper is up to date, it lists the latest updates you have. What each update changes is read
+from GitHub by your browser and kept there; without internet the list still shows. Updating stays
+in Mainsail or Fluidd.
+
+<p align="center"><img src="images/updates.png" alt="The Updates tab: Klipper seven updates behind, three of them changing board firmware, the list in Klipper's words, and everything else Moonraker updates" width="900"></p>
+
+### Report a problem
+
+**Report a problem**, on **Hardware** and **Activity**, gathers what a GitHub issue asks for: the
+versions (auto-eject, Klipper, every board, Moonraker, the web page, the macro set), the printer,
+its state, the settings you changed from the defaults and the latest auto-eject lines of the
+console. IP addresses and host names are taken out. Copy it, or save it as a file, and paste it
+into a new issue with what happened; attach `klippy.log` from the link under it.
+
+<p align="center"><img src="images/report.png" alt="The Report a problem dialog: the versions, the printer and the settings as text, with Copy, Save as a file and Open an issue on GitHub" width="900"></p>
 
 ### Pictures of the prints
 

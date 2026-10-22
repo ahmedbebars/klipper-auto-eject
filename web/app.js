@@ -3076,23 +3076,27 @@
   // Moonraker's update manager, and what that means here. GitHub tells which
   // files an update changes: code that runs on the boards needs a reflash, and
   // Klipper writes its notes on config changes in docs/Config_Changes.md.
-  const upd = { status: null, at: 0, loading: false, mcus: [], res: {}, ask: {}, open: {} };
+  const upd = { status: null, at: 0, loading: false, mcus: [], mcuKey: "", mcuLoading: false, res: {}, ask: {}, open: {} };
 
   function loadUpdates(force) {
-    if (upd.loading || app.conn !== "online" || (!force && upd.status && Date.now() - upd.at < 600000)) return;
-    upd.loading = true;
+    if (app.conn !== "online") return;
+    // the boards' firmware, once Klipper has listed them, and again after it restarts
     const mcus = (app.objects || []).filter((o) => o === "mcu" || o.startsWith("mcu "));
-    Promise.all([
-      client.call("machine.update.status", { refresh: false }).then((r) => r.version_info || {}, () => ({})),
-      mcus.length ? client.call("printer.objects.query", { objects: Object.fromEntries(mcus.map((o) => [o, ["mcu_version"]])) })
-        .then((r) => r.status || {}, () => ({})) : Promise.resolve({})
-    ]).then(([vi, ms]) => {
-      upd.status = vi;
-      upd.at = Date.now();
-      upd.mcus = mcus.map((o) => ({ obj: o, version: (ms[o] || {}).mcu_version || "" }));
-    }).then(() => { upd.loading = false; refresh(); });
+    if (mcus.length && upd.mcuKey !== mcus.join() && !upd.mcuLoading) {
+      upd.mcuLoading = true;
+      upd.mcuKey = mcus.join();
+      client.call("printer.objects.query", { objects: Object.fromEntries(mcus.map((o) => [o, ["mcu_version"]])) })
+        .then((r) => { upd.mcus = mcus.map((o) => ({ obj: o, version: ((r.status || {})[o] || {}).mcu_version || "" })); }, () => { upd.mcuKey = ""; })
+        .then(() => { upd.mcuLoading = false; refresh(); });
+    }
+    if (upd.loading || (!force && upd.status && Date.now() - upd.at < 600000)) return;
+    upd.loading = true;
+    client.call("machine.update.status", { refresh: false }).then((r) => r.version_info || {}, () => ({}))
+      .then((vi) => { upd.status = vi; upd.at = Date.now(); })
+      .then(() => { upd.loading = false; refresh(); });
   }
   client.on("notify_update_refreshed", () => { if (["updates", "hardware"].includes(route())) loadUpdates(true); });
+  client.on("notify_klippy_ready", () => { upd.mcuKey = ""; });
 
   // GitHub's answer to a path, or undefined while it is read and null when it
   // could not be. Kept in the browser: a range of commits never changes.
@@ -3174,7 +3178,7 @@
     const head = h("h2", null, icon("download"), "Klipper",
       h("span", { class: "right" }, h("span", { class: "badge " + (behind.length ? "warn" : "ok"),
         text: behind.length ? t("upd.n_updates", { n: num(kl.commits_behind_count || behind.length, 0) }) : t("upd.up_to_date") })));
-    const versions = h("p", { class: "muted ltr", text: t("upd.yours", { v: kl.version || "?" }) + (behind.length ? " · " + t("upd.latest", { v: kl.remote_version || "?" }) : "") });
+    const versions = h("p", { class: "muted", text: t("upd.yours", { v: iso(kl.version || "?") }) + (behind.length ? " · " + t("upd.latest", { v: iso(kl.remote_version || "?") }) : "") });
     if (!behind.length) {
       const recent = kl.current_hash ? ghGet(klipperRepo() + "/commits?sha=" + kl.current_hash + "&per_page=15") : null;
       return h("section", { class: "card" }, head, versions,
