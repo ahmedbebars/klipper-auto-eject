@@ -7,6 +7,8 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- DEMON in [integration.md](docs/integration.md#demon-klipper-essentials): the start G-code, the
+  auto power-off, the shared variables file, the purge and the heat soak before each job.
 - **Spoolman** ([docs/spoolman.md](docs/spoolman.md)): with Moonraker's `[spoolman]`, the queue is
   checked against what is left on the spool on the printer. The print queue gets a **Spool** card
   (the spool, the grams left, whether the queue fits, **Change the spool**) and the grams each job
@@ -18,6 +20,13 @@ All notable changes to this project are documented here. The format is based on
 - **Removing it**, a page in English and Arabic ([docs/uninstall.md](docs/uninstall.md)): what to
   take out of the slicer first, the one line, what it removes, the restart, and what it leaves.
   Linked from the READMEs, the FAQ, the installation page and the website.
+
+### Fixed
+- **DEMON's auto power-off no longer cuts an eject short.** With `PRINTER_AUTO_OFF` on,
+  `DEMON_END` switches the printer off 5 s later, and Klipper runs that timer even while
+  `AUTO_EJECT` pushes. `AUTO_EJECT` now holds it while it clears the bed, then lets DEMON switch
+  off two minutes after, unless the queue has started the next print. Found by itself; nothing
+  changes without DEMON.
 
 ## [0.14.0] - 2026-10-21
 

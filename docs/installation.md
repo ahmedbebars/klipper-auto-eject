@@ -58,6 +58,10 @@ auto-eject uses three Klipper sections. Most configs already have them (Mainsail
 filename: ~/printer_data/config/variables.cfg
 ```
 
+If `printer.cfg` already has a `[save_variables]` section (DEMON and other macro sets add one), keep
+it as it is: auto-eject uses whatever file it names, and a second section would move the other
+set's values to another file.
+
 ### Script options
 
 | Option | Default | Use it for |

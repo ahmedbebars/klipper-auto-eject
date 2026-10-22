@@ -157,6 +157,9 @@ DEMON_END
 AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
 ```
 
+In the start G-code, keep DEMON's lines exactly as DEMON gives them, and add `AUTO_EJECT_GUARD`
+above them as the first line.
+
 ## Check the G-code
 
 After slicing, open the G-code and search for:

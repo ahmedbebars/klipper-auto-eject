@@ -68,13 +68,44 @@ want to remove by hand. The printer is still homed, so no `HOME=1` is needed.
 
 ## DEMON Klipper Essentials
 
-`DEMON_END` retracts at its start (also after its `_CUSTOM_PRE_END` hook), so a hook that runs
-`AUTO_EJECT` hits the cold-nozzle error. Use the slicer end G-code instead:
+**End G-code.** `DEMON_END` retracts at its start (also after its `_CUSTOM_PRE_END` hook), so a
+hook that runs `AUTO_EJECT` hits the cold-nozzle error. Put `AUTO_EJECT` in the slicer end G-code,
+after DEMON's line:
 
 ```gcode
 DEMON_END
 AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
 ```
+
+`DEMON_END` turns the motors off (`M84`) and clears the bed mesh, so `HOME=1` is needed. Z must
+home with the probe ([`home_method`](configuration.md#recovery) `"auto"` or `"probe"`, never
+`"g28"`): DEMON's own Z homing probes the middle of the bed, where a part may be.
+
+**Start G-code.** Keep DEMON's start lines exactly as DEMON gives them (its `DEMON_START` line
+carries a version that DEMON checks), and add `AUTO_EJECT_GUARD` above them as the first line.
+
+**Auto power-off.** With DEMON's `PRINTER_AUTO_OFF` switch on, `DEMON_END` switches the printer off
+5 seconds later. Klipper runs that timer even while `AUTO_EJECT` pushes, so the power would go off
+in the middle of a push. `AUTO_EJECT` holds DEMON's power-off while it clears the bed, and two
+minutes after, lets DEMON switch the printer off, unless the job queue has started the next print
+by then. Keep Moonraker's `job_transition_delay` under two minutes, or turn `PRINTER_AUTO_OFF` off
+while you print a queue. When a part is left on the bed, the eject stops with an error and the
+printer stays on.
+
+**The variables file.** DEMON keeps its values in `~/demon_vars.cfg`, the file of
+`[save_variables]`, and auto-eject keeps its own there too (the stored parts, the blade
+measurement, the values saved from the web page). Keep the one `[save_variables]` section DEMON
+set up: a second one would move DEMON's values to another file. Running DEMON's installer again
+downloads a fresh `demon_vars.cfg`: take the parts off the bed before, and run the guided setup
+again after.
+
+**Purge.** For `EJECT_PURGE`, turn DEMON's purge lines off with `variable_purge_lines: False` in
+`demon_user_settings` (`PURGE_LINE_TOGGLE` only lasts until the next restart), and call
+`EJECT_PURGE` from DEMON's `_CUSTOM_PRE_PRINT` hook, with `ceal_master_enable` and `pre_print`
+set to `True` in `_CUSTOM_EXPANSION_ACTIVE_LIST`.
+
+**Heat soak.** The bed cools to `cool_temp` before each push, so DEMON heat-soaks the bed again
+before every queued job. That is time, not a fault.
 
 ## Klippain, RatOS and other macro sets
 
@@ -159,5 +190,5 @@ EJECT_PURGE
 or at a fixed spot: `EJECT_PURGE X=200 Y=60`.
 
 - KAMP: replace the `LINE_PURGE` call in your print start with `EJECT_PURGE`.
-- DEMON: turn DEMON's purge line off in your DEMON settings (or with `PURGE_LINE_TOGGLE`) and call `EJECT_PURGE` from `_CUSTOM_PRE_PRINT`.
+- DEMON: see [DEMON Klipper Essentials](#demon-klipper-essentials) (purge lines off, `EJECT_PURGE` in `_CUSTOM_PRE_PRINT`).
 - `[extruder] max_extrude_cross_section` must allow the pellet. The macro tells you the value it needs.

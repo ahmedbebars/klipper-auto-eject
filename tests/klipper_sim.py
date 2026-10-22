@@ -159,13 +159,24 @@ class Printer:
         self.pending = []
         self._run_macro(macro.upper(), {k.upper(): str(v) for k, v in params.items()},
                         " ".join("%s=%s" % kv for kv in params.items()))
+        self._run_pending()
+        return self.executed
+
+    def fire(self, name):
+        """Run a delayed_gcode as its timer would, later, and what it schedules."""
+        self.executed = []
+        self.active = set()
+        self.pending = [name.upper()]
+        self._run_pending()
+        return self.executed
+
+    def _run_pending(self):
         # delayed_gcode timers fire once the current command has finished
         for _ in range(100):
             if not self.pending:
                 break
             name = self.pending.pop(0)
             self._run_template(self.delayed[name], {}, "")
-        return self.executed
 
     def run_gcode(self, line):
         """Run one console line (e.g. a dialog button's G-code)."""
