@@ -11,9 +11,13 @@
 <p align="center">
   <a href="https://github.com/ahmedbebars/klipper-auto-eject/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ahmedbebars/klipper-auto-eject/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/ahmedbebars/klipper-auto-eject/releases"><img alt="الإصدار" src="https://img.shields.io/github/v/release/ahmedbebars/klipper-auto-eject?include_prereleases&sort=semver"></a>
+  <a href="https://github.com/ahmedbebars/klipper-auto-eject/commits/main"><img alt="آخر تعديل" src="https://img.shields.io/github/last-commit/ahmedbebars/klipper-auto-eject"></a>
   <a href="../../LICENSE"><img alt="الرخصة: GPL v3" src="https://img.shields.io/badge/license-GPLv3-blue.svg"></a>
+  <a href="https://ahmedbebars.github.io/klipper-auto-eject/"><img alt="موقع الشرح" src="https://img.shields.io/badge/docs-website-b93d0b"></a>
+  <a href="../../README.md"><img alt="الشرح بالإنجليزية والعربية" src="https://img.shields.io/badge/docs-English%20%C2%B7%20Arabic-b93d0b"></a>
   <a href="https://www.klipper3d.org/"><img alt="Klipper" src="https://img.shields.io/badge/Klipper-v0.12%2B-B12F36"></a>
   <a href="https://moonraker.readthedocs.io/"><img alt="مدير التحديثات في Moonraker" src="https://img.shields.io/badge/Moonraker-update__manager-2E7D32"></a>
+  <a href="installation.md"><img alt="Python 3.9 أو أحدث" src="https://img.shields.io/badge/python-3.9%2B-3776AB?logo=python&amp;logoColor=white"></a>
   <img alt="الحالة: تجريبي (beta)" src="https://img.shields.io/badge/status-beta-orange">
   <a href="../../CONTRIBUTING.md"><img alt="طلبات الدمج مرحب بها" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
 </p>

@@ -10,6 +10,9 @@ your Klipper config folder:
 | `auto_eject.cfg` | The macros | Yes (it is a link into the repository) |
 | `auto_eject_settings.cfg` | Your settings | **Never.** It is yours to edit |
 
+The macros need only Klipper. The notifications and the printer farm run as a small service,
+`klipper-auto-eject`, which needs Python 3.9 or newer (Debian 11 Bullseye and newer have it).
+
 ## Option 1: install script (recommended)
 
 Open a terminal on the printer over SSH (on Windows: PowerShell, `ssh pi@<printer address>`, with
