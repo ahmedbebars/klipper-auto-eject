@@ -540,6 +540,17 @@
     return farmAway(hostname) ? p.page_remote || null : p.page || null;
   }
 
+  // What a copy of settings offers: each setting with its value, ticked
+  // unless each printer keeps its own (its notifier's name) or AUTO_EJECT_SET
+  // cannot take the value (a G-code line: the settings file only).
+  const KEEP_OWN = ["notify"];
+  function copyList(values, keys) {
+    return (keys || []).filter((k) => values && k in values).sort().map((key) => {
+      const ok = validSettingText(settingArg(values[key]));
+      return { key, value: values[key], ok, tick: ok && !KEEP_OWN.includes(key) };
+    });
+  }
+
   // The links a printer's QR label can hold, the one to use first: its page
   // on the home network, and through Tailscale; first the kind this page is
   // open on now. This printer: the page open now.
@@ -592,7 +603,7 @@
 
   // One command for several printers: for each, the selected printers it can
   // be done on now (what each one's card offers), so the rest are left out.
-  const FARM_BULK = ["clear", "continue", "push", "pause", "resume", "send", "power_on", "power_off", "labels", "cancel", "estop"];
+  const FARM_BULK = ["clear", "continue", "push", "pause", "resume", "send", "power_on", "power_off", "settings", "labels", "cancel", "estop"];
   function farmBulk(printers, ids) {
     const chosen = new Set(ids || []);
     const selected = (printers || []).filter((p) => chosen.has(p.id));
@@ -606,6 +617,8 @@
       if (devs.some((d) => d.status !== "on")) actions.power_on.push(p);
       // never off while it prints or clears its bed: the farm refuses it too
       if (devs.some((d) => d.status === "on") && !["printing", "paused", "ejecting"].includes(p.phase)) actions.power_off.push(p);
+      // settings from another printer: not while it clears its bed (the farm refuses it too)
+      if (p.auto_eject && !["offline", "off", "stopped", "ejecting"].includes(p.phase)) actions.settings.push(p);
       if (p.local || p.page || p.page_remote) actions.labels.push(p);
     }
     return { selected, actions };
@@ -1097,7 +1110,7 @@
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, notifierKind, farmOrder, farmKind, farmCounts, farmFilter, farmGroups, farmPending, ejectRunning, farmBulk, FARM_BULK, farmSpoolLow, farmReportCsv, farmFirmware, farmActions, farmToday, farmLink, farmAway, farmQrLinks, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
+    noticeFor, ntfyTopic, notifierKind, farmOrder, farmKind, farmCounts, farmFilter, farmGroups, farmPending, ejectRunning, farmBulk, FARM_BULK, farmSpoolLow, farmReportCsv, farmFirmware, farmActions, farmToday, farmLink, farmAway, farmQrLinks, copyList, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
     hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft,
     lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, parseVersion, firmwareAge, boardCode, configNotes, updateArea, updateAreas, scrubReport, supportReport, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText, macroSet

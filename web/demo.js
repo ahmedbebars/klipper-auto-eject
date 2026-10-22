@@ -1066,6 +1066,35 @@
   };
 
   // What the farm API (push/farm.py) answers, for the demo's Farm tab.
+  // A pretend printer's settings: this printer's defaults with its own
+  // changes; a copy sets only what differs, as the farm does.
+  Demo.prototype.farmSettings = function (id, body) {
+    const later = (v) => new Promise((resolve) => setTimeout(() => resolve(v), 250));
+    const defaults = this.status["gcode_macro _AUTO_EJECT_DEFAULTS"];
+    const f = id === "local" ? null : this.farmList.find((x) => x.id === id);
+    if (id !== "local" && (!f || !f.auto_eject)) return Promise.reject(new Error("no auto-eject on this printer"));
+    if (f && !f.over) f.over = { voron: { cool_temp: 38, push_z: 0.6, push_speed: 2400 } }[f.name.split("-")[0]] || {};
+    const values = id === "local" ? this.settings() : Object.assign({}, defaults, f.over);
+    const same = (a, b) => typeof a === "number" && typeof b === "number" ? Math.abs(a - b) < 1e-9 : a === b;
+    if (body === undefined) {
+      return later({ settings: { values, changed: Object.keys(defaults).filter((k) => !same(values[k], defaults[k])).sort(), kept: true } });
+    }
+    if (f && ["ejecting", "offline", "off"].includes(f.kind)) return Promise.reject(new Error(f.name + " cannot take settings now"));
+    const out = { changed: [], same: [], skipped: {}, kept: true };
+    for (const k of Object.keys(body.values || {}).sort()) {
+      if (!(k in defaults)) out.skipped[k] = "unknown";
+      else if (same(values[k], body.values[k])) out.same.push(k);
+      else if (!M.validSettingText(M.settingArg(body.values[k]))) out.skipped[k] = "file";
+      else {
+        out.changed.push(k);
+        if (f) f.over[k] = body.values[k];
+        else this.status["gcode_macro _AUTO_EJECT_OVERRIDES"].data[k] = body.values[k];
+      }
+    }
+    if (!f && out.changed.length) this.touch("gcode_macro _AUTO_EJECT_OVERRIDES");
+    return later({ result: out });
+  };
+
   Demo.prototype.farm = function (path, body) {
     const ok = (v) => new Promise((resolve) => setTimeout(() => resolve(v), 120));
     const fail = (msg) => new Promise((resolve, reject) => setTimeout(() => reject(new Error(msg)), 120));
@@ -1073,9 +1102,21 @@
       this.farmList = FARM.map((f) => Object.assign({}, f, FARM_VERSIONS[f.id] ? JSON.parse(JSON.stringify(FARM_VERSIONS[f.id])) : {}));
       this.farmScan = { running: false, found: [], finished: null };
     }
+    if (!this.farmSets) this.farmSets = { "Voron 2.4 350": { values: { cool_temp: 38, push_z: 0.6, push_speed: 2400, verify: true }, from: "voron-01", saved: 0 } };
     if (path === "") return ok({ printers: [this.farmLocal()].concat(this.farmList.map((f) => this.farmCard(f))), scan: this.farmScan,
-      settings: { report: this.farmReport || "" } });
+      settings: { report: this.farmReport || "" },
+      sets: Object.keys(this.farmSets).sort().map((n) => Object.assign({ name: n }, this.farmSets[n])) });
     if (path === "/settings") { this.farmReport = body.report || ""; return ok({ saved: true }); }
+    if (path === "/sets") {
+      if (!this.farmSets) this.farmSets = {};
+      if (body.remove) { const had = body.remove in this.farmSets; delete this.farmSets[body.remove]; return ok({ removed: had }); }
+      const name = String(body.name || "").split(/\s+/).filter(Boolean).join(" ");
+      if (!name || name.length > 40) return fail("a name of 1 to 40 characters");
+      this.farmSets[name] = { values: Object.assign({}, body.values), from: body.from || "", saved: Math.round(Date.now() / 1000) };
+      return ok({ saved: true });
+    }
+    const cs = /^\/([^/]+)\/settings$/.exec(path);
+    if (cs) return this.farmSettings(cs[1], body);
     if (path === "/scan") {
       this.farmScan = { running: true, found: [], finished: null };
       setTimeout(() => {

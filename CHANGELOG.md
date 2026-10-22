@@ -16,6 +16,10 @@ All notable changes to this project are documented here. The format is based on
   grams left, in orange when it runs low.
 - **Production** at the foot of the farm: what each printer made today, in 7 or 30 days (prints,
   ended well, stopped, success, hours, filament), the whole farm, and a CSV to download.
+- **Settings for a kind of printer** ([farm.md](docs/farm.md#settings-for-a-kind-of-printer)): one
+  printer's auto-eject settings onto the printers ticked, or a set saved under a name (*Voron 2.4
+  350*) for the next printer of that kind. Each printer gets only what differs, with
+  `AUTO_EJECT_SET`; its own notifier and what only the settings file can hold stay as they are.
 - **A QR label on each printer** ([farm.md](docs/farm.md#a-qr-label-on-each-printer)): its name and
   a QR code of its page, at home or through Tailscale, to print and stick on it; a phone camera
   opens the page. One printer's from ✎, or a sheet for the printers ticked. The codes are made in

@@ -881,6 +881,22 @@ def test_a_printer_label_holds_its_page_at_home_and_through_tailscale():
 
 
 @needs_node
+def test_settings_to_copy_leave_out_what_each_printer_keeps():
+    values = {"cool_temp": 40, "notify": "ntfy", "home_z_gcode": "G28 Z", "verify": False, "push_z": 0.6}
+    got = js("copyList", values, ["verify", "notify", "cool_temp", "home_z_gcode", "push_z", "gone"])
+    assert [(x["key"], x["ok"], x["tick"]) for x in got] == [
+        ("cool_temp", True, True),
+        ("home_z_gcode", False, False),          # a G-code line: the settings file only
+        ("notify", True, False),                 # each printer's own notifier
+        ("push_z", True, True),
+        ("verify", True, True)]
+    printers = [{"id": "a", "auto_eject": True, "phase": "printing"}, {"id": "b", "auto_eject": True, "phase": "ejecting"},
+                {"id": "c", "auto_eject": False, "phase": "idle"}, {"id": "d", "auto_eject": True, "phase": "offline"}]
+    out = js("farmBulk", printers, ["a", "b", "c", "d"])
+    assert [x["id"] for x in out["actions"]["settings"]] == ["a"]
+
+
+@needs_node
 def test_a_farm_spool_running_low():
     assert js("farmSpoolLow", {"left": 42, "full": 1000}) is True
     assert js("farmSpoolLow", {"left": 90, "full": 1000}) is True       # under a tenth

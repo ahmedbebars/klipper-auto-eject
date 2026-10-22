@@ -156,7 +156,7 @@ The versions are read from each printer's Moonraker every 5 minutes, and right a
 Tick printers (a box on each card and line), a whole group (the box by its title) or **Select
 all shown** (what the filters and the search show now). A bar then offers what can be done on
 them: **Bed is clear**, **Start the queue**, **Push now**, **Pause**, **Resume**, **Send a file**,
-**Turn on**, **Turn off**, **QR labels**, **Cancel the print** and **Emergency stop**, each with how many printers
+**Turn on**, **Turn off**, **Copy settings**, **QR labels**, **Cancel the print** and **Emergency stop**, each with how many printers
 it reaches. A command goes only to the selected printers it suits now (pause to the ones printing,
 turn off never to one printing), and the confirmation names the ones left out.
 
@@ -178,6 +178,27 @@ cancel), the success rate, the hours printing and the filament used, then the wh
 in Moonraker; the filament from each file's weight, or as 1.75 mm PLA when a file does not say.
 
 <p align="center"><img src="images/farm-production.png" alt="The farm with a box to tick on each card, each printer's spool, and the Production table under it" width="900"></p>
+
+### Settings for a kind of printer
+
+Tune one printer, then give its auto-eject settings to the others of its kind: tick them and choose
+**Copy settings** in the bar (or ✎ on one printer, then **Settings from…**). Pick where they come
+from: a printer, or a set saved earlier. The list shows what that printer has changed from the
+defaults, every one ticked except the notifier's name, which each printer keeps its own; untick
+anything else a printer should keep as it is. **Copy to** sets, on each printer, only the ones it
+does not already have, with `AUTO_EJECT_SET` like the Settings page, and names what it left as it
+was: a value only the settings file can hold (a G-code line), or a setting that printer's
+auto-eject does not have yet. Settings not listed are not touched. A printer clearing its bed is
+left for later.
+
+Type a name under the list, like *Voron 2.4 350* or *Ender 3 S1*, and **Save the set**: it is kept
+in the farm and shows under **Saved sets** next time, for a new printer of that kind.
+**Delete the set** forgets it; the printers keep their settings.
+
+A copy is kept after a restart where the printer has `[save_variables]` (the installer adds it);
+without it, until Klipper restarts.
+
+<p align="center"><img src="images/farm-settings.png" alt="Auto-eject settings from another printer: where they come from, the ticked list, a name to save them as a set, and what changed on each printer" width="460"></p>
 
 ### A QR label on each printer
 
@@ -260,6 +281,9 @@ nginx publishes that at `/auto-eject/api/`:
 | `POST /auto-eject/api/farm/<id>/push` | **Push now**, while its bed cools with the printer free |
 | `POST /auto-eject/api/farm/<id>/update` | `{"names": ["klipper", "moonraker", …]}`: updates them in the background, only while that printer does nothing. Its card then shows `job`: `{"names", "done", "state", "error"}` |
 | `GET /auto-eject/api/farm/<id>/snapshot` | That printer's camera picture |
+| `GET /auto-eject/api/farm/<id>/settings` | Its auto-eject settings: `values`, the `changed` ones, and whether a change is `kept` after a restart |
+| `POST /auto-eject/api/farm/<id>/settings` | `{"values": {"cool_temp": 40, …}}`: sets the ones that differ; answers what `changed`, what was the `same`, and what was `skipped` |
+| `POST /auto-eject/api/farm/sets` | `{"name": …, "values": {…}, "from": …}` saves a set, `{"remove": name}` deletes it; `GET …/farm` lists them in `sets` |
 
 Its log: `journalctl -u klipper-auto-eject`. Try it without printers in the
 [demo](web-page.md#trying-it-on-a-computer): `?demo#/farm`.

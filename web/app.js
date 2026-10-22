@@ -2287,7 +2287,7 @@
   // One command for the selected printers: only those it can be done on now.
   const BULK_UI = { clear: ["hand", "farm.clear", "primary"], continue: ["play", "farm.continue", "primary"], push: ["push", "act.push_now", "primary"],
     pause: ["pause", "farm.pause", ""], resume: ["play", "farm.resume", ""], send: ["file", "farm.bulk_send", ""],
-    power_on: ["power", "farm.bulk_on", ""], power_off: ["power", "farm.bulk_off", ""], labels: ["qr", "farm.qr_labels", ""],
+    power_on: ["power", "farm.bulk_on", ""], power_off: ["power", "farm.bulk_off", ""], settings: ["copy", "farm.copy", ""], labels: ["qr", "farm.qr_labels", ""],
     cancel: ["bad", "farm.cancel", "stop"], estop: ["stop", "act.estop", "stop"] };
   function farmBulkBar(all) {
     for (const id of Array.from(farmUi.sel)) if (!all.some((p) => p.id === id)) farmUi.sel.delete(id);
@@ -2314,6 +2314,7 @@
     const left = bulk.selected.filter((p) => !ok.includes(p));
     if (action === "send") return farmBulkSend(ok, left);
     if (action === "labels") return qrDialog(ok);
+    if (action === "settings") return copySettings(ok);
     const label = t(BULK_UI[action][1], { dev: "" }).trim();
     const names = (list) => list.map((p) => p.name).join(lang === "ar" ? "، " : ", ");
     const body = t("farm.bulk_confirm", { what: label, n: num(ok.length, 0), names: names(ok) }) +
@@ -2687,6 +2688,122 @@
   }
 
   // ----- rename or remove one printer
+  /* ------------------------------------- settings for a kind of printer */
+
+  // One printer's auto-eject settings onto others, or a set saved under a
+  // name (a kind of printer). Each printer gets only what it has and what
+  // differs; the farm says what it kept as it was.
+  function copySettings(targets) {
+    const close = () => closeModal("copy");
+    const printers = (farm.data && farm.data.printers) || [];
+    const sources = printers.filter((p) => p.auto_eject && !["offline", "off", "stopped"].includes(p.phase));
+    const sets = () => (farm.data && farm.data.sets) || [];
+    const ui = { from: "", list: null, values: null, err: "", tick: new Set(), busy: false, done: null, name: "" };
+    const nameOf = (from) => from.startsWith("s:") ? from.slice(2) : (printers.find((p) => "p:" + p.id === from) || {}).name || "";
+    const names = (list) => list.map((p) => p.name).join(lang === "ar" ? "، " : ", ");
+    const show = (k, v) => (v === true ? t("settings.on") : v === false ? t("settings.off") : String(v)) + (UNITS[k] && typeof v === "number" ? " " + UNITS[k] : "");
+    const choose = (from) => {
+      Object.assign(ui, { from, list: null, values: null, err: "", done: null, name: "" });
+      const fill = (values, keys) => {
+        ui.values = values;
+        ui.list = M.copyList(values, keys);
+        ui.tick = new Set(ui.list.filter((x) => x.tick).map((x) => x.key));
+      };
+      if (from.startsWith("s:")) {
+        const set = sets().find((x) => x.name === from.slice(2));
+        if (set) fill(set.values, Object.keys(set.values));
+        else ui.err = t("farm.copy_gone");
+        return draw();
+      }
+      draw();
+      farmCall("/" + from.slice(2) + "/settings").then((r) => {
+        if (ui.from === from) { fill(r.settings.values, r.settings.changed); draw(); }
+      }).catch((e) => { if (ui.from === from) { ui.err = cleanError(e.message); draw(); } });
+    };
+    const chosen = () => {
+      const out = {};
+      for (const k of ui.tick) out[k] = ui.values[k];
+      return out;
+    };
+    const go = () => {
+      const values = chosen();
+      ui.busy = true;
+      draw();
+      Promise.all(targets.map((p) => farmCall("/" + p.id + "/settings", { values })
+        .then((r) => ({ p, r: r.result }), (e) => ({ p, err: cleanError(e.message) })))).then((done) => {
+        ui.busy = false;
+        ui.done = done;
+        draw();
+        const bad = done.filter((x) => x.err).length;
+        toast(bad ? t("farm.copy_partly", { n: num(done.length - bad, 0), m: num(done.length, 0) }) : t("farm.copy_done", { n: num(done.length, 0) }), bad ? "bad" : "ok");
+      });
+    };
+    const save = () => {
+      const name = ui.name.trim();
+      if (!name) return;
+      farmCall("/sets", { name, values: chosen(), from: nameOf(ui.from) }).then(() => {
+        toast(t("farm.copy_saved", { name }), "ok");
+        return loadFarm();
+      }).then(() => choose("s:" + name.replace(/\s+/g, " "))).catch((e) => toast(cleanError(e.message), "bad"));
+    };
+    const remove = () => {
+      const name = ui.from.slice(2);
+      confirm(t("farm.copy_delete"), t("farm.copy_delete_q", { name }), t("farm.copy_delete"), "danger").then((yes) => {
+        if (!yes) return;
+        farmCall("/sets", { remove: name }).then(() => loadFarm()).then(() => choose(sources.length ? "p:" + (sources.find((p) => !targets.includes(p)) || sources[0]).id : ""))
+          .catch((e) => toast(cleanError(e.message), "bad"));
+      });
+    };
+    const result = (x) => {
+      if (x.err) return h("span", { class: "bad-text", text: x.err });
+      const r = x.r || {};
+      const kept = Object.keys(r.skipped || {});
+      return h("span", null,
+        t("farm.copy_result", { changed: num((r.changed || []).length, 0), same: num((r.same || []).length, 0) }),
+        kept.length ? " " + t("farm.copy_kept", { list: kept.map((k) => k + " (" + t("farm.copy_why." + r.skipped[k]) + ")").join(", ") }) : "",
+        (r.changed || []).length && r.kept === false ? " " + t("farm.copy_restart") : "");
+    };
+    const draw = () => {
+      const fromSet = ui.from.startsWith("s:");
+      const n = ui.tick.size;
+      const body = h("div", { class: "copy" },
+        h("label", { class: "field" }, h("span", { text: t("farm.copy_from") }),
+          h("select", { class: "select", onchange: (e) => choose(e.target.value) },
+            h("optgroup", { label: t("farm.copy_printers") }, sources.map((p) =>
+              h("option", { value: "p:" + p.id, selected: ui.from === "p:" + p.id, text: p.name + (p.local ? " · " + t("farm.this") : "") }))),
+            sets().length ? h("optgroup", { label: t("farm.copy_sets") }, sets().map((x) =>
+              h("option", { value: "s:" + x.name, selected: ui.from === "s:" + x.name, text: x.name }))) : null)),
+        h("p", { class: "muted", style: { margin: "8px 0 12px" } }, t("farm.copy_to", { n: num(targets.length, 0), names: names(targets) })),
+        ui.err ? h("p", { class: "note bad" }, icon("alert"), h("span", { text: ui.err }))
+          : !ui.list ? h("div", { class: "empty" }, h("span", { class: "spinner" }))
+          : !ui.list.length ? h("p", { class: "note" }, icon("info"), h("span", { text: t("farm.copy_none", { name: nameOf(ui.from) }) }))
+          : h("div", null,
+            h("p", { class: "note" }, icon("info"), h("span", { text: t(fromSet ? "farm.copy_note_set" : "farm.copy_note", { name: nameOf(ui.from) }) })),
+            h("div", { class: "copy-list" }, ui.list.map((x) => h("label", { class: "copy-row" + (x.ok ? "" : " off"), title: describeSetting({ key: x.key }) },
+              h("input", { type: "checkbox", checked: ui.tick.has(x.key), disabled: !x.ok || ui.busy,
+                onchange: (e) => { if (e.target.checked) ui.tick.add(x.key); else ui.tick.delete(x.key); draw(); } }),
+              h("code", { class: "ltr", text: x.key }),
+              h("span", { class: "ltr copy-v", text: show(x.key, x.value) }),
+              x.ok ? null : h("span", { class: "muted copy-why", text: t("farm.copy_why.file") })))),
+            !fromSet && n ? h("div", { class: "toolbar copy-save" },
+              h("input", { class: "input", type: "text", maxlength: 40, dir: "auto", value: ui.name, placeholder: t("farm.copy_name_ph"), "aria-label": t("farm.copy_save"),
+                oninput: (e) => { ui.name = e.target.value; }, onkeydown: (e) => { if (e.key === "Enter") save(); } }),
+              h("button", { type: "button", class: "btn sm", onclick: save }, icon("plus"), t("farm.copy_save"))) : null),
+        ui.done ? h("div", { class: "copy-done" }, ui.done.map((x) => h("div", { class: "copy-res" + (x.err ? " bad" : "") },
+          icon(x.err ? "bad" : "ok"), h("b", { dir: "auto", text: x.p.name }), result(x)))) : null);
+      modal("copy", t("farm.copy_title"), body, [
+        fromSet ? h("button", { type: "button", class: "btn danger", onclick: remove }, icon("trash"), t("farm.copy_delete")) : null,
+        h("button", { type: "button", class: "btn", onclick: close, text: t("c.close") }),
+        h("button", { type: "button", class: "btn primary", disabled: !n || ui.busy || !ui.list, onclick: go },
+          ui.busy ? h("span", { class: "spinner" }) : icon("copy"), t("farm.copy_go", { n: num(targets.length, 0) }))
+      ], close);
+    };
+    const start = sources.find((p) => !targets.includes(p)) || sources[0];
+    if (start) choose("p:" + start.id);
+    else if (sets().length) choose("s:" + sets()[0].name);
+    else { ui.err = t("farm.copy_nothing"); draw(); }
+  }
+
   /* ------------------------------------------------------- QR labels */
 
   // A label for a printer: its name and a QR code of its page, printed and
@@ -2804,7 +2921,10 @@
       h("label", { class: "field" }, h("span", { text: t("farm.name") }), name),
       h("div", { class: "toolbar", style: { marginTop: "8px", justifyContent: "space-between" } },
         h("span", { class: "muted ltr", text: p.local ? location.host : p.host }),
-        p.local || p.page || p.page_remote ? h("button", { type: "button", class: "btn sm", onclick: () => { close(); qrDialog([p]); } }, icon("qr"), t("farm.qr")) : null),
+        h("span", { class: "toolbar" },
+          p.auto_eject && !["offline", "off", "stopped", "ejecting"].includes(p.phase)
+            ? h("button", { type: "button", class: "btn sm", onclick: () => { close(); copySettings([p]); } }, icon("copy"), t("farm.copy_here")) : null,
+          p.local || p.page || p.page_remote ? h("button", { type: "button", class: "btn sm", onclick: () => { close(); qrDialog([p]); } }, icon("qr"), t("farm.qr")) : null)),
       h("label", { class: "field", style: { marginTop: "12px" } }, h("span", { text: t("farm.group") }), group,
         h("datalist", { id: "farm-groups" }, groupNames.map((g) => h("option", { value: g })))),
       h("p", { class: "note", style: { marginTop: "6px" } }, icon("info"), h("span", { text: t("farm.group_note") })),

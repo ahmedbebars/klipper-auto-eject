@@ -128,6 +128,7 @@ Each line is a shortcut to its page.
 | [One printer or a hundred](docs/farm.md#a-big-farm) | Filters, a search, a list, and groups by shelf or room |
 | [Several at once](docs/farm.md#one-command-for-several-printers) | One command, or one file to print, for the printers you tick |
 | [Production](docs/farm.md#production) | What each printer made today, in 7 or 30 days, with a CSV, and each one's spool |
+| [Settings for a kind of printer](docs/farm.md#settings-for-a-kind-of-printer) | Tune one, copy it to the others, or save it under a name for the next one |
 | [A QR label on each printer](docs/farm.md#a-qr-label-on-each-printer) | Print it, stick it on; a phone camera opens that printer's page |
 | [Update the whole farm](docs/farm.md#updating-the-whole-farm) | Every printer's versions, and the free ones updated from one place |
 

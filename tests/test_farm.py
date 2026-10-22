@@ -1042,3 +1042,96 @@ def test_the_farm_production_report(monkeypatch):
     with pytest.raises(ValueError):
         f.report("365")
     assert farm.report_since("7", now=time.mktime((2026, 10, 22, 15, 0, 0, 0, 0, -1))) == time.mktime((2026, 10, 16, 0, 0, 0, 0, 0, -1))
+
+
+# ------------------------------------------------------------- settings for a kind of printer
+def settings_status(file=None, saved=None, keep=True):
+    out = {"gcode_macro _AUTO_EJECT_DEFAULTS": {"cool_temp": 35, "push_z": 1.0, "direction": "front", "verify": True,
+                                                "notify": "", "home_z_gcode": "G28 Z"},
+           "gcode_macro _AUTO_EJECT_SETTINGS": dict({"cool_temp": 35, "push_z": 1.0, "direction": "front", "verify": True,
+                                                     "notify": "", "home_z_gcode": "G28 Z"}, **(file or {})),
+           "gcode_macro _AUTO_EJECT_OVERRIDES": {"data": dict(saved or {})}}
+    if keep:
+        out["save_variables"] = {"variables": {}}
+    return out
+
+
+def test_a_printers_settings_as_the_macros_merge_them(monkeypatch):
+    asked = []
+
+    def fake(url, data=None, method=None, timeout=0):
+        asked.append(url)
+        return {"status": settings_status(file={"direction": "back"}, saved={"cool_temp": 40, "gone": 1})}
+    monkeypatch.setattr(farm, "http_json", fake)
+    got = farm.Printer("10.1.1.2", 7125, "voron").read_settings()
+    assert got["values"] == {"cool_temp": 40, "push_z": 1.0, "direction": "back", "verify": True, "notify": "", "home_z_gcode": "G28 Z"}
+    assert got["changed"] == ["cool_temp", "direction"] and got["kept"] is True
+    assert "gcode_macro%20_AUTO_EJECT_OVERRIDES" in asked[0]
+
+    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0: {"status": {}})
+    with pytest.raises(LookupError):
+        farm.Printer("10.1.1.3", 7125, "ender").read_settings()
+
+
+def test_copying_settings_sets_only_what_differs(monkeypatch):
+    sent = []
+
+    def fake(url, data=None, method=None, timeout=0):
+        if "/printer/objects/query" in url:
+            return {"status": settings_status(saved={"cool_temp": 40}, keep=False)}
+        sent.append(data["script"])
+        return "ok"
+    monkeypatch.setattr(farm, "http_json", fake)
+    f = farm.Farm(FakeMoonraker())
+    f.add([{"host": "10.1.1.2", "port": 7125, "name": "voron-02"}])
+    pid = list(f.printers)[0]
+    f.printers[pid].card = {"phase": "idle"}
+    got = f.copy_settings(pid, {"cool_temp": 40, "push_z": 0.8, "verify": False, "direction": "front",
+                                "home_z_gcode": "G28 Z\nM84", "notify": "", "newer": 3})
+    assert sent == ["AUTO_EJECT_SET KEY=push_z VALUE=0.8\nAUTO_EJECT_SET KEY=verify VALUE=false"]
+    assert got["changed"] == ["push_z", "verify"] and got["same"] == ["cool_temp", "direction", "notify"]
+    # a G-code line cannot go through AUTO_EJECT_SET; a newer setting it does not have
+    assert got["skipped"] == {"home_z_gcode": "file", "newer": "unknown"}
+    assert got["kept"] is False                      # no [save_variables]: until it restarts
+    # never while it clears its bed, and nothing sent when there is nothing to set
+    f.printers[pid].card = {"phase": "ejecting"}
+    with pytest.raises(PermissionError):
+        f.copy_settings(pid, {"push_z": 0.8})
+    f.printers[pid].card = {"phase": "printing"}
+    sent.clear()
+    assert f.copy_settings(pid, {"cool_temp": 40.0})["same"] == ["cool_temp"] and sent == []
+    with pytest.raises(ValueError):
+        f.copy_settings(pid, {})
+
+
+def test_saved_sets_for_a_kind_of_printer():
+    mr = FakeMoonraker()
+    f = farm.Farm(mr)
+    assert f.save_set("  Voron 2.4   350 ", {"cool_temp": 40, "verify": False}, "voron-01") is True
+    assert f.view()["sets"] == [{"name": "Voron 2.4 350", "values": {"cool_temp": 40, "verify": False}, "from": "voron-01",
+                                 "saved": f.sets["Voron 2.4 350"]["saved"]}]
+    assert farm.Farm(mr).sets.keys() == {"Voron 2.4 350"}          # kept in Moonraker
+    for name, values in (("", {"a": 1}), ("x" * 41, {"a": 1}), ("ok", {}), ("ok", {"Bad key": 1}), ("ok", {"a": [1]})):
+        with pytest.raises(ValueError):
+            f.save_set(name, values)
+    assert f.remove_set("Voron 2.4 350") is True and f.remove_set("Voron 2.4 350") is False
+    assert f.view()["sets"] == []
+
+
+def test_api_settings_and_sets(api, monkeypatch):
+    f, base = api
+    pid = list(f.printers)[0]
+    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0:
+                        {"status": settings_status(saved={"cool_temp": 40})} if "/objects/query" in url else "ok")
+    code, body = call(base + "/farm/%s/settings" % pid)
+    assert code == 200 and body["settings"]["changed"] == ["cool_temp"]
+    f.printers[pid].card = {"phase": "idle"}
+    code, body = call(base + "/farm/%s/settings" % pid, {"values": {"push_z": 0.6}})
+    assert code == 200 and body["result"]["changed"] == ["push_z"]
+    f.printers[pid].card = {"phase": "ejecting"}
+    assert call(base + "/farm/%s/settings" % pid, {"values": {"push_z": 0.6}})[0] == 409
+    assert call(base + "/farm/nope/settings")[0] == 404
+    assert call(base + "/farm/sets", {"name": "Ender 3", "values": {"push_z": 0.6}}) == (200, {"saved": True})
+    assert call(base + "/farm/sets", {"name": "", "values": {"push_z": 0.6}})[0] == 400
+    assert [s["name"] for s in call(base + "/farm")[1]["sets"]] == ["Ender 3"]
+    assert call(base + "/farm/sets", {"remove": "Ender 3"}) == (200, {"removed": True})

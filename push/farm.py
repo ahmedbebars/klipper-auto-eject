@@ -73,6 +73,11 @@ UPDATE_ORDER = {"klipper": 1, "moonraker": 2, "klipper-auto-eject": 3}
 FILE_FACTS = ("estimated_time", "filament_weight_total", "filament_total", "object_height", "layer_height",
               "layer_count", "filament_type", "nozzle_diameter", "slicer", "slicer_version", "modified", "size")
 THUMBS_KEPT = 200      # pictures the farm keeps in memory (a few KB each)
+# the auto-eject settings, merged as the macros merge them: the defaults,
+# the settings file, then what was changed in the page (AUTO_EJECT_SET)
+SETTING_MACROS = ("_AUTO_EJECT_DEFAULTS", "_AUTO_EJECT_SETTINGS", "_AUTO_EJECT_OVERRIDES")
+SETTING_KEY = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+SETS_MAX = 100         # saved sets of settings, one for each kind of printer
 
 
 def safe_name(name):
@@ -139,6 +144,29 @@ def thumb_path(filename, thumb):
     if ".." in parts:
         return ""
     return "/server/files/gcodes/" + urllib.parse.quote("/".join(parts))
+
+
+def setting_text(value):
+    """A value as AUTO_EJECT_SET takes it (settingArg() in web/model.js)."""
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    return str(value).strip()
+
+
+def setting_ok(text):
+    """What AUTO_EJECT_SET refuses, refused here too (validSettingText() in
+    web/model.js): such a value is changed in the settings file only."""
+    return text != "" and not re.search(r"['\"#;\s]", text)
+
+
+def same_setting(a, b):
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return abs(a - b) < 1e-9
+    return a == b
 
 
 def http_json(url, data=None, method=None, timeout=3.0):
@@ -459,6 +487,21 @@ class Printer:
                 "left": round(left) if isinstance(left, (int, float)) else None,
                 "full": round(full) if isinstance(full, (int, float)) else None}
 
+    def read_settings(self):
+        """Its auto-eject settings as the macros merge them, the ones changed
+        from the defaults, and whether a change is kept after a restart."""
+        query = "&".join(urllib.parse.quote("gcode_macro " + m) for m in SETTING_MACROS)
+        status = (http_json(self.base + "/printer/objects/query?" + query + "&save_variables", timeout=5) or {}).get("status") or {}
+        defaults = status.get("gcode_macro _AUTO_EJECT_DEFAULTS")
+        if not defaults:
+            raise LookupError("%s has no auto-eject" % self.name)
+        values = dict(defaults)
+        for part in (status.get("gcode_macro _AUTO_EJECT_SETTINGS") or {},
+                     (status.get("gcode_macro _AUTO_EJECT_OVERRIDES") or {}).get("data") or {}):
+            values.update((k, v) for k, v in part.items() if k in defaults)
+        return {"values": values, "changed": sorted(k for k in defaults if not same_setting(values[k], defaults[k])),
+                "kept": "save_variables" in status}
+
     def _power(self):
         try:
             devices = http_json(self.base + "/machine/device_power/devices")["devices"]
@@ -631,6 +674,7 @@ class Farm:
         self.ts_checked = 0.0                # when the Tailscale twins were last looked for
         self.restarted = False               # after starting: Klipper restarted for an own update, if needed
         self.settings = {}                   # the whole farm's: {"report": "20:00", "report_sent": "2026-10-20"}
+        self.sets = {}                       # saved settings, by name: {"values": {...}, "from": "voron-01", "saved": 1761000000}
         self.cache_lock = threading.Lock()
         self.metas = {}                      # (printer, file) -> (when, Moonraker's metadata)
         self.thumbs = collections.OrderedDict()   # (printer, picture, modified) -> (type, bytes)
@@ -646,6 +690,7 @@ class Farm:
             local = self.moonraker.get("local", namespace=NAMESPACE) or {}
             skipped = self.moonraker.get("skipped", namespace=NAMESPACE) or []
             settings = self.moonraker.get("settings", namespace=NAMESPACE) or {}
+            sets = self.moonraker.get("sets", namespace=NAMESPACE) or {}
         except Exception:
             return False
         with self.lock:
@@ -662,6 +707,7 @@ class Farm:
             self.local.service_every, self.local.service_at = int(local.get("service_every") or 0), local.get("service_at")
             self.skipped = list(skipped)
             self.settings = dict(settings)
+            self.sets = dict(sets)
             self.loaded = True
         return True
 
@@ -727,7 +773,8 @@ class Farm:
 
     def view(self):
         return {"printers": [p.public() for p in self.all()], "scan": self.scan_state,
-                "settings": {"report": self.settings.get("report") or ""}}
+                "settings": {"report": self.settings.get("report") or ""},
+                "sets": [dict(s, name=n) for n, s in sorted(self.sets.items(), key=lambda x: x[0].lower())]}
 
     def report(self, period, now=None):
         """Every printer's production over a period, from each one's history."""
@@ -1176,6 +1223,62 @@ class Farm:
             self.ready_to_print(p)
         return upload_file(p.base, name, fileobj, size, start)
 
+    def settings_of(self, pid):
+        p = self.find(pid)
+        return None if p is None else p.read_settings()
+
+    def copy_settings(self, pid, values):
+        """Settings from another printer or a saved set, onto this printer with
+        AUTO_EJECT_SET: only the ones it has that differ; the rest are named."""
+        p = self.find(pid)
+        if p is None:
+            return None
+        if not isinstance(values, dict) or not values:
+            raise ValueError("no settings to copy")
+        phase = p.card.get("phase")
+        if phase in ("ejecting", "offline", "off", "stopped"):
+            raise PermissionError("%s cannot take settings now (%s)" % (p.name, phase))
+        mine = p.read_settings()
+        lines, changed, same, skipped = [], [], [], {}
+        for key in sorted(values):
+            if key not in mine["values"]:
+                skipped[key] = "unknown"          # an older auto-eject
+            elif same_setting(mine["values"][key], values[key]):
+                same.append(key)
+            elif not setting_ok(setting_text(values[key])):
+                skipped[key] = "file"             # changed in its settings file only
+            else:
+                lines.append("AUTO_EJECT_SET KEY=%s VALUE=%s" % (key, setting_text(values[key])))
+                changed.append(key)
+        if lines:
+            http_json(p.base + "/printer/gcode/script", data={"script": "\n".join(lines)}, timeout=30)
+        return {"changed": changed, "same": same, "skipped": skipped, "kept": mine["kept"]}
+
+    def save_set(self, name, values, source=""):
+        """Settings kept under a name (a kind of printer), to copy later."""
+        name = " ".join(str(name or "").split())
+        if not 0 < len(name) <= 40:
+            raise ValueError("a name of 1 to 40 characters")
+        if not isinstance(values, dict) or not values or len(values) > 200:
+            raise ValueError("no settings to save")
+        for key, value in values.items():
+            if not SETTING_KEY.match(str(key)) or not isinstance(value, (bool, int, float, str)) or len(str(value)) > 200:
+                raise ValueError("not a setting: %s" % key)
+        if not self.loaded:
+            raise RuntimeError("Moonraker is not answering yet")
+        if name not in self.sets and len(self.sets) >= SETS_MAX:
+            raise ValueError("%d sets at most" % SETS_MAX)
+        self.sets[name] = {"values": dict(values), "from": str(source or "")[:60], "saved": int(time.time())}
+        self.moonraker.put("sets", self.sets, namespace=NAMESPACE)
+        return True
+
+    def remove_set(self, name):
+        if name not in self.sets:
+            return False
+        del self.sets[name]
+        self.moonraker.put("sets", self.sets, namespace=NAMESPACE)
+        return True
+
     def act(self, pid, action):
         p = self.find(pid)
         if p is None or action not in ("continue", "clear", "estop", "bin_empty", "pause", "resume", "cancel", "push"):
@@ -1316,6 +1419,24 @@ def make_handler(farm):
                         return self._send(200, {"saved": farm.set_auto_off(body.get("id"), body["auto_off"], body.get("device", ""))})
                     if "service_every" in body or "service_done" in body:
                         return self._send(200, {"saved": farm.set_service(body.get("id"), body.get("service_every"), bool(body.get("service_done")))})
+                if parts == ["farm", "sets"] and method == "POST":
+                    try:
+                        if "remove" in body:
+                            return self._send(200, {"removed": farm.remove_set(str(body["remove"]))})
+                        return self._send(200, {"saved": farm.save_set(body.get("name"), body.get("values"), body.get("from", ""))})
+                    except ValueError as e:
+                        return self._send(400, {"error": str(e)})
+                if len(parts) == 3 and parts[0] == "farm" and parts[2] == "settings":
+                    try:
+                        if method == "GET":
+                            result = farm.settings_of(parts[1])
+                            return self._send(200 if result is not None else 404, {"settings": result})
+                        result = farm.copy_settings(parts[1], body.get("values"))
+                    except (LookupError, PermissionError) as e:
+                        return self._send(409, {"error": str(e)})
+                    except ValueError as e:
+                        return self._send(400, {"error": str(e)})
+                    return self._send(200 if result is not None else 404, {"result": result})
                 if parts == ["farm", "settings"] and method == "POST":
                     try:
                         return self._send(200, {"saved": farm.set_report(body.get("report", ""))})
