@@ -18,6 +18,7 @@
 
 <p align="center">
   <a href="docs/getting-started.md"><b>Getting started</b></a> ·
+  <a href="#everything-it-does">Everything it does</a> ·
   <a href="docs/faq.md">FAQ</a> ·
   <a href="docs/README.md">Documentation</a> ·
   <a href="docs/troubleshooting.md">Troubleshooting</a> ·
@@ -60,6 +61,74 @@ When a print finishes, the printer:
 
 The printer knows where every part is because the slicer writes the outlines into the G-code
 (the *Label objects* option). Nothing has to be measured by hand.
+
+## Everything it does
+
+Each line is a shortcut to its page.
+
+**Clearing the bed**
+
+| | In short |
+|---|---|
+| [Cool, push, check](docs/getting-started.md) | After each print the bed cools, the blade pushes the parts off and the probe checks the bed is empty. Cooling never waits forever: in a warm room the parts are pushed after a time limit |
+| [Gentle on the machine](docs/safety.md) | Lower motor current while pushing, set by itself for TMC drivers, so a stuck part makes the motor skip instead of breaking something. A part that stays is pushed again, lower and harder, then the queue stops |
+| [Three ways to push](docs/strategies.md) | Side-by-side lanes for any layout, one part at a time, or the whole bed; to the front, back, left or right |
+| [Thin parts](docs/configuration.md#thin-parts) | Flat prints such as stencils, which the blade cannot catch, stay on the bed and the queue waits for you |
+| [Restarts and power cuts](docs/recovery.md) | The printer remembers where the parts are, homes without touching them and never prints on top of them |
+| [The parts box](docs/configuration.md#the-parts-box) | Counts the parts in the box under the drop edge, warns at 80 % and holds the next print when it is full |
+| [Probes](docs/probes.md) | Contact, offset and eddy-current probes, and printers without a probe |
+| [`EJECT_PURGE`](docs/integration.md#eject_purge-instead-of-a-purge-line) | A purge blob the blade pushes off, instead of a purge line that builds up |
+
+**Setting it up**
+
+| | In short |
+|---|---|
+| [One-line install](docs/installation.md) | Asks what you want in plain words, adds what `printer.cfg` needs, and updates from Mainsail or Fluidd |
+| [The blade](docs/hardware.md) | Three printed parts that fit most toolheads; 60, 80 or 100 mm wide, or any size from the OpenSCAD source |
+| [Guided setup](docs/setup-wizard.md) | Five dialogs in Mainsail or Fluidd, no config editing and no ruler. With Voron Tap the blade measures itself |
+| [Slicer setup](docs/slicer-setup.md) | *Label objects* and one end G-code line, for OrcaSlicer, PrusaSlicer, SuperSlicer and Cura |
+| [Your macros](docs/integration.md) | Stock macros, DEMON Klipper Essentials, Klippain, RatOS and others |
+| [Print in a row](docs/integration.md#moonraker-job-queue) | Moonraker's job queue: the next print starts once the bed is clear |
+| [Settings](docs/configuration.md) | Every setting explained, in your own file that updates never touch |
+| [Removing it](docs/uninstall.md) | One line takes it all back off |
+
+**The web page**
+
+| | In short |
+|---|---|
+| [Overview](docs/web-page.md#what-is-on-it) | A live map of the bed with the parts and the push lanes, and buttons to eject or test |
+| [Print queue](docs/web-page.md#what-is-on-it) | Add files by their pictures, set copies, start or pause the queue |
+| [Check a file](docs/web-page.md#what-is-on-it) | Before printing: are the parts labelled, can the blade reach them, the plan on the bed map |
+| [Blade and setup](docs/web-page.md#what-is-on-it) | The measured blade, the setup, the test parts, and what to paste in your slicer |
+| [Settings](docs/web-page.md#settings) | Every setting with a switch or a box, and **Only my changes** |
+| [Hardware](docs/web-page.md#hardware) | Boards, motors, heaters, fans, the computer and the camera, live, and what is wrong |
+| [Updates](docs/web-page.md#updates) | What changed in Klipper since your version, and whether the boards need a reflash |
+| [Report a problem](docs/web-page.md#report-a-problem) | What a GitHub issue asks for, in one text, without your addresses |
+| [Pictures of the prints](docs/web-page.md#pictures-of-the-prints) | Every file with its picture, time, filament and material |
+| [English and Arabic](docs/web-page.md#translating) | Light or dark, right to left, on a phone; more languages welcome |
+| [Try the demo](docs/web-page.md#trying-it-on-a-computer) | The whole page with a pretend printer, no printer needed |
+
+**Away from the printer**
+
+| | In short |
+|---|---|
+| [From anywhere](docs/remote-access.md) | Tailscale, a free private network between your devices: nothing is opened to the internet |
+| [As an app](docs/web-page.md#on-your-phone-as-an-app) | The page installs on the phone with its own icon |
+| [Notifications](docs/notifications.md) | When the printer needs you, with the page closed: in the app, ntfy, Telegram or Discord |
+| [Spoolman](docs/spoolman.md) | The queue stops before a job the spool on the printer cannot finish |
+
+**Many printers**
+
+| | In short |
+|---|---|
+| [Printer farm](docs/farm.md) | Every Klipper printer on the network on one page, the ones that need you first; the others need nothing installed |
+| [Its buttons](docs/farm.md#the-buttons) | Print, send a file, pause, cancel, start the queue, emergency stop, turn on or off |
+| [Switch off by itself](docs/farm.md#switching-printers-off-by-themselves) | A printer with a power switch turns off when it has nothing to do |
+| [Maintenance and a daily report](docs/farm.md#maintenance-reminders-and-the-daily-report) | A reminder every so many hours of printing, and the day's summary on the phones |
+| [One printer or a hundred](docs/farm.md#a-big-farm) | Filters, a search, a list, and groups by shelf or room |
+| [Update the whole farm](docs/farm.md#updating-the-whole-farm) | Every printer's versions, and the free ones updated from one place |
+
+The macros are tested automatically on every change, against the Jinja2 versions Klipper uses.
 
 ## Is it for me?
 
@@ -174,39 +243,6 @@ small block and leave it on the bed. The printer touches it with the nozzle, the
 and works out how high the blade sits and how far ahead of the nozzle, in 2–3 minutes.
 
 <p align="center"><img src="docs/images/blade-measurement.svg" alt="How the blade is measured with Voron Tap" width="900"></p>
-
-## Features
-
-**Safe**
-- Lower motor current while pushing, set automatically for TMC drivers, so a stuck part makes the
-  motor skip instead of breaking the blade, the part or a belt.
-- The probe checks the bed after every eject. A part still there is pushed again, lower and
-  harder; if it still won't move, the queue stops.
-- Flat prints such as stencils, which the blade cannot catch, are left on the bed and the queue
-  waits for you ([thin parts](docs/configuration.md#thin-parts)).
-- Survives restarts and power cuts: the printer remembers where the parts are, homes without
-  touching them, and never starts a print on top of them ([recovery](docs/recovery.md)).
-- Cooling never waits forever: in a warm room the parts are pushed after a time limit, with a warning.
-- With [Spoolman](docs/spoolman.md), the queue stops before a job the spool on the printer cannot
-  finish, instead of running out halfway through it.
-
-**Easy**
-- Guided setup in five dialogs in Mainsail or Fluidd. No config editing, no ruler.
-- The blade measures itself with Voron Tap and other nozzle probes.
-- The web page, in English and Arabic.
-- One-line install that asks what you want in plain words and adds what `printer.cfg` needs;
-  updates from the Mainsail/Fluidd update panel, and your settings in their own file that updates
-  never touch.
-
-**Flexible**
-- Any drop edge: front, back, left or right.
-- Three ways to plan the pushes: side-by-side lanes for any layout, one part at a time, or the
-  whole bed ([strategies](docs/strategies.md)).
-- Contact, offset and eddy-current probes ([probes](docs/probes.md)), and printers without a probe.
-- Works with stock macros, DEMON, Klippain and others ([integration](docs/integration.md)).
-- `EJECT_PURGE`: a purge blob the blade can push off, instead of a purge line that builds up.
-
-The macros are tested automatically on every change, against the Jinja2 versions Klipper uses.
 
 ## Compatibility
 
