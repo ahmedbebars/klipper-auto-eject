@@ -556,6 +556,47 @@
     return out;
   }
 
+  // The production report as a CSV file (a spreadsheet opens it): one line
+  // a printer, then the whole farm. Quoted where a name needs it.
+  function farmReportCsv(report, labels) {
+    const q = (v) => { const s = v === null || v === undefined ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const line = (cells) => cells.map(q).join(",");
+    const rows = [line(labels)];
+    for (const r of report.printers || []) {
+      rows.push(r.error ? line([r.name, r.group || "", "", "", "", "", "", ""])
+        : line([r.name, r.group || "", r.jobs, r.ok, r.stopped, r.rate === null ? "" : r.rate, r.hours, r.grams]));
+    }
+    const tt = report.total || {};
+    rows.push(line(["", "", tt.jobs, tt.ok, tt.stopped, tt.rate === null || tt.rate === undefined ? "" : tt.rate, tt.hours, tt.grams]));
+    return rows.join("\r\n") + "\r\n";
+  }
+
+  // A farm printer's spool runs low: under 50 g, or under a tenth of a full one.
+  function farmSpoolLow(spool) {
+    if (!spool || typeof spool.left !== "number") return false;
+    return spool.left < Math.max(50, (spool.full || 0) * 0.1);
+  }
+
+  // One command for several printers: for each, the selected printers it can
+  // be done on now (what each one's card offers), so the rest are left out.
+  const FARM_BULK = ["clear", "continue", "push", "pause", "resume", "send", "power_on", "power_off", "cancel", "estop"];
+  function farmBulk(printers, ids) {
+    const chosen = new Set(ids || []);
+    const selected = (printers || []).filter((p) => chosen.has(p.id));
+    const actions = {};
+    for (const a of FARM_BULK) actions[a] = [];
+    for (const p of selected) {
+      const can = farmActions(p);
+      for (const a of can) if (actions[a]) actions[a].push(p);
+      if (can.includes("print")) actions.send.push(p);
+      const devs = p.power || [];
+      if (devs.some((d) => d.status !== "on")) actions.power_on.push(p);
+      // never off while it prints or clears its bed: the farm refuses it too
+      if (devs.some((d) => d.status === "on") && !["printing", "paused", "ejecting"].includes(p.phase)) actions.power_off.push(p);
+    }
+    return { selected, actions };
+  }
+
   // The whole farm today: prints that ended well, the others, and the hours
   // printed in all.
   function farmToday(printers) {
@@ -1042,7 +1083,7 @@
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, notifierKind, farmOrder, farmKind, farmCounts, farmFilter, farmGroups, farmPending, ejectRunning, farmFirmware, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
+    noticeFor, ntfyTopic, notifierKind, farmOrder, farmKind, farmCounts, farmFilter, farmGroups, farmPending, ejectRunning, farmBulk, FARM_BULK, farmSpoolLow, farmReportCsv, farmFirmware, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
     hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft,
     lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, parseVersion, firmwareAge, boardCode, configNotes, updateArea, updateAreas, scrubReport, supportReport, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText, macroSet

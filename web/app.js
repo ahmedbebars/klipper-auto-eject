@@ -2059,7 +2059,8 @@
 
   function farmShown() { return !!(farm.available && farm.data); }
   // the farm page's filter, search and view (cards or list; "auto": by how many)
-  const farmUi = { filter: "all", search: "", view: store("ae.farmView") || "auto" };
+  const farmUi = { filter: "all", search: "", view: store("ae.farmView") || "auto", sel: new Set(),
+    report: { period: "today", data: null, loading: false, at: 0 } };
   function farmNeeds() { return farmShown() ? M.farmCounts(farm.data.printers).needs : 0; }
 
   function farmFile(p) {
@@ -2216,13 +2217,167 @@
     bin_empty: ["tray", "bin.empty", "primary"], print: ["file", "farm.print", "primary"], pause: ["pause", "farm.pause", ""],
     resume: ["play", "farm.resume", "primary"], cancel: ["bad", "farm.cancel", "stop"] };
 
+  // the spool on a farm printer: its colour, its filament and the grams left
+  function farmSpoolChip(p, short) {
+    const s = p.spool;
+    if (!s || p.phase === "offline") return null;
+    const low = M.farmSpoolLow(s);
+    return h("span", { class: "chip" + (low ? " warn" : ""), title: s.name + (s.id ? " · #" + s.id : "") + (low ? " · " + t("farm.spool_low") : "") },
+      h("i", { class: "spool-dot", style: { background: s.colour || "transparent" } }),
+      short ? null : h("span", { dir: "auto", text: s.name }),
+      h("b", { class: "ltr", text: s.left === null ? "?" : num(s.left, 0) + " g" }));
+  }
+
+  // What the farm made: today, the last 7 or 30 days, from each printer's history.
+  function loadFarmReport(period) {
+    const r = farmUi.report;
+    if (period) r.period = period;
+    r.loading = true;
+    refresh("farm");
+    farmCall("/report?period=" + r.period).then((d) => { r.data = d; r.at = Date.now(); }, (e) => toast(cleanError(e.message), "bad"))
+      .then(() => { r.loading = false; refresh("farm"); });
+  }
+  function farmReportCard() {
+    const r = farmUi.report;
+    if (!r.data && !r.loading) setTimeout(() => loadFarmReport(), 0);
+    const d = r.data && r.data.period === r.period ? r.data : null;
+    const cols = ["printer", "jobs", "ok", "stopped", "rate", "hours", "grams"];
+    const kg = (g) => g >= 1000 ? num(g / 1000, 2) + " kg" : num(g, 0) + " g";
+    const cells = (x) => [x.jobs, x.ok, x.stopped, x.rate === null || x.rate === undefined ? "—" : num(x.rate, 0) + " %", num(x.hours, 1) + " h", kg(x.grams || 0)];
+    const csv = () => {
+      const labels = [t("prod.col.printer"), t("farm.group"), t("prod.col.jobs"), t("prod.col.ok"), t("prod.col.stopped"), t("prod.col.rate"), t("prod.col.hours"), t("prod.col.grams")];
+      const a = h("a", { href: URL.createObjectURL(new Blob(["\ufeff" + M.farmReportCsv(d, labels)], { type: "text/csv" })),
+        download: "farm-production-" + r.period + "-" + new Date().toISOString().slice(0, 10) + ".csv" });
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+    return h("section", { class: "card", style: { marginTop: "16px" } },
+      h("h2", null, icon("activity"), t("prod.title"),
+        h("span", { class: "right" }, d ? h("button", { type: "button", class: "btn sm", onclick: csv }, icon("download"), t("prod.csv")) : null)),
+      h("div", { class: "seg", role: "tablist" }, ["today", "7", "30"].map((k) =>
+        h("button", { type: "button", role: "tab", class: "seg-btn" + (r.period === k ? " active" : ""), "aria-selected": r.period === k ? "true" : "false",
+          onclick: () => loadFarmReport(k) }, t("prod.period." + k)))),
+      !d ? h("div", { class: "empty" }, h("span", { class: "spinner" }))
+        : h("div", { class: "fleet prod" }, h("div", { class: "fleet-in prod-in" },
+          h("div", { class: "fleet-row fleet-head" }, cols.map((c) => h("span", { text: t("prod.col." + c) }))),
+          d.printers.map((x) => h("div", { class: "fleet-row" },
+            h("div", { class: "fleet-name" }, h("b", { dir: "auto", text: x.name }), x.group ? h("span", { class: "muted", dir: "auto", text: x.group }) : null),
+            ...(x.error ? [h("span", { class: "muted prod-na", text: t("farm.phase.offline") })]
+              : cells(x).map((v, i) => h("span", { class: "prod-c" + (i === 2 && x.stopped ? " fleet-new" : ""), "data-label": t("prod.col." + cols[i + 1]) },
+                h("span", { class: "ltr", text: String(v) })))))),
+          h("div", { class: "fleet-row prod-total" }, h("b", { text: t("prod.total") }),
+            ...cells(d.total).map((v, i) => h("b", { class: "prod-c", "data-label": t("prod.col." + cols[i + 1]) }, h("span", { class: "ltr", text: String(v) })))))),
+      d ? h("p", { class: "muted", style: { marginTop: "10px", fontSize: "var(--text-sm)" }, text: t("prod.note") }) : null);
+  }
+
+  function farmSelBox(p) {
+    return h("label", { class: "fsel", title: t("farm.select", { name: p.name }) },
+      h("input", { type: "checkbox", checked: farmUi.sel.has(p.id), "aria-label": t("farm.select", { name: p.name }),
+        onchange: (e) => { if (e.target.checked) farmUi.sel.add(p.id); else farmUi.sel.delete(p.id); refresh("farm"); } }));
+  }
+  function farmSelAll(printers, label) {
+    const all = printers.length > 0 && printers.every((p) => farmUi.sel.has(p.id));
+    return h("label", { class: "fsel" + (label ? " fsel-all" : ""), title: label || t("farm.select_group") },
+      h("input", { type: "checkbox", checked: all, "aria-label": label || t("farm.select_group"),
+        onchange: () => { printers.forEach((p) => (all ? farmUi.sel.delete(p.id) : farmUi.sel.add(p.id))); refresh("farm"); } }),
+      label ? h("span", { text: label }) : null);
+  }
+
+  // One command for the selected printers: only those it can be done on now.
+  const BULK_UI = { clear: ["hand", "farm.clear", "primary"], continue: ["play", "farm.continue", "primary"], push: ["push", "act.push_now", "primary"],
+    pause: ["pause", "farm.pause", ""], resume: ["play", "farm.resume", ""], send: ["file", "farm.bulk_send", ""],
+    power_on: ["power", "farm.bulk_on", ""], power_off: ["power", "farm.bulk_off", ""], cancel: ["bad", "farm.cancel", "stop"], estop: ["stop", "act.estop", "stop"] };
+  function farmBulkBar(all) {
+    for (const id of Array.from(farmUi.sel)) if (!all.some((p) => p.id === id)) farmUi.sel.delete(id);
+    if (!farmUi.sel.size) return null;
+    const bulk = M.farmBulk(all, Array.from(farmUi.sel));
+    return h("div", { class: "bulk-bar", role: "region", "aria-label": t("farm.bulk") },
+      h("b", { class: "bulk-n", text: t("farm.selected", { n: num(farmUi.sel.size, 0) }) }),
+      h("div", { class: "bulk-acts" }, M.FARM_BULK.filter((a) => bulk.actions[a].length).map((a) =>
+        h("button", { type: "button", class: "btn sm " + BULK_UI[a][2], onclick: () => farmBulkRun(a, bulk) },
+          icon(BULK_UI[a][0]), t(BULK_UI[a][1], { dev: "" }).trim() + " (" + num(bulk.actions[a].length, 0) + ")"))),
+      h("button", { type: "button", class: "icon-btn", title: t("farm.bulk_none"), "aria-label": t("farm.bulk_none"),
+        onclick: () => { farmUi.sel.clear(); refresh("farm"); } }, icon("close")));
+  }
+  function farmBulkOne(p, action) {
+    if (action === "power_on" || action === "power_off") {
+      const want = action === "power_on" ? "on" : "off";
+      return (p.power || []).filter((d) => (d.status === "on") !== (want === "on"))
+        .reduce((pr, d) => pr.then(() => farmCall("/" + p.id + "/power", { device: d.device, action: want })), Promise.resolve());
+    }
+    return farmCall("/" + p.id + "/" + action, {});
+  }
+  function farmBulkRun(action, bulk) {
+    const ok = bulk.actions[action];
+    const left = bulk.selected.filter((p) => !ok.includes(p));
+    if (action === "send") return farmBulkSend(ok, left);
+    const label = t(BULK_UI[action][1], { dev: "" }).trim();
+    const names = (list) => list.map((p) => p.name).join(lang === "ar" ? "، " : ", ");
+    const body = t("farm.bulk_confirm", { what: label, n: num(ok.length, 0), names: names(ok) }) +
+      (left.length ? " " + t("farm.bulk_left", { n: num(left.length, 0), names: names(left) }) : "");
+    const danger = ["cancel", "estop", "power_off"].includes(action);
+    confirm(label, body, label + " (" + num(ok.length, 0) + ")", danger ? "danger" : "primary").then((yes) => {
+      if (!yes) return;
+      Promise.all(ok.map((p) => farmBulkOne(p, action).then(() => null, (e) => p.name + ": " + cleanError(e.message)))).then((errs) => {
+        errs = errs.filter(Boolean);
+        toast(errs.length ? t("farm.bulk_partly", { n: num(ok.length - errs.length, 0), errors: errs.join("; ") }) : t("farm.bulk_done", { n: num(ok.length, 0) }), errs.length ? "bad" : "ok");
+        setTimeout(loadFarm, 800);
+      });
+    });
+  }
+  // one file to every free printer selected, one after another, and print it if asked
+  function farmBulkSend(targets, left) {
+    const picker = h("input", { type: "file", accept: ".gcode,.g,.gco,.bgcode", style: { display: "none" } });
+    const st = {};
+    const ui = { file: null, running: false, done: false };
+    const close = () => { if (!ui.running) closeModal("bulksend"); };
+    const run = (andPrint) => {
+      ui.running = true;
+      draw();
+      targets.reduce((pr, p) => pr.then(() => {
+        st[p.id] = 0;
+        draw();
+        return uploadToFarm(p, ui.file, andPrint, (v) => { st[p.id] = v; draw(); })
+          .then(() => { st[p.id] = "done"; draw(); }, (e) => { st[p.id] = cleanError(e.message); draw(); });
+      }), Promise.resolve()).then(() => { ui.running = false; ui.done = true; draw(); setTimeout(loadFarm, 900); });
+    };
+    const ask = (andPrint) => andPrint
+      ? confirm(t("farm.upload_print"), t("farm.bulk_print_confirm", { file: ui.file.name, n: num(targets.length, 0) }), t("farm.upload_print")).then((y) => { if (y) run(true); })
+      : run(false);
+    function draw() {
+      const rows = targets.map((p) => {
+        const v = st[p.id];
+        const state = v === undefined ? h("span", { class: "muted", text: t("farm.bulk_waiting") })
+          : v === "done" ? h("span", { class: "fleet-ok", text: t("farm.bulk_sent") })
+          : typeof v === "number" ? h("div", { class: "progress", style: { width: "120px" } }, h("i", { style: { width: num(v * 100, 1) + "%" } }))
+          : h("span", { class: "fleet-new", title: v, text: t("upd.farm_failed") });
+        return h("div", { class: "row" }, h("div", { class: "grow" }, h("div", { class: "name", dir: "auto", text: p.name })), state);
+      });
+      const body = h("div", null,
+        h("p", { class: "muted", text: t("farm.bulk_send_intro", { n: num(targets.length, 0) }) }),
+        left.length ? h("p", { class: "note" }, icon("info"), h("span", { text: t("farm.bulk_send_left", { n: num(left.length, 0) }) })) : null,
+        h("div", { class: "toolbar", style: { margin: "10px 0" } },
+          h("button", { type: "button", class: "btn", disabled: ui.running || ui.done, onclick: () => picker.click() }, icon("file"), t("farm.choose_file")),
+          ui.file ? h("span", { class: "ltr muted", text: ui.file.name + " · " + fmtSize(ui.file.size) }) : null),
+        h("div", { class: "list" }, rows),
+        picker);
+      modal("bulksend", t("farm.bulk_send_title"), body, [
+        h("button", { type: "button", class: "btn", disabled: ui.running, onclick: close, text: t("c.close") }),
+        ui.file && !ui.running && !ui.done ? h("button", { type: "button", class: "btn", onclick: () => ask(false) }, icon("download"), t("farm.upload")) : null,
+        ui.file && !ui.running && !ui.done ? h("button", { type: "button", class: "btn primary", onclick: () => ask(true) }, icon("play"), t("farm.upload_print")) : null
+      ], close);
+    }
+    picker.addEventListener("change", () => { ui.file = picker.files[0] || null; draw(); });
+    draw();
+  }
+
   // The list: one line for each printer, for farms too big for cards.
   function farmRow(p) {
     const file = farmFile(p);
     const pct = ["printing", "paused"].includes(p.phase) ? (p.progress || 0) * 100 : null;
     const link = M.farmLink(p, location.hostname);
     const bed = typeof p.bed === "number" && p.phase !== "offline" ? num(p.bed, 0) + (p.bed_target ? " / " + num(p.bed_target, 0) : "") + " °C" : "";
-    return h("div", { class: "frow", "data-state": p.phase },
+    return h("div", { class: "frow" + (farmUi.sel.has(p.id) ? " picked" : ""), "data-state": p.phase },
+      farmSelBox(p),
       h("span", { class: "frow-ic" }, icon(FARM_ICON[p.phase] || "info")),
       h("div", { class: "frow-name" }, h("b", { dir: "auto", text: p.name }),
         p.local ? h("span", { class: "badge accent", text: t("farm.this") }) : h("span", { class: "muted ltr", text: p.host })),
@@ -2231,7 +2386,8 @@
         pct !== null ? h("div", { class: "progress" }, h("i", { style: { width: num(pct, 1) + "%" } })) : null),
       h("div", { class: "frow-facts" },
         bed ? h("span", { class: "chip" }, icon("thermo"), h("b", { class: "ltr", text: bed })) : null,
-        p.jobs ? h("span", { class: "chip" }, icon("queue"), h("b", { text: num(p.jobs, 0) })) : null),
+        p.jobs ? h("span", { class: "chip" }, icon("queue"), h("b", { text: num(p.jobs, 0) })) : null,
+        farmSpoolChip(p, true)),
       h("div", { class: "frow-acts" },
         M.farmActions(p).slice(0, 2).map((a) => h("button", { type: "button", class: "btn sm " + FARM_ACT[a][2], onclick: () => farmAct(p, a) },
           icon(FARM_ACT[a][0]), t(FARM_ACT[a][1]))),
@@ -2251,8 +2407,9 @@
     const open = p.local ? h("a", { class: "btn sm", href: "#/overview" }, icon("home"), t("farm.open"))
       : link ? h("a", { class: "btn sm", href: link, target: "_blank", rel: "noopener" }, icon("external"), t("farm.open"))
       : p.page ? h("span", { class: "btn sm disabled", title: t("farm.open_local"), "aria-disabled": "true" }, icon("external"), t("farm.open_local_short")) : null;
-    return h("section", { class: "card fcard", "data-state": p.phase },
+    return h("section", { class: "card fcard" + (farmUi.sel.has(p.id) ? " picked" : ""), "data-state": p.phase },
       h("div", { class: "fc-top" },
+        farmSelBox(p),
         h("div", { class: "fc-ic" }, icon(FARM_ICON[p.phase] || "info")),
         h("div", { class: "grow", style: { minWidth: 0 } },
           h("div", { class: "fc-name", dir: "auto", text: p.name }),
@@ -2267,6 +2424,7 @@
       p.phase !== "offline" ? h("div", { class: "chips" },
         bed ? h("span", { class: "chip" }, icon("thermo"), h("span", { text: t("c.bed") }), h("b", { class: "ltr", text: bed })) : null,
         p.jobs ? h("span", { class: "chip" }, icon("queue"), h("span", { text: t("facts.queue") + ":" }), h("b", { text: num(p.jobs, 0) })) : null,
+        farmSpoolChip(p),
         M.farmService(p) ? h("span", { class: "chip" + (M.farmService(p).due ? " bad" : M.farmService(p).near ? " warn" : ""),
           title: t(M.farmService(p).due ? "farm.service_due" : "farm.service_chip_title") }, icon("wand"),
           h("span", { text: t("farm.service_chip") + ":" }), h("b", { class: "ltr", text: num(p.service_since, 0) + " / " + num(p.service_every, 0) + " h" })) : null,
@@ -2305,7 +2463,7 @@
     const groups = M.farmGroups(list);
     const body = !list.length ? h("div", { class: "card empty" }, icon("search"), h("p", { text: t("farm.none_match") }))
       : groups.length > 1 || groups[0].group ? h("div", { class: "stack" }, groups.map((g) => h("section", { class: "farm-group" },
-        h("h2", { class: "farm-group-h" }, icon("layers"), h("span", { dir: "auto", text: g.group || t("farm.no_group") }),
+        h("h2", { class: "farm-group-h" }, farmSelAll(g.printers), icon("layers"), h("span", { dir: "auto", text: g.group || t("farm.no_group") }),
           h("span", { class: "muted", text: num(g.printers.length, 0) })), items(g.printers))))
       : items(list);
     const tools = all.length > 1 ? h("div", { class: "farm-tools" },
@@ -2313,6 +2471,7 @@
         h("button", { type: "button", role: "tab", class: "seg-btn" + (farmUi.filter === k ? " active" : "") + (k === "needs" ? " needs" : ""),
           "aria-selected": farmUi.filter === k ? "true" : "false", onclick: () => { farmUi.filter = k; refresh("farm"); } },
           h("span", { text: t("farm.filter." + k) }), h("b", { text: num(k === "all" ? all.length : c[k], 0) })))),
+      list.length ? farmSelAll(list, t("farm.select_all")) : null,
       h("div", { class: "search farm-search" }, icon("search"),
         h("input", { class: "input", type: "search", placeholder: t("farm.search_ph"), "aria-label": t("farm.search_ph"), value: farmUi.search, "data-keep": "f-search",
           oninput: (e) => { farmUi.search = e.target.value; refresh("farm"); } })),
@@ -2326,6 +2485,8 @@
       tools,
       h("div", { class: "farm-sum" }, farmTodayLine(all)),
       body,
+      farmBulkBar(all),
+      all.length > 1 ? farmReportCard() : null,
       all.length < 2 ? h("section", { class: "card", style: { marginTop: "16px" } },
         h("p", { class: "note" }, icon("search"), h("span", { text: t("farm.first") })),
         h("div", { class: "toolbar", style: { marginTop: "12px" } }, h("button", { type: "button", class: "btn primary", onclick: openScan }, icon("search"), t("farm.search")))) : null,
@@ -2336,10 +2497,12 @@
   }
   viewFarm.sig = function () {
     if (!farmShown()) return String(farm.available);
-    const report = ((farm.data.settings || {}).report || "") + "|" + farmUi.filter + "|" + farmUi.search + "|" + farmUi.view + "|" + wake.on + "|";
+    const report = ((farm.data.settings || {}).report || "") + "|" + farmUi.filter + "|" + farmUi.search + "|" + farmUi.view + "|" + wake.on + "|" +
+      Array.from(farmUi.sel).join(",") + "|" + farmUi.report.period + farmUi.report.loading + farmUi.report.at + "|";
     return report + JSON.stringify(farm.data.printers.map((p) => [p.id, p.name, p.group, p.phase, p.reason, p.filename, Math.round((p.progress || 0) * 100),
       p.eta === null || p.eta === undefined ? null : Math.round(p.eta / 60), p.layer, Math.round(p.bed || 0), p.bed_target, p.jobs, p.queue,
-      p.parts, p.leftover, p.camera, p.message, p.page, p.page_remote, p.auto_eject, p.service_every, p.service_since, p.stats, p.bin, p.bin_cap, p.power, p.auto_off, p.auto_off_device]));
+      p.parts, p.leftover, p.camera, p.message, p.page, p.page_remote, p.auto_eject, p.service_every, p.service_since, p.stats, p.bin, p.bin_cap, p.power, p.auto_off, p.auto_off_device,
+      p.spool]));
   };
 
   function closeModal(cls) {

@@ -3,6 +3,7 @@
 import json
 import pathlib
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -974,3 +975,70 @@ def test_a_printer_cooling_with_klipper_free_takes_push_now():
     assert (card["phase"], card["reason"]) == ("ejecting", "cooling")
     ae = dict(tracker(objects=2, busy=True), bg=True, cooling=False)       # pushing now
     assert farm.summarize(status("complete", ae=ae))["phase"] == "ejecting"
+
+
+def test_the_spool_on_each_printer(monkeypatch):
+    def fake(url, data=None, method=None, timeout=0):
+        if url.endswith("/server/spoolman/status"):
+            return {"spoolman_connected": True, "spool_id": 7, "pending_reports": []}
+        if url.endswith("/server/spoolman/proxy"):
+            assert data == {"request_method": "GET", "path": "/v1/spool/7", "use_v2_response": True}
+            return {"response": {"id": 7, "remaining_weight": 231.6, "initial_weight": 1000,
+                                 "filament": {"name": "PLA Orange", "material": "PLA", "color_hex": "F07F1E", "vendor": {"name": "Generic"}}}}
+        raise OSError(url)
+    monkeypatch.setattr(farm, "http_json", fake)
+    p = farm.Printer("10.1.1.2", 7125)
+    assert p._spool() == {"id": 7, "name": "Generic PLA Orange", "material": "PLA", "colour": "#F07F1E", "left": 232, "full": 1000}
+
+
+def test_no_spool_without_spoolman(monkeypatch):
+    def fake(url, data=None, method=None, timeout=0):
+        if url.endswith("/server/spoolman/status"):
+            raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+        raise OSError(url)
+    monkeypatch.setattr(farm, "http_json", fake)
+    assert farm.Printer("10.1.1.2", 7125)._spool() is None
+
+    def none_chosen(url, data=None, method=None, timeout=0):
+        return {"spoolman_connected": True, "spool_id": None}
+    monkeypatch.setattr(farm, "http_json", none_chosen)
+    assert farm.Printer("10.1.1.2", 7125)._spool() is None
+
+
+def test_what_a_printer_made():
+    jobs = [
+        {"status": "completed", "end_time": 1000, "print_duration": 3600, "filament_used": 1000.0, "filename": "sub/clips.gcode",
+         "metadata": {"filament_total": 1000.0, "filament_weight_total": 12.0}},
+        {"status": "completed", "end_time": 2000, "print_duration": 1800, "filament_used": 500.0, "filename": "clips.gcode", "metadata": {}},
+        {"status": "cancelled", "end_time": 3000, "print_duration": 900, "filament_used": 400.0, "filename": "vase.gcode",
+         "metadata": {"filament_total": 800.0, "filament_weight_total": 10.0}},     # half of the file: 5 g
+        {"status": "in_progress", "start_time": 3500, "filament_used": 50.0},
+        {"status": "completed", "end_time": 10, "print_duration": 99999, "filament_used": 9999.0},      # before the period
+    ]
+    r = farm.production(jobs, since=500)
+    assert (r["jobs"], r["ok"], r["stopped"], r["rate"]) == (3, 2, 1, 67)
+    assert r["hours"] == 1.8
+    assert r["grams"] == round(12.0 + 500.0 * farm.GRAMS_PER_MM + 5.0)
+    assert r["top"] == [["clips.gcode", 2]]
+    assert farm.production([], since=0)["rate"] is None
+
+
+def test_the_farm_production_report(monkeypatch):
+    def fake(url, data=None, method=None, timeout=0):
+        if "/server/history/list" in url:
+            assert "since=" in url
+            if "10.0.0.9" in url:
+                raise OSError("no route")
+            return {"jobs": [{"status": "completed", "end_time": time.time(), "print_duration": 7200, "filament_used": 0.0}]}
+        raise OSError(url)
+    monkeypatch.setattr(farm, "http_json", fake)
+    f = farm.Farm(FakeMoonraker())
+    f.add([{"host": "10.0.0.2", "port": 7125, "name": "a"}, {"host": "10.0.0.9", "port": 7125, "name": "away"}])
+    rep = f.report("7")
+    rows = {r["name"]: r for r in rep["printers"]}
+    assert rows["away"]["error"] == "not answering"
+    assert rows["a"]["ok"] == 1 and rows["a"]["hours"] == 2.0
+    assert rep["total"]["jobs"] == sum(r.get("jobs", 0) for r in rep["printers"])
+    with pytest.raises(ValueError):
+        f.report("365")
+    assert farm.report_since("7", now=time.mktime((2026, 10, 22, 15, 0, 0, 0, 0, -1))) == time.mktime((2026, 10, 16, 0, 0, 0, 0, 0, -1))

@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **One command for several farm printers** ([farm.md](docs/farm.md#one-command-for-several-printers)):
+  tick printers, a group or everything shown, then **Bed is clear**, **Start the queue**,
+  **Push now**, **Pause**, **Resume**, **Turn on**, **Turn off**, **Cancel the print** or
+  **Emergency stop**, each only to the printers it suits now; and **Send a file** to every free
+  printer selected, printed on each if you ask.
+- **The spool on each farm printer's card**, from Moonraker's `[spoolman]`: colour, filament and
+  grams left, in orange when it runs low.
+- **Production** at the foot of the farm: what each printer made today, in 7 or 30 days (prints,
+  ended well, stopped, success, hours, filament), the whole farm, and a CSV to download.
 - **Push now, or I took the parts off, while the bed cools** (`cool_background: True`, off by
   default; [configuration.md](docs/configuration.md#cooling-with-the-printer-free)). The print
   ends first and the job queue waits; the bed cools in steps of a few seconds with the printer

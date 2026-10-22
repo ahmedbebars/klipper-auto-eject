@@ -151,6 +151,34 @@ nothing.
 
 The versions are read from each printer's Moonraker every 5 minutes, and right after an update.
 
+### One command for several printers
+
+Tick printers (a box on each card and line), a whole group (the box by its title) or **Select
+all shown** (what the filters and the search show now). A bar then offers what can be done on
+them: **Bed is clear**, **Start the queue**, **Push now**, **Pause**, **Resume**, **Send a file**,
+**Turn on**, **Turn off**, **Cancel the print** and **Emergency stop**, each with how many printers
+it reaches. A command goes only to the selected printers it suits now (pause to the ones printing,
+turn off never to one printing), and the confirmation names the ones left out.
+
+**Send a file** sends one G-code file from your phone or computer to every free printer selected,
+one after another, and starts it on each if you ask. Each printer keeps the file.
+
+### The spool on each printer
+
+A printer whose Moonraker is linked to [Spoolman](spoolman.md) shows its spool on its card: the
+colour, the filament and the grams left, in orange when it runs low (under 50 g, or under a tenth
+of a full spool).
+
+### Production
+
+At the foot of the farm, **Production** sums up what each printer made **today**, in the last **7
+days** or the last **30 days**: the prints, how many ended well and how many stopped (an error or a
+cancel), the success rate, the hours printing and the filament used, then the whole farm.
+**Download (CSV)** saves the table for a spreadsheet. It comes from each printer's print history
+in Moonraker; the filament from each file's weight, or as 1.75 mm PLA when a file does not say.
+
+<p align="center"><img src="images/farm-production.png" alt="The farm with a box to tick on each card, each printer's spool, and the Production table under it" width="900"></p>
+
 ### Many printers, without waiting
 
 Every 3 seconds the farm asks all printers at once, up to 32 at a time, so 100 printers take about
@@ -215,6 +243,8 @@ nginx publishes that at `/auto-eject/api/`:
 | `POST /auto-eject/api/farm/<id>/print` | `{"filename": …}`: starts it, only on a free printer |
 | `POST /auto-eject/api/farm/<id>/upload?name=…&print=1` | The file as the request body; the farm printer passes it on to that printer's Moonraker |
 | `POST /auto-eject/api/farm/printers` | also `{"id": …, "auto_off": minutes, "device": …}` and `{"id": …, "group": …}` |
+| `GET /auto-eject/api/farm/report?period=today` | What each printer made: `today`, `7` or `30` days |
+| `POST /auto-eject/api/farm/<id>/push` | **Push now**, while its bed cools with the printer free |
 | `POST /auto-eject/api/farm/<id>/update` | `{"names": ["klipper", "moonraker", …]}`: updates them in the background, only while that printer does nothing. Its card then shows `job`: `{"names", "done", "state", "error"}` |
 | `GET /auto-eject/api/farm/<id>/snapshot` | That printer's camera picture |
 

@@ -840,3 +840,47 @@ def test_an_eject_cooling_in_the_background_runs_with_klipper_free():
     acts = js("farmActions", {"phase": "ejecting", "reason": "cooling"})
     assert acts[:2] == ["push", "clear"] and "estop" in acts
     assert "push" not in js("farmActions", {"phase": "ejecting", "reason": ""})
+
+
+@needs_node
+def test_one_command_for_several_printers_reaches_only_those_that_can():
+    printers = [
+        {"id": "a", "name": "voron-01", "phase": "printing", "power": [{"device": "psu", "status": "on"}]},
+        {"id": "b", "name": "voron-02", "phase": "needs", "reason": "parts"},
+        {"id": "c", "name": "ender", "phase": "idle", "power": [{"device": "psu", "status": "on"}]},
+        {"id": "d", "name": "kobra", "phase": "off", "power": [{"device": "psu", "status": "off"}]},
+        {"id": "e", "name": "prusa", "phase": "paused"},
+        {"id": "f", "name": "not chosen", "phase": "idle"},
+    ]
+    out = js("farmBulk", printers, ["a", "b", "c", "d", "e"])
+    ids = lambda action: [p["id"] for p in out["actions"][action]]
+    assert [p["id"] for p in out["selected"]] == ["a", "b", "c", "d", "e"]
+    assert ids("pause") == ["a"] and ids("resume") == ["e"] and ids("cancel") == ["a", "e"]
+    assert ids("clear") == ["b"] and ids("send") == ["c"]
+    assert ids("power_on") == ["d"]
+    assert ids("power_off") == ["c"]                      # never the one printing
+    assert ids("estop") == ["a", "e"]
+    assert js("farmBulk", printers, [])["selected"] == []
+
+
+@needs_node
+def test_a_farm_spool_running_low():
+    assert js("farmSpoolLow", {"left": 42, "full": 1000}) is True
+    assert js("farmSpoolLow", {"left": 90, "full": 1000}) is True       # under a tenth
+    assert js("farmSpoolLow", {"left": 230, "full": 1000}) is False
+    assert js("farmSpoolLow", {"left": 45, "full": 250}) is True        # under 50 g
+    assert js("farmSpoolLow", {"left": None, "full": 1000}) is False
+    assert js("farmSpoolLow", None) is False
+
+
+@needs_node
+def test_the_production_report_as_a_spreadsheet():
+    report = {"printers": [{"name": "voron, 01", "group": "Shelf A", "jobs": 3, "ok": 2, "stopped": 1, "rate": 67, "hours": 1.8, "grams": 30},
+                           {"name": "away", "group": "", "error": "not answering"}],
+              "total": {"jobs": 3, "ok": 2, "stopped": 1, "rate": 67, "hours": 1.8, "grams": 30}}
+    csv = js("farmReportCsv", report, ["Printer", "Group", "Prints", "Ended well", "Stopped", "Success", "Printing", "Filament"])
+    lines = csv.split("\r\n")
+    assert lines[0] == "Printer,Group,Prints,Ended well,Stopped,Success,Printing,Filament"
+    assert lines[1] == '"voron, 01",Shelf A,3,2,1,67,1.8,30'          # a comma in a name is quoted
+    assert lines[2] == "away,,,,,,,"
+    assert lines[3] == ",,3,2,1,67,1.8,30" and lines[4] == ""

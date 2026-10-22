@@ -988,8 +988,29 @@ html[dir="rtl"] .file-row .name, html[dir="rtl"] .fc-job .fc-file { text-align: 
 .farm-group-h { display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; font-size: var(--text-base); }
 .farm-group-h .ic { width: 16px; height: 16px; color: var(--muted); }
 .frows { container-type: inline-size; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface); overflow: hidden; }
+/* ticking printers for one command to all of them */
+.fsel { display: inline-grid; place-items: center; min-width: 24px; min-height: 24px; cursor: pointer; flex: none; }
+.fsel input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.fsel-all { display: inline-flex; gap: 8px; font-size: var(--text-md); color: var(--muted); }
+.frow.picked, .fcard.picked { background: var(--accent-soft); }
+.bulk-bar { position: sticky; bottom: 12px; z-index: calc(var(--z-top) - 6); display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap;
+  margin-top: 16px; padding: 10px 14px; border-radius: var(--radius-xl); background: var(--surface); border: 1px solid var(--accent);
+  box-shadow: var(--shadow-lg); }
+.bulk-n { white-space: nowrap; }
+.fleet-in.prod-in { grid-template-columns: minmax(130px, 1.6fr) repeat(6, minmax(64px, 1fr)); }
+.prod-c { font-variant-numeric: tabular-nums; }
+.prod-na { grid-column: 2 / -1; }
+.prod-total { background: var(--surface-2); --state: transparent; }
+@container (max-width: 760px) {
+  .fleet-in.prod-in { grid-template-columns: 1fr; }
+  .prod-c::before { content: attr(data-label); display: block; font-size: var(--text-sm); color: var(--muted); font-weight: var(--weight-medium); }
+  .prod-na { grid-column: 1 / -1; }
+}
+.spool-dot { width: 11px; height: 11px; border-radius: var(--radius-round); border: 1px solid var(--print-edge); flex: none; display: inline-block; }
+.bulk-acts { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+@media (max-width: 640px) { .bulk-bar { bottom: calc(72px + env(safe-area-inset-bottom)); } }
 /* one set of columns for every line, so they line up */
-.frows-in { display: grid; grid-template-columns: 22px minmax(110px, 1fr) minmax(130px, 1.2fr) minmax(130px, 1.3fr) max-content max-content; column-gap: 12px; }
+.frows-in { display: grid; grid-template-columns: 28px 22px minmax(110px, 1fr) minmax(130px, 1.2fr) minmax(130px, 1.3fr) max-content max-content; column-gap: 12px; }
 .frow { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; padding: 10px 14px;
   border-top: 1px solid var(--border); border-inline-start: 3px solid var(--state); min-width: 0; }
 .frow:first-child { border-top: 0; }
@@ -1031,7 +1052,8 @@ html[dir="rtl"] .file-row .name, html[dir="rtl"] .fc-job .fc-file { text-align: 
 /* a narrow list (a phone, a small window): two lines each */
 @container (max-width: 960px) {
   .frows-in { grid-template-columns: 1fr; }
-  .frow { grid-template-columns: 22px minmax(0, 1fr) auto; grid-template-areas: "ic name acts" ". state state" ". job facts"; column-gap: 10px; row-gap: 4px; }
+  .frow { grid-template-columns: 28px 22px minmax(0, 1fr) auto; grid-template-areas: "sel ic name acts" ". . state state" ". . job facts"; column-gap: 10px; row-gap: 4px; }
+  .frow .fsel { grid-area: sel; }
   .frow-ic { grid-area: ic; }
   .frow-name { grid-area: name; }
   .frow-acts { grid-area: acts; }

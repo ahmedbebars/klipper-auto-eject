@@ -936,14 +936,14 @@
   // A pretend farm for the Farm tab: this demo printer and five others,
   // two more to find when the network is searched.
   const FARM = [
-    { id: "f1", group: "Shelf A · Vorons", name: "voron-01", host: "192.168.1.21", auto_eject: true, kind: "printing", file: "clips_x12_PLA_1h40m.gcode", time: 6000, at: 0.35, layers: 120,
+    { id: "f1", spool: { id: 3, name: "Generic PLA Orange", material: "PLA", colour: "#f07f1e", left: 640, full: 1000 }, group: "Shelf A · Vorons", name: "voron-01", host: "192.168.1.21", auto_eject: true, kind: "printing", file: "clips_x12_PLA_1h40m.gcode", time: 6000, at: 0.35, layers: 120,
       stats: { hours: 842.5, jobs: 611, recent: 50, recent_ok: 49, today_ok: 6, today_bad: 0 }, service_every: 500, service_at: 300 },
-    { id: "f2", group: "Shelf A · Vorons", name: "voron-02", host: "192.168.1.22", auto_eject: true, kind: "leftover", file: "hooks_x8_PETG.gcode", left: ["hook_3"],
+    { id: "f2", spool: { id: 5, name: "Generic PETG Black", material: "PETG", colour: "#1b1b1b", left: 42, full: 1000 }, group: "Shelf A · Vorons", name: "voron-02", host: "192.168.1.22", auto_eject: true, kind: "leftover", file: "hooks_x8_PETG.gcode", left: ["hook_3"],
       stats: { hours: 1210, jobs: 903, recent: 50, recent_ok: 46, today_ok: 4, today_bad: 1 }, service_every: 1000, service_at: 760 },
     { id: "f3", group: "Shelf B", name: "ender3-s1", host: "192.168.1.30", auto_eject: false, kind: "done", file: "bracket_PETG_2h5m.gcode",
       power: [{ device: "printer", status: "on", locked: false }],
       stats: { hours: 356.2, jobs: 188, recent: 50, recent_ok: 44, today_ok: 2, today_bad: 0 } },
-    { id: "f4", group: "Shelf B", name: "prusa-mk3s", host: "192.168.1.31", auto_eject: false, kind: "printing", file: "vase_PLA_4h.gcode", time: 14400, at: 0.82, layers: 610,
+    { id: "f4", spool: { id: 7, name: "Prusament PLA Galaxy Black", material: "PLA", colour: "#3d3d4a", left: 812, full: 1000 }, group: "Shelf B", name: "prusa-mk3s", host: "192.168.1.31", auto_eject: false, kind: "printing", file: "vase_PLA_4h.gcode", time: 14400, at: 0.82, layers: 610,
       stats: { hours: 2034, jobs: 1240, recent: 50, recent_ok: 47, today_ok: 1, today_bad: 1 } },
     { id: "f5", group: "Shelf B", name: "sovol-sv06", host: "192.168.1.33", auto_eject: false, kind: "offline" },
     { id: "f6", group: "Shelf A · Vorons", name: "voron-03", host: "192.168.1.23", auto_eject: true, kind: "bin", bin: 40, bin_cap: 40,
@@ -1038,7 +1038,7 @@
     if (!this.farmStart) this.farmStart = now;
     const base = { id: f.id, name: f.name, host: f.host, group: f.group || "", local: false, auto_eject: f.auto_eject, camera: false,
       page: "http://" + f.host + (f.auto_eject ? "/auto-eject/" : "/"), parts: 0, leftover: [], jobs: f.jobs || 0, queue: "ready",
-      stats: f.stats || null, power: f.power ? f.power.map((d) => Object.assign({}, d)) : null,
+      stats: f.stats || null, power: f.power ? f.power.map((d) => Object.assign({}, d)) : null, spool: f.spool || null,
       auto_off: f.auto_off || 0, auto_off_device: f.auto_off_device || "", bin: f.bin || 0, bin_cap: f.bin_cap || 0,
       service_every: f.service_every || 0,
       service_since: f.service_every && f.stats ? Math.round((f.stats.hours - (f.service_at || 0)) * 10) / 10 : null,
@@ -1156,6 +1156,26 @@
         Object.assign(f, { kind: "printing", file: fl[2] === "print" ? body.filename : body.name, time: 4800, at: 0, layers: 160, start: now });
       }
       return ok({ result: "ok" });
+    }
+    // the production report: from each pretend printer's statistics
+    const rep = /^\/report\?period=(today|7|30)$/.exec(path);
+    if (rep) {
+      const days = rep[1] === "today" ? 1 : Number(rep[1]);
+      const rows = [this.farmLocal()].concat(this.farmList.map((f) => this.farmCard(f))).map((p, i) => {
+        if (p.phase === "offline") return { id: p.id, name: p.name, group: p.group, error: "not answering" };
+        const s = p.stats || { today_ok: 3, today_bad: 0 };
+        const done = rep[1] === "today" ? s.today_ok : Math.round((s.today_ok + 4) * days * (0.8 + (i % 3) * 0.1));
+        const stopped = rep[1] === "today" ? s.today_bad : Math.round(days * ((i % 4) === 0 ? 0.4 : 0.15));
+        const jobs = done + stopped;
+        const hours = Math.round(jobs * (1.2 + (i % 5) * 0.3) * 10) / 10;
+        return { id: p.id, name: p.name, group: p.group, jobs, ok: done, stopped, rate: jobs ? Math.round(100 * done / jobs) : null,
+          hours, grams: Math.round(hours * 26), top: [] };
+      });
+      const good = rows.filter((r) => !r.error);
+      const sum = (k) => good.reduce((a, r) => a + r[k], 0);
+      const total = { jobs: sum("jobs"), ok: sum("ok"), stopped: sum("stopped"), hours: Math.round(sum("hours") * 10) / 10, grams: sum("grams") };
+      total.rate = total.jobs ? Math.round(100 * total.ok / total.jobs) : null;
+      return ok({ period: rep[1], since: 0, printers: rows, total });
     }
     const up = /^\/([^/]+)\/update$/.exec(path);
     if (up) return this.farmUpdate(up[1], body.names || body.name);

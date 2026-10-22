@@ -268,6 +268,39 @@ def history_stats(totals, jobs, now=None):
     }
 
 
+# grams in a millimetre of 1.75 mm filament at PLA's 1.24 g/cm3, when a
+# file does not say what it weighs
+GRAMS_PER_MM = 3.1416 * 0.875 ** 2 * 1.24 / 1000.0
+REPORT_PERIODS = {"today": None, "7": 7, "30": 30}
+
+
+def report_since(period, now=None):
+    """The start of a report's period: today's midnight, or so many days ago."""
+    now = now or time.time()
+    lt = time.localtime(now)
+    midnight = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, -1))
+    days = REPORT_PERIODS[period]
+    return midnight if days is None else midnight - (days - 1) * 86400
+
+
+def production(jobs, since):
+    """What a printer made since a time, from its print history: the prints
+    that ended, how many ended well, the hours and the filament."""
+    ended = [j for j in jobs or [] if j.get("status") not in (None, "in_progress")
+             and (j.get("end_time") or j.get("start_time") or 0) >= since]
+    ok = [j for j in ended if j.get("status") == "completed"]
+    grams = 0.0
+    for j in ended:
+        md = j.get("metadata") or {}
+        used, total, weight = j.get("filament_used") or 0.0, md.get("filament_total"), md.get("filament_weight_total")
+        grams += weight * min(1.0, used / total) if weight and total else used * GRAMS_PER_MM
+    files = collections.Counter(os.path.basename(j.get("filename") or "") for j in ok if j.get("filename"))
+    return {"jobs": len(ended), "ok": len(ok), "stopped": len(ended) - len(ok),
+            "rate": round(100.0 * len(ok) / len(ended)) if ended else None,
+            "hours": round(sum(j.get("print_duration") or 0.0 for j in ended) / 3600.0, 1),
+            "grams": int(round(grams)), "top": [[f, n] for f, n in files.most_common(3)]}
+
+
 class Printer:
     def __init__(self, host, port, name="", local=False, pid=None, macs=None, auto_off=0, auto_off_device="", group=""):
         self.host, self.port, self.name, self.local = host, int(port), name or host, local
@@ -285,6 +318,7 @@ class Printer:
         self.card = {"phase": "offline"}
         self.status = {}
         self.stats = None
+        self.spool = None             # the spool on it, from Moonraker's [spoolman]
         self.webcam = None
         self.page = None
         self.updated = 0.0
@@ -341,7 +375,7 @@ class Printer:
                 # extras: one that fails keeps its last value, and the card does not depend on it
                 for attr, read in (("webcam", self._webcam), ("page", self._page),
                                    ("macs", lambda: self.macs or machine_macs(self.host, self.port)),
-                                   ("stats", lambda: self._stats(now)), ("power", self._power)):
+                                   ("stats", lambda: self._stats(now)), ("power", self._power), ("spool", self._spool)):
                     try:
                         setattr(self, attr, read())
                     except Exception:
@@ -403,6 +437,28 @@ class Printer:
             return self.stats
         return history_stats(totals, jobs, now)
 
+    def _spool(self):
+        """The spool on the printer, as Spoolman knows it through Moonraker's
+        [spoolman]: its filament, colour and grams left. None without one."""
+        try:
+            status = http_json(self.base + "/server/spoolman/status", timeout=5) or {}
+        except urllib.error.HTTPError:
+            return None                                   # no [spoolman] in moonraker.conf
+        sid = status.get("spool_id")
+        if not status.get("spoolman_connected") or sid is None:
+            return None
+        answer = http_json(self.base + "/server/spoolman/proxy", timeout=5,
+                           data={"request_method": "GET", "path": "/v1/spool/%d" % int(sid), "use_v2_response": True}) or {}
+        spool = answer.get("response") or {}
+        fil = spool.get("filament") or {}
+        left, full = spool.get("remaining_weight"), spool.get("initial_weight") or fil.get("weight")
+        colour = str(fil.get("color_hex") or "").strip().lstrip("#")
+        name = " ".join(x for x in ((fil.get("vendor") or {}).get("name"), fil.get("name") or fil.get("material")) if x)
+        return {"id": int(sid), "name": name or "#%s" % sid, "material": fil.get("material") or "",
+                "colour": "#" + colour[:6] if re.fullmatch(r"[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?", colour) else "",
+                "left": round(left) if isinstance(left, (int, float)) else None,
+                "full": round(full) if isinstance(full, (int, float)) else None}
+
     def _power(self):
         try:
             devices = http_json(self.base + "/machine/device_power/devices")["devices"]
@@ -456,7 +512,7 @@ class Printer:
 
     def public(self):
         return dict(self.card, page_remote=None if self.local else self.remote_page(), id=self.id, name=self.name, host=self.host, local=self.local, group=self.group,
-                    page=None if self.local else self.page, camera=bool(self.webcam), stats=self.stats,
+                    page=None if self.local else self.page, camera=bool(self.webcam), stats=self.stats, spool=self.spool,
                     power=self.power, auto_off=self.auto_off, auto_off_device=self.auto_off_device,
                     service_every=self.service_every, service_since=self.service_since(),
                     updates=self.updates, firmware=self.firmware, job=self.job, updated=self.updated)
@@ -672,6 +728,28 @@ class Farm:
     def view(self):
         return {"printers": [p.public() for p in self.all()], "scan": self.scan_state,
                 "settings": {"report": self.settings.get("report") or ""}}
+
+    def report(self, period, now=None):
+        """Every printer's production over a period, from each one's history."""
+        if period not in REPORT_PERIODS:
+            raise ValueError("period: today, 7 or 30")
+        since = report_since(period, now)
+
+        def one(p):
+            row = {"id": p.id, "name": p.name, "group": p.group}
+            try:
+                jobs = http_json(p.base + "/server/history/list?limit=1000&order=desc&since=%d" % int(since), timeout=8)["jobs"]
+            except Exception:
+                return dict(row, error="not answering")
+            return dict(row, **production(jobs, since))
+        printers = self.all()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(16, len(printers)))) as pool:
+            rows = list(pool.map(one, printers))
+        good = [r for r in rows if "error" not in r]
+        total = {k: sum(r[k] for r in good) for k in ("jobs", "ok", "stopped", "grams")}
+        total["hours"] = round(sum(r["hours"] for r in good), 1)
+        total["rate"] = round(100.0 * total["ok"] / total["jobs"]) if total["jobs"] else None
+        return {"period": period, "since": since, "printers": rows, "total": total}
 
     def start_scan(self):
         with self.lock:
@@ -1214,6 +1292,12 @@ def make_handler(farm):
             try:
                 if parts == ["farm"] and method == "GET":
                     return self._send(200, farm.view())
+                if parts == ["farm", "report"] and method == "GET":
+                    period = (urllib.parse.parse_qs(url.query).get("period") or ["today"])[0]
+                    try:
+                        return self._send(200, farm.report(period))
+                    except ValueError as e:
+                        return self._send(400, {"error": str(e)})
                 if parts == ["farm", "scan"] and method == "POST":
                     return self._send(200, {"started": farm.start_scan()})
                 if parts == ["farm", "printers"] and method == "POST":
