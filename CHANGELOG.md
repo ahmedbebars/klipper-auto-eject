@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Notifications on Telegram or Discord**: `install.sh --notify` asks where they should go (the
+  ntfy app, Telegram or Discord), and the plain install asks too. For Telegram it checks the bot's
+  token with Telegram and finds your chat by itself from a message you send the bot; for Discord it
+  takes the channel's webhook link. Moonraker sends them through Apprise, so no bot program is
+  installed. The page shows only which service, never the token.
 - **An Updates tab**: what changed in Klipper and the rest since your versions, from Moonraker's
   update manager. Each update in Klipper's words, with what it is about (motion, heaters, board
   firmware…); whether the updates change the code on the boards, so they need a reflash after

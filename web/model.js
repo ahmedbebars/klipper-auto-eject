@@ -316,6 +316,13 @@
     return null;
   }
 
+  // Where the auto_eject notifier sends to: "ntfy", "telegram", "discord",
+  // "other" or "". Only the kind: the address holds a token, never shown.
+  function notifierKind(config) {
+    const scheme = String(((config || {})["notifier auto_eject"] || {}).url || "").split("://")[0].toLowerCase();
+    if (!scheme || scheme.indexOf(":") >= 0 || scheme.indexOf("/") >= 0) return "";
+    return { ntfy: "ntfy", ntfys: "ntfy", tgram: "telegram", discord: "discord" }[scheme] || "other";
+  }
   // The ntfy topic of the auto_eject notifier in Moonraker's config, or "".
   function ntfyTopic(config) {
     const url = String(((config || {})["notifier auto_eject"] || {}).url || "");
@@ -984,7 +991,7 @@
   const api = {
     DIRECTIONS, shortNames, mergeSettings, parseSettingsTemplate, parseValue, recordsFromExcludeObjects,
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
-    noticeFor, ntfyTopic, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
+    noticeFor, ntfyTopic, notifierKind, farmOrder, farmCounts, farmActions, farmToday, farmLink, farmAway, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
     hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft,
     lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, parseVersion, firmwareAge, boardCode, configNotes, updateArea, updateAreas, scrubReport, supportReport, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, settingArg, validSettingText, macroSet

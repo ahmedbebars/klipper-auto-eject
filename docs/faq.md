@@ -79,7 +79,7 @@ the internet ([remote-access.md](remote-access.md)).
 Yes. With `install.sh --push`, the auto-eject app on your phone gets a notification, even while
 it is closed, when a part is still on the bed, a print was too thin to push, or the next print
 did not start; and, if you like, when every print is done. `install.sh --notify` does the same
-through the free ntfy app ([notifications.md](notifications.md)).
+through the free ntfy app, Telegram or Discord ([notifications.md](notifications.md)).
 
 **How do I stop it?**
 The **emergency stop** button in Mainsail or Fluidd stops everything at once. Afterwards, clear

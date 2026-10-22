@@ -20,15 +20,14 @@ A message on your phone when the printer needs you, and, if you like, when every
 Tapping a notification opens the auto-eject page. With a [printer farm](farm.md), the app also
 gets them from every other printer of the farm, each with its name.
 
-There are two ways to get them:
+There are three ways to get them:
 
-| | [In the auto-eject app](#in-the-auto-eject-app-recommended) | [With ntfy](#with-ntfy) |
-|---|---|---|
-| Another app on the phone | No: the notifications come from the auto-eject app | The free ntfy app |
-| While the app is closed | Yes | Yes |
-| Needs | HTTPS ([remote-access.md](remote-access.md#https)), `sudo` once | Nothing else |
-| Who can read the messages | Only your devices: encrypted end to end | Anyone who knows the topic name |
-| Telegram, Discord, email… | No | Yes, through Apprise |
+| | [In the auto-eject app](#in-the-auto-eject-app-recommended) | [With ntfy](#with-ntfy) | [On Telegram or Discord](#on-telegram-or-discord) |
+|---|---|---|---|
+| Another app on the phone | No: the notifications come from the auto-eject app | The free ntfy app | Telegram or Discord |
+| While the app is closed | Yes | Yes | Yes |
+| Needs | HTTPS ([remote-access.md](remote-access.md#https)), `sudo` once | Nothing else | A Telegram bot of your own, or a Discord webhook (a few minutes) |
+| Who can read the messages | Only your devices: encrypted end to end | Anyone who knows the topic name | You, or the members of your Discord channel |
 
 ## In the auto-eject app (recommended)
 
@@ -71,8 +70,7 @@ The notifications go through [ntfy](https://ntfy.sh), a free, open-source notifi
    ```bash
    ~/klipper-auto-eject/install.sh --notify
    ```
-   It asks before every step:
-   - whether to send notifications with ntfy,
+   It asks where the notifications should go (choose **1) the ntfy app**), then before every step:
    - whether you also want one when every print finishes,
    - and, at the end, whether to send a test notification.
 
@@ -103,11 +101,38 @@ and change the `url:` lines in `moonraker.conf`:
 url: ntfys://user:password@ntfy.example.com/auto-eject-3f9a1c2b7d4e5f60?priority=high&tags=warning
 ```
 
-## Telegram, Discord, email and others
+## On Telegram or Discord
+
+On the printer, over SSH, run `~/klipper-auto-eject/install.sh --notify` and choose **2)
+Telegram** or **3) Discord**. Then:
+
+**Telegram**
+
+1. In Telegram, open **@BotFather**, send `/newbot`, and choose a name and a user name for your bot
+   (it must end in `bot`). BotFather answers with a **token** such as `123456789:AAH…`.
+2. Paste the token when the installer asks. It stays hidden; the installer checks it with Telegram
+   and tells you your bot's name.
+3. Open your bot in Telegram and send it any message: the installer finds your chat by itself.
+   For a group, add the bot to the group and send the message there instead.
+
+**Discord**
+
+1. In your Discord server: **Server Settings → Integrations → Webhooks → New Webhook**, pick the
+   channel, then **Copy Webhook URL**.
+2. Paste it when the installer asks (it stays hidden).
+
+Then, as with ntfy, it asks whether you want a message when every print finishes, adds the
+`[notifier]` sections to `moonraker.conf`, restarts Moonraker when the printer is idle, and sends a
+test. **Send a test** on the page sends another one any time.
+
+The bot's token and the webhook let anyone who has them post as your bot or in your channel. They
+are only in `moonraker.conf`: the page shows only *Telegram* or *Discord*, and **Report a problem**
+leaves `moonraker.conf` out.
+
+## Email and other services
 
 Moonraker sends notifications with [Apprise](https://github.com/caronc/apprise/wiki), which knows
-about 100 services. Put any Apprise URL in the `url:` of the two sections, for example
-`tgram://<bot-token>/<chat-id>` for Telegram, and restart Moonraker.
+about 100 services. Put any Apprise URL in the `url:` of the two sections and restart Moonraker.
 
 ## By hand, without the installer
 

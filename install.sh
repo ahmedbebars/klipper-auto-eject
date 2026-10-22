@@ -53,9 +53,9 @@ Run it with no options from a terminal and it asks what to set up.
                           klipper-auto-eject service on this printer, which
                           finds the others on the network. They need nothing
                           installed (docs/farm.md)
-  -N, --notify            Also send notifications to your phone with ntfy: a
-                          part still on the bed, a print that finished...
-                          Asks before every step (docs/notifications.md)
+  -N, --notify            Also send notifications to your phone with the ntfy
+                          app, Telegram or Discord: a part still on the bed, a
+                          print that finished... (docs/notifications.md)
   -S, --spoolman          Link Moonraker to your Spoolman, so the queue stops
                           before a job the spool cannot finish. Asks where
                           Spoolman runs (docs/spoolman.md)
@@ -294,35 +294,110 @@ moonraker_gcode() {
     return 1
 }
 
+# A line typed at a prompt; hidden=1 keeps it off the screen (a token).
+prompt_line() {
+    local answer label
+    label="$(printf '\033[1;36m[auto-eject]\033[0m %s ' "$1")"
+    if [[ "${2:-0}" -eq 1 ]]; then
+        read -rs -p "${label}" answer
+        echo >&2
+    else
+        read -r -p "${label}" answer
+    fi
+    printf '%s' "${answer}"
+}
+
 install_notify() {
-    local tool topic click events="error, cancelled" name ip
+    local tool to="" topic kind service="ntfy" choice default=1 click="" events="error, cancelled" name ip token bot chat
     tool="${REPO_DIR}/tools/moonraker_notifier.py"
-    log "Notifications on your phone with ntfy, see docs/notifications.md"
+    log "Notifications on your phone: the ntfy app, Telegram or Discord, see docs/notifications.md"
     if [[ ! -f "${MOONRAKER_CONF}" ]]; then
         warn "moonraker.conf not found: set up a [notifier] by hand (docs/notifications.md)"
         return
     fi
-    if ! ask "Send notifications to your phone with ntfy, a free app? (messages go through the ntfy.sh server)" y; then
-        return
-    fi
     topic="$(python3 "${tool}" topic "${MOONRAKER_CONF}")"
-    if [[ -z "${topic}" ]]; then
-        topic="auto-eject-$(python3 -c 'import secrets; print(secrets.token_hex(8))')"
+    kind="$(python3 "${tool}" kind "${MOONRAKER_CONF}")"
+    case "${kind}" in telegram) default=2 ;; discord) default=3 ;; esac
+    if [[ "${kind}" == "telegram" || "${kind}" == "discord" || "${kind}" == "other" ]] \
+        && ask "Notifications go to ${kind} already. Keep that?" y; then
+        to="$(python3 "${tool}" url "${MOONRAKER_CONF}")"
+        service="${kind}"
+    elif [[ ! -t 0 ]]; then
+        choice=1          # without a terminal nothing can be typed in: ntfy, as before
+    else
+        echo "    1) the ntfy app: free, no account"
+        echo "    2) Telegram: a bot of your own, made in two minutes"
+        echo "    3) Discord: a channel of your server"
+        echo "    0) none"
+        choice="$(prompt_line "Where should they go? [${default}]")"
+        choice="${choice:-${default}}"
+    fi
+    if [[ -z "${to}" ]]; then
+        case "${choice}" in
+            0) return ;;
+            2)
+                service="telegram"
+                log "In Telegram, open @BotFather and send /newbot; it gives you a token like 123456789:AAH..."
+                token="$(prompt_line "Paste the bot's token (it stays hidden):" 1)"
+                token="${token//[[:space:]]/}"
+                bot="$(python3 "${tool}" bot "${token}")"
+                if [[ -z "${bot}" ]]; then
+                    warn "Telegram does not know that token. Copy it again from @BotFather, then run install.sh --notify again."
+                    return
+                fi
+                log "Your bot is @${bot}. In Telegram, open @${bot} and send it any message (hi will do)."
+                for _ in 1 2 3; do
+                    prompt_line "Press Enter once you have sent it." >/dev/null
+                    chat="$(python3 "${tool}" chat "${token}")"
+                    [[ -n "${chat}" ]] && break
+                    warn "No message has reached @${bot} yet."
+                done
+                if [[ -z "${chat}" ]]; then
+                    warn "Send @${bot} a message, then run install.sh --notify again."
+                    return
+                fi
+                log "The notifications go to ${chat#*$'\t'} on Telegram"
+                to="tgram://${token}/${chat%%$'\t'*}"
+                ;;
+            3)
+                service="discord"
+                log "In Discord: Server Settings > Integrations > Webhooks > New Webhook, pick the channel, then Copy Webhook URL."
+                to="$(python3 "${tool}" discord "$(prompt_line "Paste the webhook URL (it stays hidden):" 1)")"
+                if [[ -z "${to}" ]]; then
+                    warn "That is not a Discord webhook URL (https://discord.com/api/webhooks/...)."
+                    return
+                fi
+                ;;
+            *)
+                if ! ask "The ntfy app is free; its messages go through the ntfy.sh server. Use it?" y; then
+                    return
+                fi
+                [[ -n "${topic}" ]] || topic="auto-eject-$(python3 -c 'import secrets; print(secrets.token_hex(8))')"
+                to="${topic}"
+                ;;
+        esac
     fi
     if ask "Also a notification when every print finishes? With AUTO_EJECT in the end G-code it comes once the bed is clear." y; then
         events="complete, error, cancelled"
     fi
-    # tapping a notification opens the auto-eject page
-    name="$(tailscale status --json 2>/dev/null | python3 -c 'import json, sys; print(json.load(sys.stdin)["Self"].get("DNSName", "").rstrip("."))' 2>/dev/null || true)"
-    if [[ -n "${name}" ]] && tailscale serve status 2>/dev/null | grep -q "${name}"; then
-        click="https://${name}/auto-eject/"
-    else
-        ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
-        click="http://${ip:-localhost}/auto-eject/"
+    if [[ "${service}" == "ntfy" ]]; then
+        # tapping a notification opens the auto-eject page
+        name="$(tailscale status --json 2>/dev/null | python3 -c 'import json, sys; print(json.load(sys.stdin)["Self"].get("DNSName", "").rstrip("."))' 2>/dev/null || true)"
+        if [[ -n "${name}" ]] && tailscale serve status 2>/dev/null | grep -q "${name}"; then
+            click="https://${name}/auto-eject/"
+        else
+            ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+            click="http://${ip:-localhost}/auto-eject/"
+        fi
     fi
     backup "${MOONRAKER_CONF}"
-    python3 "${tool}" add "${MOONRAKER_CONF}" "${topic}" "${click}" "${events}" >/dev/null
-    log "Added [notifier auto_eject] to moonraker.conf (ntfy topic ${topic})"
+    python3 "${tool}" add "${MOONRAKER_CONF}" "${to}" "${click}" "${events}" >/dev/null
+    if [[ "${service}" == "ntfy" ]]; then
+        log "Added [notifier auto_eject] to moonraker.conf (ntfy topic ${topic})"
+        NOTIFY_TOPIC="${topic}"
+    else
+        log "Added [notifier auto_eject] to moonraker.conf (${service})"
+    fi
     restart_moonraker
     local set=0
     if moonraker_gcode "AUTO_EJECT_SET KEY=notify VALUE=auto_eject"; then
@@ -331,14 +406,15 @@ install_notify() {
     else
         warn "Run this in the console once Klipper is up to date (FIRMWARE_RESTART first): AUTO_EJECT_SET KEY=notify VALUE=auto_eject"
     fi
-    NOTIFY_TOPIC="${topic}"
     if ask "Send a test notification now?" y; then
-        # the whole way: Klipper, Moonraker's notifier, ntfy; ntfy alone if Klipper is not ready
+        # the whole way: Klipper, Moonraker's notifier, the service; ntfy alone if Klipper is not ready
         if [[ "${set}" -eq 1 ]] && moonraker_gcode "AUTO_EJECT_NOTIFY_TEST"; then
             log "Test notification sent through Klipper and Moonraker"
-        elif curl -s -m 10 -H "Title: Auto-eject" -H "Tags: white_check_mark" -d "Notifications from your printer work." \
-            "https://ntfy.sh/${topic}" >/dev/null; then
+        elif [[ "${service}" == "ntfy" ]] && curl -s -m 10 -H "Title: Auto-eject" -H "Tags: white_check_mark" \
+            -d "Notifications from your printer work." "https://ntfy.sh/${topic}" >/dev/null; then
             log "Test notification sent straight to ntfy"
+        else
+            warn "Send a test later: AUTO_EJECT_NOTIFY_TEST in the console, once Klipper is up to date."
         fi
     fi
 }
@@ -690,6 +766,9 @@ if [[ -t 0 && $((WEB + REMOTE + NOTIFY + PUSH + FARM + SPOOLMAN)) -eq 0 ]]; then
     if [[ "${WEB}" -eq 1 ]]; then
         ask "More than one Klipper printer? See them all on one page (printer farm)?" n && { FARM=1; PUSH=1; }
     fi
+    if [[ "${PUSH}" -eq 0 ]]; then
+        ask "Messages on Telegram, Discord or the ntfy app when the printer needs you?" n && NOTIFY=1
+    fi
     ask "Do you use Spoolman, which knows what is left on each spool? (the queue stops before a spool runs out)" n && SPOOLMAN=1
     picked="macros"
     [[ "${ADD_INCLUDE}" -eq 1 ]] || picked="no macros"
@@ -697,6 +776,7 @@ if [[ -t 0 && $((WEB + REMOTE + NOTIFY + PUSH + FARM + SPOOLMAN)) -eq 0 ]]; then
     [[ "${REMOTE}" -eq 1 ]] && picked+=", phone access"
     [[ "${PUSH}" -eq 1 && "${FARM}" -eq 0 ]] && picked+=", notifications"
     [[ "${FARM}" -eq 1 ]] && picked+=", printer farm and notifications"
+    [[ "${NOTIFY}" -eq 1 ]] && picked+=", messages"
     [[ "${SPOOLMAN}" -eq 1 ]] && picked+=", Spoolman"
     printf '\n'
     log "Setting up: ${picked}"
@@ -841,6 +921,13 @@ if [[ -n "${SPOOLMAN_URL}" ]]; then
 else
     echo "  Optional: with Spoolman, the queue stops before a spool runs out:"
     echo "    ${REPO_DIR}/install.sh --spoolman (docs/spoolman.md)"
+fi
+NOTIFY_KIND=""
+if [[ -f "${MOONRAKER_CONF}" ]] && command -v python3 >/dev/null; then
+    NOTIFY_KIND="$(python3 "${REPO_DIR}/tools/moonraker_notifier.py" kind "${MOONRAKER_CONF}" 2>/dev/null || true)"
+fi
+if [[ "${NOTIFY_KIND}" == "telegram" || "${NOTIFY_KIND}" == "discord" ]]; then
+    echo "  Notifications: on ${NOTIFY_KIND^} (docs/notifications.md)"
 fi
 if [[ -n "${NOTIFY_TOPIC}" ]]; then
     echo "  Notifications: install the ntfy app (Google Play, F-Droid or the App Store),"

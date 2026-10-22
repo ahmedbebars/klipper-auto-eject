@@ -164,6 +164,7 @@
     webcams: [],
     trustedClients: undefined,   // Moonraker's trusted_clients, null without [authorization]
     ntfy: "",                    // the ntfy topic of [notifier auto_eject], if any
+    notifier: "",                // where [notifier auto_eject] sends: ntfy, telegram, discord, other
     push: { key: null, id: null, jobs: true, hardware: true },   // the printer's notification service and this device
     log: [],
     template: null,              // parsed auto_eject_settings.cfg, or false
@@ -289,6 +290,7 @@
         const auth = (r.config || {}).authorization;
         app.trustedClients = auth ? [].concat(auth.trusted_clients || []) : null;
         app.ntfy = M.ntfyTopic(r.config);
+        app.notifier = M.notifierKind(r.config);
         app.spoolmanUrl = String(((r.config || {}).spoolman || {}).server || "");
         refresh();
       }).catch(() => {});
@@ -1611,7 +1613,7 @@
     const tc = app.trustedClients;
     const trusts = tc === null ? true : tc === undefined ? null : tc.some((c) => /^100\./.test(String(c).trim()));
     return { ts, https: location.protocol === "https:", trusts, cams: app.webcams.length, app: appMode(), notify: notifyState(),
-      ntfy: app.ntfy, push: !!app.push.key, jobs: app.push.jobs, hardware: app.push.hardware };
+      ntfy: app.ntfy, notifier: app.notifier, push: !!app.push.key, jobs: app.push.jobs, hardware: app.push.hardware };
   }
 
   function remoteCard() {
@@ -1640,7 +1642,7 @@
       h("h3", { class: "sub-head", text: t("remote.notify_title") }),
       h("dl", { class: "kv" },
         h("dt", { text: t("remote.notify_here") }), h("dd", { text: t("remote.notify_" + r.notify) }),
-        r.ntfy ? h("dt", { text: t("remote.ntfy") }) : null, r.ntfy ? h("dd", { text: t("remote.ntfy_on") }) : null),
+        r.notifier ? h("dt", { text: t("remote.ntfy", { s: t("remote.via." + r.notifier) }) }) : null, r.notifier ? h("dd", { text: t("remote.ntfy_on") }) : null),
       r.notify === "push" ? h("label", { class: "switch-row", style: { marginTop: "10px" } },
         h("input", { type: "checkbox", checked: r.jobs, onchange: (e) => pushJobs(e.target.checked) }), h("span", { text: t("remote.push_jobs") })) : null,
       r.notify === "push" ? h("label", { class: "switch-row", style: { marginTop: "6px" } },
@@ -1648,7 +1650,7 @@
       h("div", { class: "toolbar", style: { marginTop: "10px" } },
         r.notify === "push" || r.notify === "on" || r.notify === "off" ? h("button", { type: "button", class: "btn" + (r.notify === "off" ? " primary" : ""), onclick: notifyToggle },
           icon(r.notify === "off" ? "ok" : "bad"), t(r.notify === "off" ? "remote.notify_start" : "remote.notify_stop")) : null,
-        r.notify === "push" || r.ntfy ? h("button", { type: "button", class: "btn", onclick: () => gcode("AUTO_EJECT_NOTIFY_TEST") }, icon("play"), t("remote.ntfy_test")) : null,
+        r.notify === "push" || r.notifier ? h("button", { type: "button", class: "btn", onclick: () => gcode("AUTO_EJECT_NOTIFY_TEST") }, icon("play"), t("remote.ntfy_test")) : null,
         r.ntfy ? h("a", { class: "btn", href: "https://ntfy.sh/" + encodeURIComponent(r.ntfy), target: "_blank", rel: "noopener" }, icon("external"), t("remote.ntfy_open")) : null),
       r.push || r.notify === "unsupported" ? null : h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", { text: t("remote.push_setup") })),
       r.push || r.notify === "unsupported" ? null : h("div", { class: "codeblock", style: { marginTop: "8px" }, text: "~/klipper-auto-eject/install.sh --push" }),

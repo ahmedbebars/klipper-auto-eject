@@ -719,3 +719,15 @@ def test_the_support_report_has_no_addresses():
     assert "192.168" not in report and "ts.net" not in report and "x.x.x.x" in report and "<host>" in report
     assert report.count("```") == 2                      # a line cannot close the console block
     assert "None: every setting is at its default." in js("supportReport", {})
+
+
+@needs_node
+def test_where_the_notifications_go_without_the_token():
+    def cfg(url):
+        return {"notifier auto_eject": {"url": url}}
+    assert js("notifierKind", cfg("ntfys://auto-eject-ff?priority=high")) == "ntfy"
+    assert js("notifierKind", cfg("tgram://123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw/42")) == "telegram"
+    assert js("notifierKind", cfg("discord://1234/abcd")) == "discord"
+    assert js("notifierKind", cfg("mailto://me@example.com")) == "other"
+    assert js("notifierKind", {"notifier telegram": {"url": "tgram://x/y"}}) == ""   # someone else's notifier
+    assert js("notifierKind", None) == ""
