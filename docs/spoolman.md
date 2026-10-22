@@ -7,8 +7,8 @@ A queue that runs through the night is of little use if the spool runs out halfw
 auto-eject checks the queue against the spool on the printer and stops the queue **before** a job
 the spool cannot finish.
 
-There is nothing to turn on: when Moonraker has a `[spoolman]` section, the page and the service
-find it. Without Spoolman, nothing changes.
+There is nothing to turn on in auto-eject: when Moonraker is linked to Spoolman, the page and the
+service find it. Without Spoolman, nothing changes.
 
 | Where | What you get |
 |---|---|
@@ -18,6 +18,59 @@ find it. Without Spoolman, nothing changes.
 | **The service** | With the page closed, it stops the queue before a job the spool cannot finish and sends a [notification](notifications.md). It needs the `klipper-auto-eject` service (`install.sh --push`). |
 
 <p align="center"><img src="images/queue.png" alt="The print queue with the Spool card: the spool on the printer, the grams left, and the job the spool cannot finish marked" width="900"></p>
+
+## How the pieces fit
+
+Spoolman is a small program of its own, with a web page, that keeps the list of your spools. It
+is not part of Klipper or of auto-eject. Each printer's Moonraker tells it how much filament the
+printer used, so Spoolman always knows what is left on each spool. Before each job, auto-eject asks
+it, through Moonraker, what is left on the spool on that printer.
+
+```mermaid
+flowchart LR
+    S["Spoolman<br/>one, for all your printers<br/>on a computer that is always on"]
+    A["Printer 1<br/>Moonraker + auto-eject"] -- "filament used" --> S
+    B["Printer 2<br/>Moonraker + auto-eject"] -- "filament used" --> S
+    S -- "grams left on its spool" --> A
+    S -- "grams left on its spool" --> B
+```
+
+## Where to run Spoolman
+
+**One Spoolman for all your printers**, on a computer that is on whenever a printer prints.
+
+| Where | |
+|---|---|
+| A computer that is always on: Home Assistant, a NAS, a Raspberry Pi, a mini PC | Best, above all with several printers: switching a printer off changes nothing for the others |
+| One of the printers | Fine, with no extra hardware: Spoolman is small. Pick the printer that is never switched off |
+| A copy on every printer | No: each keeps its own list, and a spool moved to another printer is not followed |
+| A server on the internet | No: Spoolman has no password, so anyone who reaches it can change your spools. To reach it from outside, use Tailscale ([remote-access.md](remote-access.md)) |
+
+While Spoolman is off, a printer keeps what it used and sends it once Spoolman is back (it is lost
+if Moonraker restarts in the meantime), and the queue is not checked: the **Spool** card says
+Moonraker cannot reach Spoolman.
+
+## Setting it up
+
+1. **Install Spoolman**, once, on the computer you chose: with Docker (Spoolman's own advice), with
+   its install script on any Linux computer such as a Raspberry Pi, or as a Home Assistant add-on.
+   See [Spoolman's installation guide](https://github.com/Donkie/Spoolman/wiki/Installation). Its
+   page opens at `http://<that computer>:7912`.
+2. **Add your spools** in Spoolman's page. Give each filament its weight, and each spool what is
+   on it: without a weight, Spoolman cannot say what is left.
+3. **Link each printer to it**: in each printer's `moonraker.conf`, the same address:
+
+   ```ini
+   [spoolman]
+   server: http://192.168.0.123:7912
+   ```
+
+   Then restart Moonraker (from the power menu of Mainsail or Fluidd, not while printing).
+4. **Say which spool is on each printer**: in the **Spool** card of the print queue, or in Mainsail
+   or Fluidd. Say it again each time you change the spool.
+
+For the queue to stop by itself while the page is closed, the `klipper-auto-eject` service must
+run on the printer: `install.sh --push`, or `--farm` ([notifications.md](notifications.md)).
 
 ## How it counts
 
@@ -32,25 +85,6 @@ find it. Without Spoolman, nothing changes.
 - **Not checked:** a file without a weight, and a file that prints more than one filament
   (multi-material or colour changes), since one spool says nothing about it. The jobs after it are
   not checked either, and the card says so.
-
-## Setting it up
-
-1. Install Spoolman ([its installation guide](https://github.com/Donkie/Spoolman/wiki/Installation))
-   and add your spools. Give each filament its weight: without one, Spoolman cannot say what is
-   left.
-2. Link Moonraker to it, in `moonraker.conf`, with the address of the computer Spoolman runs on:
-
-   ```ini
-   [spoolman]
-   server: http://192.168.0.123:7912
-   ```
-
-3. Restart Moonraker.
-4. Choose the spool on the printer: in the **Spool** card of the print queue, or in Mainsail or
-   Fluidd. Choose again each time you change the spool.
-
-For the queue to stop by itself while the page is closed, the `klipper-auto-eject` service must
-run: `install.sh --push`, or `--farm` ([notifications.md](notifications.md)).
 
 ## Settings
 

@@ -454,6 +454,8 @@ window.AE_LANG("en", "English", "ltr", {
   "spool.start_title": "Start with this spool?",
   "spool.start_body": "The next job needs about {g} g, and about {left} g will be left for it: not enough with {reserve} g kept in reserve. It may run out during the print.",
   "spool.see_queue": "See the queue",
+  "spool.hint": "With Spoolman, the queue stops before a job the spool on the printer cannot finish.",
+  "spool.hint_link": "How to link it",
 
   "check.title": "Check a file before printing",
   "check.intro": "Pick a G-code file. The page reads it and tells you whether the printer can clear it by itself.",

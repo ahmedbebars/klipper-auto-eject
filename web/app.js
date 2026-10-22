@@ -1160,7 +1160,10 @@
               } }, icon("plus"), t("queue.add_button")))),
           h("section", { class: "card" },
             h("p", { class: "note" }, icon(app.autoTransition ? "ok" : "info"), h("span", { text: app.autoTransition ? t("queue.auto_on") : t("queue.auto_off") })),
-            h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", null, t("guide.slicer"), " ", h("code", { class: "ltr", text: "AUTO_EJECT HEIGHT=[max_layer_z] HOME=1" })))))));
+            h("p", { class: "note", style: { marginTop: "10px" } }, icon("info"), h("span", null, t("guide.slicer"), " ", h("code", { class: "ltr", text: "AUTO_EJECT HEIGHT=[max_layer_z] HOME=1" }))),
+            // without Spoolman: say what it would add, once, quietly
+            app.spool ? null : h("p", { class: "note", style: { marginTop: "10px" } }, icon("spool"), h("span", null, t("spool.hint"), " ",
+              h("a", { href: DOCS + "/blob/main/docs/" + (lang === "ar" ? "ar/" : "") + "spoolman.md", target: "_blank", rel: "noopener", text: t("spool.hint_link") })))))));
     return { el };
   }
   viewQueue.sig = function () {
