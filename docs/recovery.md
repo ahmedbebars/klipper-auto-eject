@@ -93,6 +93,10 @@ If a print ends (finished, cancelled or stopped) and its parts were not ejected,
 Mainsail, Fluidd and the web page: take the parts off, then click **Bed is clear**. You don't have
 to: with `guard_action: "check"`, the next print checks the bed itself.
 
+A print that stopped before its first layer (the start G-code failed, say) printed nothing: its
+outlines are forgotten, and no dialog opens. Without layer numbers from the slicer, more than 5 mm
+of filament counts as printed.
+
 ## Commands
 
 | Command | Use |

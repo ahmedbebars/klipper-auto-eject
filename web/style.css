@@ -632,6 +632,7 @@ button.row:hover { background: var(--surface-2); }
 button.row.active { background: var(--accent-soft); }
 .files { max-height: 62vh; overflow-y: auto; }
 .files.pick { max-height: 46vh; }
+.list .more-rows { border: 0; border-top: 1px solid var(--border); border-radius: 0; justify-content: center; }
 .pick-chosen { align-self: center; font-size: var(--text-md); overflow-wrap: anywhere; }
 .pick-chosen .name { font-weight: var(--weight-semibold); }
 .set-row .d.sending { display: flex; align-items: center; gap: 6px; color: var(--warn); font-weight: var(--weight-medium); }

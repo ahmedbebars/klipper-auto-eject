@@ -135,7 +135,8 @@ def printed(p, state):
     p.status["print_stats"] = {"state": "printing", "filename": "stencil.gcode",
                                "total_duration": 10.0, "info": {"current_layer": 1, "total_layer": 2}}
     p.execute("_AUTO_EJECT_TRACK_STEP")
-    p.status["print_stats"] = {"state": state, "filename": "stencil.gcode", "total_duration": 20.0}
+    # print_stats keeps the file, the layer and the filament after the end
+    p.status["print_stats"].update(state=state, total_duration=20.0)
     return p.execute("_AUTO_EJECT_TRACK_STEP")
 
 
@@ -176,6 +177,47 @@ def test_the_next_print_can_show_it_again():
     assert p.status["gcode_macro _AUTO_EJECT_STATE"]["notified"] is False
 
 
+def stopped_early(p, state, info, filament=0.0):
+    """A print whose outlines were stored at its start, ended in state."""
+    p.status["print_stats"] = {"state": "printing", "filename": "stencil.gcode", "total_duration": 10.0,
+                               "filament_used": filament, "info": info}
+    p.execute("_AUTO_EJECT_TRACK_STEP")
+    assert len(stored(p)) == 1
+    p.status["print_stats"].update(state=state, total_duration=40.0)
+    return p.execute("_AUTO_EJECT_TRACK_STEP")
+
+
+@pytest.mark.parametrize("state", ["error", "cancelled", "complete"])
+@pytest.mark.parametrize("info", [{"total_layer": 120, "current_layer": None}, {"total_layer": None, "current_layer": None}])
+def test_a_print_that_stopped_before_its_first_layer_leaves_nothing_on_the_bed(state, info):
+    # Z_TILT_ADJUST failed in the start G-code, say: nothing was printed
+    p = fresh()
+    lines = stopped_early(p, state, info)
+    assert not any("prompt_begin" in l for l in lines)
+    assert stored(p) == [] and p.status["save_variables"]["variables"]["auto_eject_objects"] == []
+    assert any("stopped before its first layer" in m for m in p.messages)
+
+
+@pytest.mark.parametrize("info, filament", [({"total_layer": 120, "current_layer": 3}, 400.0),
+                                            ({"total_layer": None, "current_layer": None}, 40.0)])
+def test_a_print_that_laid_plastic_keeps_its_parts(info, filament):
+    p = fresh()
+    lines = stopped_early(p, "error", info, filament)
+    assert any("prompt_begin Auto-eject - parts on the bed" in l for l in lines)
+    assert len(stored(p)) == 1
+
+
+def test_parts_are_kept_once_the_print_is_gone_from_print_stats():
+    # the page reset the finished file before the tracker looked: what was printed is unknown
+    p = fresh()
+    stopped_early(p, "printing", {"total_layer": 120, "current_layer": None})
+    p.status["print_stats"] = {"state": "standby", "filename": "", "total_duration": 0.0, "filament_used": 0.0,
+                               "info": {"total_layer": None, "current_layer": None}}
+    lines = p.execute("_AUTO_EJECT_TRACK_STEP")
+    assert any("prompt_begin Auto-eject - parts on the bed" in l for l in lines)
+    assert len(stored(p)) == 1
+
+
 # ------------------------------------------------- an eject stopped by an error
 def test_an_eject_stopped_by_an_error_says_so_and_keeps_the_parts():
     p = fresh()
@@ -188,7 +230,7 @@ def test_an_eject_stopped_by_an_error_says_so_and_keeps_the_parts():
     assert not any("an error stopped" in m for m in p.messages)
     assert p.status["gcode_macro _AUTO_EJECT_STATE"]["busy"] is True
     # a probe timed out: the print ended in error with the flag still set
-    p.status["print_stats"] = {"state": "error", "filename": "stencil.gcode", "total_duration": 20.0}
+    p.status["print_stats"].update(state="error", total_duration=20.0)
     lines = p.execute("_AUTO_EJECT_TRACK_STEP")
     assert any("an error stopped the eject" in m for m in p.messages)
     assert any("prompt_begin Auto-eject - parts on the bed" in l for l in lines)

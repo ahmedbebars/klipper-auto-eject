@@ -477,6 +477,18 @@
     }).catch(() => { app.files = []; }).then(() => { app.filesLoading = false; refresh(); });
   }
 
+  // A long list of files draws FILE_ROWS at a time: the last row draws the next ones.
+  const FILE_ROWS = 300;
+  function fileList(ui, view, files, cls, rowFor) {
+    const shown = Math.max(FILE_ROWS, ui.shown || 0);
+    const rows = files.slice(0, shown).map(rowFor);
+    if (files.length > shown) {
+      rows.push(h("button", { type: "button", class: "btn block more-rows", onclick: () => { ui.shown = shown + FILE_ROWS; refresh(view); } },
+        icon("down"), t("files.more", { n: num(Math.min(FILE_ROWS, files.length - shown), 0), all: num(files.length, 0) })));
+    }
+    return h("div", { class: cls }, rows);
+  }
+
   const metaWait = {};
   function meta(file) {
     if (app.meta[file]) return Promise.resolve(app.meta[file]);
@@ -920,7 +932,7 @@
         h("button", { type: "button", class: "btn primary lg block", disabled: !!st0.push_now, onclick: doPushNow }, icon("push"), t("act.push_now")),
         h("div", { class: "desc", text: st0.push_now ? t("act.push_soon") : t("act.bg_desc") })),
       h("div", { class: "act-list" },
-        actRow("hand", t("act.clear"), t("act.bg_clear_desc"), "", doClear))) : h("section", { class: "card" },
+        actRow("hand", t("act.bg_take"), t("act.bg_clear_desc"), "", () => doTake(st0.bg_held)))) : h("section", { class: "card" },
       h("h2", null, icon("push"), t("act.title")),
       h("div", { class: "act-main" },
         h("button", { type: "button", class: "btn primary lg block", disabled: !!ejectWhy, onclick: doEject }, icon("push"), mainLabel),
@@ -1041,6 +1053,11 @@
   }
   function doClear() {
     confirm(t("act.clear"), t("act.clear_confirm"), t("act.clear"), "danger")
+      .then((ok) => { if (ok) gcode("AUTO_EJECT_CLEAR"); });
+  }
+  // the parts go by hand while the bed cools: the queue waits for "continue"
+  function doTake(held) {
+    confirm(t("act.bg_take"), t("act.bg_take_confirm") + (held ? " " + t("act.bg_take_queue") : ""), t("act.bg_take"))
       .then((ok) => { if (ok) gcode("AUTO_EJECT_CLEAR"); });
   }
 
@@ -1186,12 +1203,12 @@
     const files = (app.files || []).filter((f) => !qf || f.path.toLowerCase().includes(qf));
     const watch = lazyRows(meta, (el, m) => fillFileRow(el, m, thumbSrc(el.dataset.file, m, 96)));
     const pickList = app.files === null ? h("div", { class: "empty" }, h("span", { class: "spinner" }))
-      : files.length ? h("div", { class: "list files pick" }, files.slice(0, 300).map((f) => {
+      : files.length ? fileList(queueUi, "queue", files, "list files pick", (f) => {
           const m = app.meta[f.path];
           const row = fileRow(f, m, m ? thumbSrc(f.path, m, 96) : null, () => { queueUi.file = f.path; refresh("queue"); }, f.path === queueUi.file ? "active" : "");
           if (!m) watch(row);
           return row;
-        }))
+        })
       : h("div", { class: "empty" }, icon("file"), h("p", { text: t("check.no_files") }));
     const search = h("div", { class: "search" }, icon("search"),
       h("input", { class: "input", type: "search", placeholder: t("check.search"), "aria-label": t("check.search"), value: queueUi.filter, "data-keep": "q-search",
@@ -1246,7 +1263,7 @@
   }
   viewQueue.sig = function () {
     const ps = app.status.print_stats || {};
-    return JSON.stringify([app.hasQueue, app.queue, ps.state, ps.filename, Math.round(((app.status.display_status || {}).progress || 0) * 100), app.autoTransition, (app.files || []).length, Object.keys(app.meta).length, sv().min_part_height, sv().thin_parts_action, queueUi.file, queueUi.filter,
+    return JSON.stringify([app.hasQueue, app.queue, ps.state, ps.filename, Math.round(((app.status.display_status || {}).progress || 0) * 100), app.autoTransition, (app.files || []).length, Object.keys(app.meta).length, sv().min_part_height, sv().thin_parts_action, queueUi.file, queueUi.filter, queueUi.shown,
       spoolSig()]);
   };
 
@@ -1351,12 +1368,12 @@
         oninput: (e) => { check.filter = e.target.value; refresh("check"); } }));
     const watch = lazyRows(meta, (el, m) => fillFileRow(el, m, thumbSrc(el.dataset.file, m, 96)));
     const list = app.files === null ? h("div", { class: "empty" }, h("span", { class: "spinner" }))
-      : files.length ? h("div", { class: "list files" }, files.slice(0, 300).map((f) => {
+      : files.length ? fileList(check, "check", files, "list files", (f) => {
           const m = app.meta[f.path];
           const row = fileRow(f, m, m ? thumbSrc(f.path, m, 96) : null, () => runCheck(f.path), f.path === check.file ? "active" : "");
           if (!m) watch(row);
           return row;
-        }))
+        })
       : h("div", { class: "empty" }, icon("file"), h("p", { text: t("check.no_files") }));
     const fm = check.file ? app.meta[check.file] : null;
     const top = fm && (check.loading || check.result || check.error) ? fileHead(check.file, fm) : null;
@@ -1393,7 +1410,7 @@
     };
   }
   viewCheck.sig = function () {
-    return JSON.stringify([(app.files || []).length, app.files === null, check.file, check.loading, check.error, !!check.result, check.filter, app.hasQueue,
+    return JSON.stringify([(app.files || []).length, app.files === null, check.file, check.loading, check.error, !!check.result, check.filter, check.shown, app.hasQueue,
       !!(check.file && app.meta[check.file])]);
   };
 
@@ -2132,6 +2149,7 @@
       .then(() => { toast(t("farm.sent", { name: p.name }), "ok"); setTimeout(loadFarm, 700); })
       .catch((e) => toast(cleanError(e.message), "bad"));
     if (action === "push") return confirm(t("act.push_now"), t("act.push_confirm"), t("act.push_now")).then((ok) => { if (ok) go(); });
+    if (action === "clear" && p.phase === "ejecting") return confirm(t("act.bg_take"), t("act.bg_take_confirm"), t("act.bg_take")).then((ok) => { if (ok) go(); });
     if (action === "continue") return confirm(t("farm.continue"), t("farm.continue_confirm", { name: p.name }), t("farm.continue")).then((ok) => { if (ok) go(); });
     if (action === "estop") return confirm(t("act.estop"), t("farm.estop_confirm", { name: p.name }), t("act.estop"), "danger").then((ok) => { if (ok) go(); });
     if (action === "cancel") return confirm(t("farm.cancel"), t("farm.cancel_confirm", { name: p.name, file: p.filename || "" }), t("farm.cancel"), "danger", t("farm.keep_printing"))
@@ -2252,6 +2270,8 @@
     push: ["push", "act.push_now", "primary"],
     bin_empty: ["tray", "bin.empty", "primary"], print: ["file", "farm.print", "primary"], pause: ["pause", "farm.pause", ""],
     resume: ["play", "farm.resume", "primary"], cancel: ["bad", "farm.cancel", "stop"] };
+  // while the bed cools, "clear" stops the cooling: the parts go by hand
+  function farmActLabel(p, a) { return a === "clear" && p.phase === "ejecting" ? "act.bg_take" : FARM_ACT[a][1]; }
 
   // the spool on a farm printer: its colour, its filament and the grams left
   function farmSpoolChip(p, short) {
@@ -2430,7 +2450,7 @@
         farmSpoolChip(p, true)),
       h("div", { class: "frow-acts" },
         M.farmActions(p).slice(0, 2).map((a) => h("button", { type: "button", class: "btn sm " + FARM_ACT[a][2], onclick: () => farmAct(p, a) },
-          icon(FARM_ACT[a][0]), t(FARM_ACT[a][1]))),
+          icon(FARM_ACT[a][0]), t(farmActLabel(p, a)))),
         p.camera && p.phase !== "offline" ? h("button", { type: "button", class: "icon-btn", title: t("farm.cam_open"), "aria-label": t("farm.cam_open"),
           onclick: () => camViewer(p) }, icon("camera")) : null,
         p.local ? h("a", { class: "icon-btn", href: "#/overview", title: t("farm.open"), "aria-label": t("farm.open") }, icon("home"))
@@ -2471,7 +2491,7 @@
         p.bin_cap ? h("span", { class: "chip" + (p.bin >= p.bin_cap ? " bad" : p.bin >= Math.ceil(p.bin_cap * 0.8) ? " warn" : "") }, icon("tray"),
           h("span", { text: t("bin.chip") + ":" }), h("b", { text: num(p.bin || 0, 0) + " / " + num(p.bin_cap, 0) })) : null) : null,
       p.phase !== "offline" ? farmStatsLine(p) : null,
-      h("div", { class: "fc-acts" }, M.farmActions(p).map((a) => h("button", { type: "button", class: "btn sm " + ACT[a][2], onclick: () => farmAct(p, a) }, icon(ACT[a][0]), t(ACT[a][1]))),
+      h("div", { class: "fc-acts" }, M.farmActions(p).map((a) => h("button", { type: "button", class: "btn sm " + ACT[a][2], onclick: () => farmAct(p, a) }, icon(ACT[a][0]), t(farmActLabel(p, a)))),
         // never offered while it prints: the farm would refuse it anyway
         (["printing", "paused", "ejecting"].includes(p.phase) ? [] : p.power || []).map((d) => h("button", { type: "button", class: "btn sm" + (d.status === "on" ? " power-on" : p.phase === "off" ? " primary" : ""),
           title: d.device, onclick: () => farmPower(p, d) }, icon("power"), t(d.status === "on" ? "farm.turn_off" : "farm.turn_on", { dev: d.device }))),

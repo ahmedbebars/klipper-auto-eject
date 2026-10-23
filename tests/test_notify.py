@@ -73,7 +73,7 @@ def test_a_print_that_ended_without_an_eject():
     p.status["print_stats"] = {"state": "printing", "filename": "stencil.gcode",
                                "total_duration": 10.0, "info": {"current_layer": 1, "total_layer": 2}}
     p.execute("_AUTO_EJECT_TRACK_STEP")
-    p.status["print_stats"] = {"state": "complete", "filename": "stencil.gcode", "total_duration": 20.0}
+    p.status["print_stats"].update(state="complete", total_duration=20.0)
     p.execute("_AUTO_EJECT_TRACK_STEP")
     assert notes(p) == [{"name": "auto_eject",
                          "message": "Auto-eject: the print ended without an eject, 1 part(s) still on the bed. Take them off."}]

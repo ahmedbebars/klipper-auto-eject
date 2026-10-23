@@ -97,7 +97,7 @@ Choose `push_current` so that a part that won't move makes the motor skip. Start
 | `cool_tour` | `True` | While waiting, circle over the parts so the fan blows on each one in turn |
 | `cool_tour_gap` | `8.0` | Gap in mm between the nozzle and the tallest part while circling. With an unknown print height the toolhead stays at `min_safe_z` |
 | `cool_tour_dwell` | `5.0` | Seconds over each part per pass |
-| `cool_background` | `False` | Cool with the printer free: **Push now** and **I took the parts off** work while it cools ([below](#cooling-with-the-printer-free)) |
+| `cool_background` | `False` | Cool with the printer free: **Push now** and **Stop, I'll take them off** work while it cools ([below](#cooling-with-the-printer-free)) |
 
 The bed is a heavy plate and its sensor cools at its own pace, but the air on the parts cools them
 and the sheet right under them, which is what makes them let go. Each pass checks the bed
@@ -113,7 +113,7 @@ took them off". With `cool_background: True`:
 2. The bed cools in steps of a few seconds, the fan over one part at a time; between the steps
    the printer is free.
 3. **Push now** (`AUTO_EJECT_PUSH_NOW`) pushes once the current step ends, without waiting for
-   the bed. **I took the parts off** (`AUTO_EJECT_CLEAR`) stops the cooling and pushes nothing:
+   the bed. **Stop, I'll take them off** (`AUTO_EJECT_CLEAR`) stops the cooling and pushes nothing:
    the toolhead stops after the step that runs now (a few seconds), so press it first, then take
    the parts off. The job queue keeps waiting until **Bed is clear, continue the queue**
    (`AUTO_EJECT_CONTINUE`), so the next print never starts while your hands are in the printer.

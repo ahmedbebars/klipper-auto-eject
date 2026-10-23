@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+- **A print that stopped before its first layer no longer leaves parts on the bed.** Its outlines
+  were stored when it started, so a start G-code that failed (`Z_TILT_ADJUST` out of tolerance,
+  say) opened the "parts on the bed" dialog and the next print probed the bed for them. Without
+  layer numbers from the slicer, more than 5 mm of filament counts as printed, as before.
+- **The file lists show every file.** Checking a file and adding one to the job queue drew the
+  newest 300 and stopped there without a word; a button at the end now draws the next 300, with
+  the count of all of them.
+
+### Changed
+- While the bed cools with the printer free (`cool_background`), the button that stops the cooling
+  says what it does: **Stop, I'll take them off**, on the Overview and the farm card, and it asks
+  first (the bed may still be hot).
+
 ## [0.17.0] - 2026-10-23
 
 ### Fixed
