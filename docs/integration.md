@@ -79,7 +79,9 @@ AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
 
 `DEMON_END` turns the motors off (`M84`) and clears the bed mesh, so `HOME=1` is needed. Z must
 home with the probe ([`home_method`](configuration.md#recovery) `"auto"` or `"probe"`, never
-`"g28"`): DEMON's own Z homing probes the middle of the bed, where a part may be.
+`"g28"`): DEMON's own Z homing probes the middle of the bed, where a part may be. Finding Z brings
+the gantry down to the bed over its whole width, so prints taller than
+[`max_part_height`](configuration.md#tall-parts) are left on the bed instead, without homing.
 
 **Start G-code.** Keep DEMON's start lines exactly as DEMON gives them (its `DEMON_START` line
 carries a version that DEMON checks), and do **not** put `AUTO_EJECT_GUARD` above them. DEMON

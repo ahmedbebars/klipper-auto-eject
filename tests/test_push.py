@@ -55,6 +55,13 @@ def test_vapid_token_is_signed_with_the_published_key(tmp_path):
 
 
 # ------------------------------------------------------------- what to send
+def test_parts_too_tall_to_push_are_a_problem_too():
+    w = ap.Watcher()
+    w.console([])
+    tall = "AUTO_EJECT: the parts are 219.6 mm tall, too tall to push (max_part_height 25.0): the gantry would hit them."
+    assert w.console([{"time": 13, "message": "// " + tall}], now=600) == [("thin", tall)]
+
+
 def test_console_lines_start_counting_from_now():
     w = ap.Watcher()
     assert w.console([{"time": 10, "message": "!! AUTO_EJECT: 'cube' is STILL ON THE BED"}]) == []

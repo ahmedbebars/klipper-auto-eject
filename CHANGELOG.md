@@ -12,6 +12,15 @@ All notable changes to this project are documented here. The format is based on
 - `CONTRIBUTING.md` has a checklist to go through on a real printer before each release.
 
 ### Fixed
+- **Tall prints no longer bring the gantry down on themselves.** With the motors switched off by
+  the end macro (`M84`, as `DEMON_END` does), `AUTO_EJECT HOME=1` found Z with the probe at the
+  spot furthest from the parts. That kept the nozzle, the probe and the blade clear of them, but
+  the gantry the toolhead runs on spans the whole bed: on a printer with 220 mm tall parts it came
+  down on one, the probe never reached the bed, and the Z motors pushed on. A new setting,
+  `max_part_height` (25 mm unless you set it; `AUTO_EJECT_SETUP` asks for it), is the tallest print
+  to push. Taller prints stay on the bed with nothing moving, not even homing; the job queue
+  waits, a dialog and the phone say why, and `AUTO_EJECT_GUARD` stops the next print until they
+  are taken off. The page shows such files in **Check a file** and the job queue.
 - **A print that stopped before its first layer no longer leaves parts on the bed.** Its outlines
   were stored when it started, so a start G-code that failed (`Z_TILT_ADJUST` out of tolerance,
   say) opened the "parts on the bed" dialog and the next print probed the bed for them. Without

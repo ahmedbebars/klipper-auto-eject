@@ -161,6 +161,26 @@ parts are ejected as usual.
 Verification follows the height too: the probe treats anything higher than half the print height
 (at least 0.2 mm, at most `verify_threshold`) as a part still on the bed.
 
+## Tall parts
+
+While the blade pushes, and while the probe finds the bed after the motors were switched off, the
+toolhead and the gantry it runs on (the X beam) pass just above the bed, over its whole width. A
+part taller than the gap under them would be hit, however far the probe spot is from it. Many end
+macros switch the motors off (`M84`), DEMON's `DEMON_END` among them, so `AUTO_EJECT ... HOME=1`
+has to find Z again with parts on the bed.
+
+So prints taller than `max_part_height` are left alone, like thin ones: no homing, no movement,
+no probing. They stay stored, the job queue pauses (`thin_pause_queue`) and a dialog opens. Take
+them off and click **Bed is clear - continue the queue**. Until then `AUTO_EJECT_GUARD` stops the
+next print instead of checking the bed with the probe, and `AUTO_EJECT HOME=1` refuses to home.
+
+| Setting | Default | Description |
+|---|---|---|
+| `max_part_height` | `25.0` | The tallest print to push, in mm. Measure from the nozzle tip up to the lowest point of the gantry, the fans or the cables on the toolhead, and take a little less. `AUTO_EJECT_SETUP` asks for it |
+
+It needs the print height, so pass it in the end G-code: `AUTO_EJECT HEIGHT=[max_layer_z]`. A
+dry run (`DRY=1`) moves above the parts and still works.
+
 ## Verification
 
 | Setting | Default | Description |

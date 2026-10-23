@@ -25,7 +25,7 @@
     blade_width: 80.0, column_overlap: 15.0, head_depth: 40.0, side_margin: 5.0, push_z: 1.5,
     blade_lift: "unknown", push_end: "auto", rear_clearance: 10.0, cool_mode: "temperature",
     cool_temp: 32, cool_timeout: 1800, min_part_height: 2.0, thin_parts_action: "ignore",
-    verify: true, push_current: 0.5, retries: 1
+    max_part_height: 25.0, verify: true, push_current: 0.5, retries: 1
   };
 
   /* ------------------------------------------------------------ shapes */
@@ -250,7 +250,7 @@
       }).catch(() => {}).then(() => {
         this.status["gcode_macro _AUTO_EJECT_DEFAULTS"] = Object.assign({}, this.defaults);
         this.status["gcode_macro _AUTO_EJECT_SETTINGS"] = Object.assign({}, this.defaults, DEMO_FILE);
-        this.status["gcode_macro _AUTO_EJECT_OVERRIDES"] = { data: { cool_temp: 32, push_z: 0.8 } };
+        this.status["gcode_macro _AUTO_EJECT_OVERRIDES"] = { data: { cool_temp: 32, push_z: 0.8, max_part_height: 40.0 } };
         this.open = true;
         setInterval(() => this.tick(), 200);
         setTimeout(() => this.emit("open"), 300);
@@ -382,6 +382,19 @@
         "This print is only " + h.toFixed(1) + " mm tall, too thin for the blade, so it was left on the bed. Take it off by hand.",
         "The job queue waits until you confirm the bed is clear."
       ], [], [["Bed is clear - continue the queue", "AUTO_EJECT_CONTINUE", "primary"]]);
+      return;
+    }
+    if (h > s.max_part_height && !dry) {
+      this.say("// AUTO_EJECT: the parts are " + h.toFixed(1) + " mm tall, too tall to push (max_part_height " + s.max_part_height.toFixed(1) +
+               "): the gantry would hit them. They stay on the bed for you to remove.");
+      this.queue.state = "paused";
+      this.queueChanged("state_changed");
+      this.say("// AUTO_EJECT: job queue paused until the bed is clear (AUTO_EJECT_CONTINUE)");
+      this.state({ height: h });
+      this.prompt("Auto-eject - remove the parts", [
+        "This print is " + h.toFixed(1) + " mm tall, too tall for the blade: the gantry would hit it. It was left on the bed: take it off by hand.",
+        "The job queue waits until you confirm the bed is clear."
+      ], [], [["Bed is clear - continue the queue", "_AUTO_EJECT_TALL_CLEAR", "primary"]]);
       return;
     }
     if (!this.status.toolhead.homed_axes.includes("z")) {
@@ -669,6 +682,9 @@
         else this.nextJobSoon();
         return;
       }
+      case "_AUTO_EJECT_TALL_CLEAR":
+        await this.runGcode("AUTO_EJECT_CLEAR");
+        return this.runGcode("AUTO_EJECT_CONTINUE");
       case "AUTO_EJECT_BIN_EMPTY":
         this.state({ bin: 0 });
         this.say("// AUTO_EJECT: parts box emptied, counting from 0");

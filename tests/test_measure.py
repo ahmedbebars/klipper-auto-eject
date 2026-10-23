@@ -161,18 +161,18 @@ def test_setup_measures_the_blade_automatically():
     p = make(position=(225.0, 225.0, 5.0))
     p.run_gcode("AUTO_EJECT_SETUP")
     click(p, "Start", "Front", "Bed is clear - move")
-    assert "2 of 5 - measure the blade" in dialog_title(p)
+    assert "2 of 6 - measure the blade" in dialog_title(p)
     assert p.status["toolhead"]["position"].z == pytest.approx(50.0)
     Rig(p, offset=33.0, lift=0.8)
     click(p, "Measure")
     assert "measure the blade" in dialog_title(p)
     click(p, "Next")
-    assert "3 of 5" in dialog_title(p)
+    assert "3 of 6" in dialog_title(p)
     w = p.status["gcode_macro _AUTO_EJECT_WIZARD"]
     assert w["blade_offset"] == pytest.approx(33.0, abs=0.7)
     assert w["blade_lift"] == pytest.approx(0.8, abs=0.01)
     assert w["push_z"] == pytest.approx(0.5)
-    click(p, "100 mm", "Bed is clear - move", "Yes, it is past the edge", "Save")
+    click(p, "100 mm", "Bed is clear - move", "Yes, it is past the edge", "25 mm", "Save")
     saved = p.status["save_variables"]["variables"]
     assert saved["auto_eject_blade_lift"] == pytest.approx(0.8, abs=0.01)
 
@@ -186,7 +186,7 @@ def test_failed_measurement_offers_the_manual_way():
     b = buttons(p.executed)
     assert "Try again" in b and "Measure by hand" in b
     click(p, "Measure by hand")
-    assert "2 of 5 - blade height" in dialog_title(p)
+    assert "2 of 6 - blade height" in dialog_title(p)
     assert p.status["toolhead"]["position"].z == pytest.approx(5.0)
 
 

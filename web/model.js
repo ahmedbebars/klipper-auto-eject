@@ -306,7 +306,7 @@
   const NOTICES = [
     [/STILL ON THE BED/, "stuck"],
     [/^AUTO_EJECT_GUARD: .*(still on the bed|may still be on the bed)/, "guard"],
-    [/too thin to push/, "thin"],
+    [/too thin to push|too tall to push/, "thin"],
     [/the print ended and \d+ part\(s\) are still on the bed/, "left"],
     [/the parts box is (almost )?full/, "bin"]
   ];
@@ -350,6 +350,8 @@
     const command = findEjectCommand(tail);
     const thin = height > 0 && s.min_part_height > 0 && height < s.min_part_height &&
                  String(s.thin_parts_action).toLowerCase() === "ignore";
+    // the gantry passes over shorter parts only (max_part_height): taller ones stay
+    const tall = height > 0 && typeof s.max_part_height === "number" && height > s.max_part_height;
     const plan = planPushes(records, s, axisMin, axisMax);
     const checks = [];
     checks.push(records.length ? { ok: "ok", key: "check.labels_ok", vars: { n: records.length } }
@@ -360,15 +362,16 @@
       : { ok: "ok", key: "check.line_ok", vars: { cmd: command } });
     if (height > 0) {
       checks.push(thin ? { ok: "warn", key: "check.thin", vars: { h: fmt(height), m: fmt(s.min_part_height) } }
-                       : { ok: "ok", key: "check.height_ok", vars: { h: fmt(height) } });
+        : tall ? { ok: "warn", key: "check.tall", vars: { h: fmt(height), m: fmt(s.max_part_height) } }
+        : { ok: "ok", key: "check.height_ok", vars: { h: fmt(height) } });
     }
-    if (records.length && !thin) {
+    if (records.length && !thin && !tall) {
       const far = plan.pushes.filter((p) => p.clamped);
       checks.push(far.length ? { ok: "bad", key: "check.reach_bad", vars: { name: (far[0].parts || [])[0] || "" } }
                              : { ok: "ok", key: "check.reach_ok", vars: { n: plan.pushes.length } });
     }
     const worst = checks.some((c) => c.ok === "bad") ? "bad" : checks.some((c) => c.ok === "warn") ? "warn" : "ok";
-    return { objects, records, height, command, thin, plan, checks, verdict: worst };
+    return { objects, records, height, command, thin, tall, plan, checks, verdict: worst };
   }
 
   function fmt(v) { return (Math.round(v * 10) / 10).toString(); }

@@ -230,6 +230,15 @@ def test_check_unlabelled_and_thin_files():
     assert r["thin"]
 
 
+@needs_node
+def test_check_a_file_too_tall_for_the_gantry():
+    r = check(GCODE_HEAD, GCODE_TAIL, {"object_height": 219.6})
+    assert r["tall"] and not r["thin"] and r["verdict"] == "warn"
+    keys = [c["key"] for c in r["checks"]]
+    assert "check.tall" in keys and not any(k.startswith("check.reach") for k in keys)   # it is not pushed
+    assert not check(GCODE_HEAD, GCODE_TAIL, {"object_height": 25.0})["tall"]
+
+
 # --------------------------------------------------------------------- dialogs
 @needs_node
 def test_page_shows_the_real_setup_dialog():
@@ -382,6 +391,8 @@ def test_every_section_has_a_short_label_for_the_phone_tab_bar():
     ("!! AUTO_EJECT_GUARD: stencil still on the bed, 0.4 mm tall, too thin for the blade.", "guard"),
     ("!! AUTO_EJECT_GUARD: 1 part(s) from an earlier print may still be on the bed, and this probe cannot check", "guard"),
     ("// AUTO_EJECT: the parts are only 0.5 mm tall (min_part_height 2.0), too thin to push.", "thin"),
+    ("// AUTO_EJECT: the parts are 219.6 mm tall, too tall to push (max_part_height 25.0): the gantry would hit them.", "thin"),
+    ("!! AUTO_EJECT_GUARD: the last print's parts, 219.6 mm tall, may still be on the bed. They are too tall to push", "guard"),
     ("// AUTO_EJECT: the print ended and 3 part(s) are still on the bed. Take them off.", "left"),
     ("// AUTO_EJECT: bed verified clear (15 probe points)", None),
     ("// AUTO_EJECT: re-homing X and Y", None),

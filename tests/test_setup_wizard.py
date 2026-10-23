@@ -8,7 +8,7 @@ from klipper_sim import MacroError, Printer
 
 DIALOG_STEPS = ["start", "direction", "prepare",
                 "height", "offset_intro", "offset_blade", "offset_nozzle",
-                "width", "edge", "edge_check", "edge_no", "summary", "done",
+                "width", "edge", "edge_check", "edge_no", "tall", "summary", "done",
                 "cal_prepare", "auto_intro", "auto_result", "cal_save"]
 
 
@@ -172,7 +172,7 @@ def test_current_step_suggests_sixty_percent(p):
     apply(p, lines)
     w = p.status["gcode_macro _AUTO_EJECT_WIZARD"]
     assert w["push_current"] == pytest.approx(0.48)
-    assert w["next_step"] == "summary"                    # no dialog of its own
+    assert w["next_step"] == "tall"                       # no dialog of its own
 
 
 def test_save_writes_values_klipper_can_parse(p):
@@ -228,17 +228,17 @@ def test_whole_wizard_can_be_clicked_through(p):
                   exclude_object_section=True)
     p.run_gcode("AUTO_EJECT_SETUP")
     clicks = [
-        ("Start", "1 of 5"),
-        ("Front", "2 of 5"),
-        ("Bed is clear - move", "2 of 5 - measure the blade"),   # Tap: measure automatically
-        ("Measure by hand", "2 of 5 - blade height"),
-        ("Z -1", "2 of 5"),
-        ("Save this height", "2 of 5 - blade position"),
-        ("Block is in place", "2 of 5"),
-        ("Toward edge 10", "2 of 5"),
-        ("Blade touches the block", "2 of 5"),
-        ("Away 10", "2 of 5"),
-        ("Nozzle is above the side", "2 of 5"),   # offset out of range: measure again
+        ("Start", "1 of 6"),
+        ("Front", "2 of 6"),
+        ("Bed is clear - move", "2 of 6 - measure the blade"),   # Tap: measure automatically
+        ("Measure by hand", "2 of 6 - blade height"),
+        ("Z -1", "2 of 6"),
+        ("Save this height", "2 of 6 - blade position"),
+        ("Block is in place", "2 of 6"),
+        ("Toward edge 10", "2 of 6"),
+        ("Blade touches the block", "2 of 6"),
+        ("Away 10", "2 of 6"),
+        ("Nozzle is above the side", "2 of 6"),   # offset out of range: measure again
     ]
     for label, expect in clicks:
         b = buttons(p.executed)
@@ -254,7 +254,7 @@ def test_wizard_finishes_with_save_and_dry_run(p):
     w.update(direction="front", push_z=2.0, blade_offset=22.0)
     p.run_gcode("AUTO_EJECT_SETUP STEP=width")
     for label in ["100 mm", "Bed is clear - move", "Yes, it is past the edge",
-                  "32 C", "Save", "Dry test"]:
+                  "30 mm", "32 C", "Save", "Dry test"]:
         b = buttons(p.executed)
         assert label in b, (label, list(b))
         p.run_gcode(b[label])
@@ -262,4 +262,5 @@ def test_wizard_finishes_with_save_and_dry_run(p):
     data = p.status["gcode_macro _AUTO_EJECT_OVERRIDES"]["data"]
     assert data["blade_width"] == 100.0 and data["push_z"] == 2.0
     assert data["cool_temp"] == 32 and data["push_current"] == pytest.approx(0.48)
+    assert data["max_part_height"] == 30.0
     assert p.status["save_variables"]["variables"]["auto_eject_blade_offset"] == 22.0

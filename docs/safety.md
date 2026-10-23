@@ -10,6 +10,7 @@ print. Read this page before relying on it.
 | Risk | What the macros do |
 |---|---|
 | Homing with parts on the bed (wrong Z, then the blade hits the bed) | `AUTO_EJECT` refuses to run unhomed. `AUTO_EJECT HOME=1` homes X/Y normally and measures Z with the probe on the spot furthest from every stored part |
+| Parts taller than the gap under the gantry: the beam the toolhead runs on, or the toolhead, hits them while the blade pushes or while the probe finds the bed | Prints taller than `max_part_height` are left on the bed with nothing moving, not even homing; the queue waits and the next print does not start until they are taken off ([tall parts](configuration.md#tall-parts)) |
 | Printing on top of parts left by an interrupted print | Part outlines are saved while printing. `AUTO_EJECT_GUARD` in the start G-code stops the print, or ejects first |
 | A part that will not move | Motor current on the push steppers drops to `push_current`, so the motor skips instead of breaking the blade, the part or the belt |
 | Fast, violent moves | Pushing runs at `push_speed` and `push_accel`. The previous acceleration and currents are restored afterwards |
@@ -27,6 +28,8 @@ print. Read this page before relying on it.
 - **Keep the drop zone clear,** and make sure the box cannot overflow back onto the bed.
 - **Check the blade after crashes.** A bent blade changes its height and offset.
 - **Re-measure after toolhead changes:** a new nozzle, hotend or probe changes the geometry.
+- **Set `max_part_height` for your printer** (`AUTO_EJECT_SETUP` asks for it), and keep
+  `HEIGHT=[max_layer_z]` in the end G-code: without the print height, a tall print is pushed.
 - **Eddy-current probes cannot see plastic.** Without a contact/touch command in
   `verify_probe_gcode`, the bed is not verified ([probes.md](probes.md)).
 - **Verification has limits.** Three outline points can miss a part that was pushed partly off

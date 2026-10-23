@@ -69,7 +69,7 @@ function describeSetting(it) {
 const UNITS = {
   blade_offset: "mm", blade_width: "mm", column_overlap: "mm", head_depth: "mm", side_margin: "mm", push_z: "mm",
   blade_clearance: "mm", rear_clearance: "mm", z_hop: "mm", min_safe_z: "mm", push_z_min: "mm", cool_temp: "°C",
-  cool_timeout: "s", cool_time: "s", min_part_height: "mm", verify_z: "mm", home_clearance: "mm", home_edge_margin: "mm",
+  cool_timeout: "s", cool_time: "s", min_part_height: "mm", max_part_height: "mm", verify_z: "mm", home_clearance: "mm", home_edge_margin: "mm",
   nozzle_clearance: "mm", nozzle_probe_max_temp: "°C", nozzle_part_max_temp: "°C", purge_height: "mm", purge_start_z: "mm", purge_retract: "mm", purge_gap: "mm",
   purge_edge_margin: "mm", filament_diameter: "mm", blade_lift: "mm", push_end: "mm"
 };
