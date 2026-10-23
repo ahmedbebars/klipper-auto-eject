@@ -12,6 +12,8 @@ Open an issue using the bug report template and include:
 - the console output of `AUTO_EJECT DRY=1`
 - `klippy.log` from the failing run
 
+A security problem goes in a private report instead, not an issue: see [SECURITY.md](SECURITY.md).
+
 ## Sharing a setup
 
 Got it working on your machine? Open a discussion or a pull request adding your blade (STL or
@@ -39,6 +41,36 @@ OpenSCAD remix in `hardware/`) and your settings. Others with the same toolhead 
 
 Test any change on a real printer with `DRY=1` before opening the pull request, and say in the
 description which machine you tested on.
+
+## Before a release: on a real printer
+
+The tests run the macros against a simulated Klipper, and the page against a pretend printer.
+Before a release, go through this on at least one real printer and name the printers in the
+release notes. Skip what the printer does not have (a farm, DEMON), and say so.
+
+- [ ] **Install or update.** `install.sh` on a printer without auto-eject, or an update through
+      Mainsail or Fluidd on one with it. Klipper restarts without a config error.
+- [ ] **Dry run.** With parts on the bed, `AUTO_EJECT DRY=1`: the toolhead follows every push
+      lane above the bed and touches nothing.
+- [ ] **A print with its eject.** `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1` in the end G-code: the
+      bed cools, the parts go off the drop edge, the probe finds the bed clear, and the job queue
+      starts the next print.
+- [ ] **Cooling with the printer free** (`cool_background: True`): **Push now** pushes at once;
+      **Stop, I'll take them off** stops the cooling, and the queue waits for **Bed is clear,
+      continue the queue**.
+- [ ] **Thin parts.** A part below `min_part_height` stays on the bed and the dialog says so.
+- [ ] **After a restart.** Restart Klipper with parts on the bed and start a print:
+      `AUTO_EJECT_GUARD` checks the bed where they were before the print goes on.
+- [ ] **A print stopped early.** Cancel a print before its first layer: no parts are kept, no
+      dialog opens.
+- [ ] **The page.** Every tab on a phone and a computer, in both themes and in Arabic; nothing in
+      the browser's console. **Emergency stop**, at the top while the printer prints or ejects,
+      stops it.
+- [ ] **Notifications.** `AUTO_EJECT_NOTIFY_TEST` reaches the phone.
+- [ ] **The farm.** With two printers, a copy from the farm queue prints on the other one, and the
+      farm card's buttons work.
+- [ ] **DEMON Klipper Essentials.** After `install.sh --demon`, a print starts without DEMON's
+      emergency stop, and the bed check runs from `_CUSTOM_PRE_START`.
 
 ## Code style
 

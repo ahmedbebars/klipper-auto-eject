@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- `SECURITY.md`: how to report a security problem privately, which versions get fixes, and what
+  auto-eject runs and who can reach it.
+- `CONTRIBUTING.md` has a checklist to go through on a real printer before each release.
+
 ### Fixed
 - **A print that stopped before its first layer no longer leaves parts on the bed.** Its outlines
   were stored when it started, so a start G-code that failed (`Z_TILT_ADJUST` out of tolerance,

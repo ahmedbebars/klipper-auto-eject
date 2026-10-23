@@ -301,7 +301,8 @@ Bug reports, notes about your printer and pull requests are welcome; see
 [CONTRIBUTING.md](CONTRIBUTING.md). If you run it on your machine, please share your blade and
 settings in the [discussions](https://github.com/ahmedbebars/klipper-auto-eject/discussions) so
 others can start from them. Translations of the web page are welcome too
-([how](docs/web-page.md#translating)).
+([how](docs/web-page.md#translating)). A security problem goes in a private report, not an
+issue: see [SECURITY.md](SECURITY.md).
 
 ## License
 
