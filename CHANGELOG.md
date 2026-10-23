@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-23
+
 ### Added
 - **`install.sh` finds Spoolman by itself** on its port, on the printer and on the local network
   (a few seconds), and asks whether to use it: the address of a Spoolman on Home Assistant or a
@@ -642,7 +644,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.14.0...v0.15.0
