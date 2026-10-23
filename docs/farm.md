@@ -283,9 +283,9 @@ Moonraker by default. Anyone who can open the page can press its buttons, as in 
 
 ## How it works
 
-The farm is part of the `klipper-auto-eject` service (`push/farm.py`). Every 3 seconds it asks each
-printer's Moonraker for its state, the way Mainsail does. That is a few small requests, which
-the printers do not notice. The list of printers is kept in the farm printer's Moonraker
+The farm is part of the `klipper-auto-eject` service (`push/farm.py` and the `farm_*.py` files next
+to it). Every 3 seconds it asks each printer's Moonraker for its state, the way Mainsail does.
+That is a few small requests, which the printers do not notice. The list of printers is kept in the farm printer's Moonraker
 database (namespace `auto_eject_farm`). The service answers the page on `127.0.0.1:7128`, and
 nginx publishes that at `/auto-eject/api/`:
 

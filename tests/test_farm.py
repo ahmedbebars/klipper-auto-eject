@@ -1,4 +1,4 @@
-"""push/farm.py: every printer on the network in the auto-eject page."""
+"""push/farm*.py: every printer on the network in the auto-eject page."""
 
 import json
 import os
@@ -13,6 +13,11 @@ import pytest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "push"))
 
 import farm  # noqa: E402
+import farm_api  # noqa: E402
+import farm_card  # noqa: E402
+import farm_net  # noqa: E402
+import farm_printer  # noqa: E402
+import farm_queue  # noqa: E402
 
 AE = "gcode_macro _AUTO_EJECT_STATE"
 
@@ -40,12 +45,12 @@ def tracker(objects=0, leftover=(), busy=False):
 
 # ------------------------------------------------------------- the cards
 def test_a_printer_without_auto_eject_is_not_offline():
-    card = farm.summarize(status())
+    card = farm_card.summarize(status())
     assert card["phase"] == "idle" and card["auto_eject"] is False and card["parts"] == 0
 
 
 def test_printing_shows_progress_and_time_left():
-    card = farm.summarize(status("printing", progress=0.25, duration=600))
+    card = farm_card.summarize(status("printing", progress=0.25, duration=600))
     assert card["phase"] == "printing"
     assert card["eta"] == 1800
     assert (card["layer"], card["layers"]) == (10, 100)
@@ -53,12 +58,12 @@ def test_printing_shows_progress_and_time_left():
 
 @pytest.mark.parametrize("state, reason", [("complete", "done"), ("cancelled", "cancelled")])
 def test_a_finished_print_without_auto_eject_needs_someone(state, reason):
-    card = farm.summarize(status(state))
+    card = farm_card.summarize(status(state))
     assert (card["phase"], card["reason"]) == ("needs", reason)
 
 
 def test_a_finished_print_that_auto_eject_cleared_is_free():
-    card = farm.summarize(status("complete", ae=tracker()))
+    card = farm_card.summarize(status("complete", ae=tracker()))
     assert card["phase"] == "idle" and card["auto_eject"] is True
 
 
@@ -74,12 +79,12 @@ def test_a_finished_print_that_auto_eject_cleared_is_free():
     (status("standby", ae=tracker()), None, {"queue_state": "ready", "queued_jobs": [{}, {}]}, "idle", ""),
 ])
 def test_what_needs_someone(st, ae, queue, phase, reason):
-    card = farm.summarize(st, queue)
+    card = farm_card.summarize(st, queue)
     assert (card["phase"], card["reason"]) == (phase, reason)
 
 
 def test_a_stopped_printer_shows_why():
-    assert farm.summarize(status(webhooks="shutdown"))["message"] == "MCU shutdown"
+    assert farm_card.summarize(status(webhooks="shutdown"))["message"] == "MCU shutdown"
 
 
 # ------------------------------------------------------------- the search
@@ -96,7 +101,7 @@ def test_search_skips_this_printer_and_names_tailscale_peers():
         asked.append(host)
         return answers.get(host)
 
-    found = farm.scan(skip={"192.168.5.1"}, networks=["192.168.5.0/24"], peers=[("100.101.1.2", "far-printer")],
+    found = farm_net.scan(skip={"192.168.5.1"}, networks=["192.168.5.0/24"], peers=[("100.101.1.2", "far-printer")],
                       prober=prober)
     assert [f["host"] for f in found] == ["100.101.1.2", "192.168.5.7", "192.168.5.20"]
     assert found[0]["name"] == "far-printer"
@@ -117,7 +122,7 @@ def test_one_printer_found_twice_is_listed_once():
         # already in the farm under its Tailscale address
         "192.168.5.20": {"host": "192.168.5.20", "port": 7125, "name": "old", "klippy": "ready", "macs": ["77:77:77:77:77:77"]},
     }
-    found = farm.scan(networks=["192.168.5.0/24"], peers=[("100.79.1.35", "big"), ("100.79.1.36", "one")],
+    found = farm_net.scan(networks=["192.168.5.0/24"], peers=[("100.79.1.35", "big"), ("100.79.1.36", "one")],
                       prober=answers.get, known=[(7125, ["77:77:77:77:77:77"])])
     assert [f["host"] for f in found] == ["100.79.1.36", "192.168.5.12", "192.168.5.13", "192.168.5.14"]
 
@@ -128,7 +133,7 @@ def test_the_same_machine_is_not_added_twice():
     assert len(f.add([{"host": "192.168.1.12", "port": 7125, "name": "big", "macs": mac}])) == 1
     assert f.add([{"host": "100.79.1.35", "port": 7125, "name": "big", "macs": mac}]) == []
     assert len(f.add([{"host": "192.168.1.12", "port": 7126, "name": "big-2", "macs": mac}])) == 1
-    saved = f.moonraker.db[(farm.NAMESPACE, "printers")]
+    saved = f.moonraker.db[(farm_net.NAMESPACE, "printers")]
     assert all(r["macs"] == mac for r in saved.values())
     assert all(p.macs == mac for p in farm.Farm(f.moonraker).printers.values())
 
@@ -144,8 +149,8 @@ def test_only_linux_tailscale_devices_are_asked(monkeypatch):
 
     class Done:
         stdout = json.dumps(status)
-    monkeypatch.setattr(farm.subprocess, "run", lambda *a, **k: Done())
-    assert farm.tailscale_peers() == [("100.64.0.5", "voron")]
+    monkeypatch.setattr(farm_net.subprocess, "run", lambda *a, **k: Done())
+    assert farm_net.tailscale_peers() == [("100.64.0.5", "voron")]
 
 
 def test_a_probe_wants_moonraker(monkeypatch):
@@ -160,11 +165,11 @@ def test_a_probe_wants_moonraker(monkeypatch):
         if url.startswith("http://10.0.0.6:80/server/info"):
             return {"something": "else"}
         raise OSError("refused")
-    monkeypatch.setattr(farm, "http_json", fake)
-    assert farm.probe("10.0.0.5") == {"host": "10.0.0.5", "port": 7125, "name": "ender", "klippy": "ready",
+    monkeypatch.setattr(farm_net, "http_json", fake)
+    assert farm_net.probe("10.0.0.5") == {"host": "10.0.0.5", "port": 7125, "name": "ender", "klippy": "ready",
                                       "macs": ["48:8f:4c:16:d6:27"]}
-    assert farm.probe("10.0.0.6") is None
-    assert farm.probe("10.0.0.7") is None
+    assert farm_net.probe("10.0.0.6") is None
+    assert farm_net.probe("10.0.0.7") is None
 
 
 # ------------------------------------------------------------- the farm
@@ -195,7 +200,7 @@ def test_adding_by_address_asks_the_printer_first():
     f = farm.Farm(mr)
     added = f.add([{"host": "192.168.1.30"}], prober=prober)
     assert len(added) == 1
-    saved = mr.db[(farm.NAMESPACE, "printers")]
+    saved = mr.db[(farm_net.NAMESPACE, "printers")]
     assert list(saved.values()) == [{"host": "192.168.1.30", "port": 7125, "name": "ender"}]
     with pytest.raises(LookupError):
         f.add([{"host": "192.168.1.31"}], prober=prober)
@@ -227,14 +232,14 @@ def test_the_printers_left_out_are_suggested_unticked_next_time(monkeypatch):
                {"host": "192.168.1.12", "port": 7125, "name": "big", "macs": mac},
                {"host": "192.168.1.30", "port": 7125, "name": "neighbour", "macs": []}]
     f.add([results[1]], skip=[results[0], results[2]])
-    assert [s["host"] for s in mr.db[(farm.NAMESPACE, "skipped")]] == ["192.168.1.10", "192.168.1.30"]
+    assert [s["host"] for s in mr.db[(farm_net.NAMESPACE, "skipped")]] == ["192.168.1.10", "192.168.1.30"]
 
     # the next search: the same machine, even at its Tailscale address, is marked
-    monkeypatch.setattr(farm, "scan", lambda skip, known: [
+    monkeypatch.setattr(farm_net, "scan", lambda skip, known: [
         {"host": "100.70.1.10", "port": 7125, "name": "office", "macs": ["aa:aa:aa:aa:aa:aa"]},
         {"host": "192.168.1.30", "port": 7125, "name": "neighbour", "macs": []},
         {"host": "192.168.1.40", "port": 7125, "name": "new", "macs": []}])
-    monkeypatch.setattr(farm, "machine_macs", lambda host, port, timeout=2.0: [])
+    monkeypatch.setattr(farm_net, "machine_macs", lambda host, port, timeout=2.0: [])
     f._scan(set())
     assert [(r["name"], r["skipped"]) for r in f.scan_state["found"]] == [("office", True), ("neighbour", True), ("new", False)]
 
@@ -244,14 +249,14 @@ def test_the_printers_left_out_are_suggested_unticked_next_time(monkeypatch):
 
 
 def test_nothing_is_saved_before_moonraker_answers():
-    mr = FakeMoonraker({(farm.NAMESPACE, "printers"): {"abc": {"host": "10.1.1.1", "port": 7125, "name": "old"}}}, down=True)
+    mr = FakeMoonraker({(farm_net.NAMESPACE, "printers"): {"abc": {"host": "10.1.1.1", "port": 7125, "name": "old"}}}, down=True)
     f = farm.Farm(mr)
     assert f.printers == {}
     with pytest.raises(RuntimeError):
         f.add([{"host": "10.1.1.2", "port": 7125, "name": "new"}])
     mr.down = False
     f.add([{"host": "10.1.1.2", "port": 7125, "name": "new"}])
-    names = sorted(r["name"] for r in mr.db[(farm.NAMESPACE, "printers")].values())
+    names = sorted(r["name"] for r in mr.db[(farm_net.NAMESPACE, "printers")].values())
     assert names == ["new", "old"]      # the saved list was loaded first, not overwritten
 
 
@@ -260,11 +265,11 @@ def test_rename_and_remove():
     f = farm.Farm(mr)
     pid = f.add([{"host": "10.1.1.2", "port": 7125, "name": "new"}])[0]
     assert f.rename(pid, "  Ender 3 #2  ")
-    assert mr.db[(farm.NAMESPACE, "printers")][pid]["name"] == "Ender 3 #2"
+    assert mr.db[(farm_net.NAMESPACE, "printers")][pid]["name"] == "Ender 3 #2"
     assert f.rename("local", "Voron 1")
-    assert mr.db[(farm.NAMESPACE, "local")] == {"name": "Voron 1"}
+    assert mr.db[(farm_net.NAMESPACE, "local")] == {"name": "Voron 1"}
     assert farm.Farm(mr).local.name == "Voron 1"
-    assert f.remove(pid) and mr.db[(farm.NAMESPACE, "printers")] == {}
+    assert f.remove(pid) and mr.db[(farm_net.NAMESPACE, "printers")] == {}
     assert not f.remove(pid)
     assert not f.rename("nope", "x")
 
@@ -274,20 +279,20 @@ def test_a_group_for_each_printer():
     f = farm.Farm(mr)
     pid = f.add([{"host": "10.1.1.2", "port": 7125, "name": "v1"}])[0]
     assert f.set_group(pid, "  Rack   A  ")
-    assert mr.db[(farm.NAMESPACE, "printers")][pid]["group"] == "Rack A"
+    assert mr.db[(farm_net.NAMESPACE, "printers")][pid]["group"] == "Rack A"
     assert f.set_group("local", "Vorons")
-    assert mr.db[(farm.NAMESPACE, "local")]["group"] == "Vorons"
+    assert mr.db[(farm_net.NAMESPACE, "local")]["group"] == "Vorons"
     again = farm.Farm(mr)                                        # after a restart
     assert again.printers[pid].group == "Rack A" and again.local.group == "Vorons"
     assert again.printers[pid].public()["group"] == "Rack A"
-    assert f.set_group(pid, "") and "group" not in mr.db[(farm.NAMESPACE, "printers")][pid]
+    assert f.set_group(pid, "") and "group" not in mr.db[(farm_net.NAMESPACE, "printers")][pid]
     assert f.set_group(pid, "x" * 50) and len(f.printers[pid].group) == 30
     assert not f.set_group("nope", "A")
 
 
 def test_bed_is_clear_depends_on_the_printer(monkeypatch):
     sent = []
-    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0: sent.append((url, data)) or "ok")
+    monkeypatch.setattr(farm_net, "http_json", lambda url, data=None, method=None, timeout=0: sent.append((url, data)) or "ok")
     f = farm.Farm(FakeMoonraker())
     pid = f.add([{"host": "10.1.1.2", "port": 7125, "name": "plain"}])[0]
     f.printers[pid].card = {"phase": "needs", "auto_eject": False}
@@ -329,8 +334,8 @@ def test_notifications_from_the_other_printers(monkeypatch):
         if "/printer/info" in url:
             return {"hostname": "hub"}
         raise OSError(url)
-    monkeypatch.setattr(farm, "http_json", fake)
-    monkeypatch.setattr(farm.Printer, "_page", lambda self: "http://%s/" % self.host)
+    monkeypatch.setattr(farm_net, "http_json", fake)
+    monkeypatch.setattr(farm_printer.Printer, "_page", lambda self: "http://%s/" % self.host)
     events = []
     f = farm.Farm(FakeMoonraker(), on_events=lambda name, ev: events.append((name, ev)))
     f.add([{"host": "10.1.1.2", "port": 7125, "name": "ender"}])
@@ -345,8 +350,8 @@ def test_notifications_from_the_other_printers(monkeypatch):
 def test_an_offline_printer(monkeypatch):
     def down(*args, **kwargs):
         raise urllib.error.URLError("no route")
-    monkeypatch.setattr(farm, "http_json", down)
-    p = farm.Printer("10.9.9.9", 7125)
+    monkeypatch.setattr(farm_net, "http_json", down)
+    p = farm_printer.Printer("10.9.9.9", 7125)
     assert p.poll()["phase"] == "offline"
 
 
@@ -358,15 +363,15 @@ def farm_of(hosts, answer):
         host = url.split("//", 1)[1].split(":", 1)[0]
         asked.append(host)
         return answer(host, url)
-    farm.http_json = fake
+    farm_net.http_json = fake
     f = farm.Farm(FakeMoonraker())
     for h in hosts:
-        f.printers[h] = farm.Printer(h, 7125, pid=h)
+        f.printers[h] = farm_printer.Printer(h, 7125, pid=h)
     return f, asked
 
 
 def test_a_printer_that_does_not_answer_is_asked_less_often(monkeypatch):
-    monkeypatch.setattr(farm, "http_json", farm.http_json)       # put back after the test
+    monkeypatch.setattr(farm_net, "http_json", farm_net.http_json)       # put back after the test
     away = {"10.0.0.9"}
 
     def answer(host, url):
@@ -397,7 +402,7 @@ def test_a_printer_that_does_not_answer_is_asked_less_often(monkeypatch):
 
 
 def test_a_printer_whose_klipper_is_stopped_is_asked_every_round(monkeypatch):
-    monkeypatch.setattr(farm, "http_json", farm.http_json)
+    monkeypatch.setattr(farm_net, "http_json", farm_net.http_json)
 
     def answer(host, url):
         if "/printer/objects/query" in url:
@@ -415,10 +420,10 @@ def test_a_printer_whose_klipper_is_stopped_is_asked_every_round(monkeypatch):
 # ------------------------------------------------------------- the API
 @pytest.fixture
 def api(monkeypatch):
-    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0: "ok")
+    monkeypatch.setattr(farm_net, "http_json", lambda url, data=None, method=None, timeout=0: "ok")
     f = farm.Farm(FakeMoonraker())
     f.add([{"host": "10.1.1.2", "port": 7125, "name": "ender"}])
-    server = farm.serve(f, 0)
+    server = farm_api.serve(f, 0)
     yield f, "http://127.0.0.1:%d" % server.server_address[1]
     server.shutdown()
 
@@ -449,7 +454,7 @@ def test_api_rejects_other_networks(api):
 
 def test_api_add_rename_remove_act(api, monkeypatch):
     f, base = api
-    monkeypatch.setattr(farm, "probe", lambda host, ports=farm.PORTS, timeout=0: None)
+    monkeypatch.setattr(farm_net, "probe", lambda host, ports=farm_net.PORTS, timeout=0: None)
     code, body = call(base + "/farm/printers", {"add": [{"host": "10.1.1.3"}]})
     assert code == 400 and "no printer answers" in body["error"]
     pid = next(iter(f.printers))
@@ -478,9 +483,9 @@ def test_history_stats_count_recent_and_today():
         {"status": "error", "end_time": yesterday},
         {"status": "klippy_shutdown", "start_time": yesterday},  # no end time: the start counts
     ]
-    s = farm.history_stats({"total_print_time": 12 * 3600 + 1800, "total_jobs": 231.0}, jobs, now)
+    s = farm_card.history_stats({"total_print_time": 12 * 3600 + 1800, "total_jobs": 231.0}, jobs, now)
     assert s == {"hours": 12.5, "jobs": 231, "recent": 5, "recent_ok": 2, "today_ok": 1, "today_bad": 1}
-    assert farm.history_stats(None, None, now) == {"hours": 0.0, "jobs": 0, "recent": 0, "recent_ok": 0, "today_ok": 0, "today_bad": 0}
+    assert farm_card.history_stats(None, None, now) == {"hours": 0.0, "jobs": 0, "recent": 0, "recent_ok": 0, "today_ok": 0, "today_bad": 0}
 
 
 def test_a_card_carries_its_statistics(monkeypatch):
@@ -492,10 +497,10 @@ def test_a_card_carries_its_statistics(monkeypatch):
         if "/server/history/list" in url:
             return {"jobs": [{"status": "completed", "end_time": 1}]}
         raise OSError(url)
-    monkeypatch.setattr(farm, "http_json", fake)
-    monkeypatch.setattr(farm.Printer, "_page", lambda self: "http://%s/" % self.host)
-    monkeypatch.setattr(farm, "machine_macs", lambda host, port, timeout=2.0: [])
-    p = farm.Printer("10.1.1.2", 7125)
+    monkeypatch.setattr(farm_net, "http_json", fake)
+    monkeypatch.setattr(farm_printer.Printer, "_page", lambda self: "http://%s/" % self.host)
+    monkeypatch.setattr(farm_net, "machine_macs", lambda host, port, timeout=2.0: [])
+    p = farm_printer.Printer("10.1.1.2", 7125)
     p.poll()
     assert p.public()["stats"]["hours"] == 2.0 and p.public()["stats"]["recent_ok"] == 1
 
@@ -504,21 +509,21 @@ def test_a_card_carries_its_statistics(monkeypatch):
 def test_the_box_capacity_comes_from_where_the_macros_take_it():
     st = status("standby", ae=dict(tracker(), bin=12))
     st["gcode_macro _AUTO_EJECT_DEFAULTS"] = {"bin_capacity": 0}
-    assert farm.bin_capacity(st) == 0
+    assert farm_card.bin_capacity(st) == 0
     st["gcode_macro _AUTO_EJECT_SETTINGS"] = {"bin_capacity": 40}
-    assert farm.bin_capacity(st) == 40
+    assert farm_card.bin_capacity(st) == 40
     st["gcode_macro _AUTO_EJECT_OVERRIDES"] = {"data": {"bin_capacity": 12}}
-    assert farm.bin_capacity(st) == 12
-    card = farm.summarize(st)
+    assert farm_card.bin_capacity(st) == 12
+    card = farm_card.summarize(st)
     assert (card["phase"], card["reason"], card["bin"], card["bin_cap"]) == ("needs", "bin", 12, 12)
     # an older settings file without it, and a printer without auto-eject
-    assert farm.bin_capacity(status()) == 0
-    assert farm.summarize(status())["bin_cap"] == 0
+    assert farm_card.bin_capacity(status()) == 0
+    assert farm_card.summarize(status())["bin_cap"] == 0
 
 
 # ------------------------------------------------------------------ power
 def powered(card, devices, http=None):
-    p = farm.Printer("10.1.1.2", 7125)
+    p = farm_printer.Printer("10.1.1.2", 7125)
     p.card = dict(card)
     p.power = [dict(d) for d in devices]
     return p
@@ -529,7 +534,7 @@ PSU = [{"device": "printer", "status": "on", "locked": False}]
 
 def test_power_off_never_while_busy_or_hot(monkeypatch):
     sent = []
-    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0: sent.append(data) or {"printer": data["action"]})
+    monkeypatch.setattr(farm_net, "http_json", lambda url, data=None, method=None, timeout=0: sent.append(data) or {"printer": data["action"]})
     with pytest.raises(PermissionError, match="busy"):
         powered({"phase": "printing", "nozzle": 30}, PSU).set_power("printer", "off")
     with pytest.raises(PermissionError, match="hot"):
@@ -550,15 +555,15 @@ def test_a_switched_off_printer_shows_off(monkeypatch):
         if "/machine/device_power/devices" in url:
             return {"devices": [{"device": "printer", "status": "off", "locked_while_printing": True, "type": "tasmota"}]}
         raise OSError(url)
-    monkeypatch.setattr(farm, "http_json", fake)
-    p = farm.Printer("10.1.1.2", 7125)
+    monkeypatch.setattr(farm_net, "http_json", fake)
+    p = farm_printer.Printer("10.1.1.2", 7125)
     assert p.poll()["phase"] == "off"
     assert p.public()["power"] == [{"device": "printer", "status": "off", "locked": True}]
 
 
 def test_auto_off_after_the_chosen_minutes_with_nothing_to_do(monkeypatch):
     sent = []
-    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0: sent.append(data) or {"printer": "off"})
+    monkeypatch.setattr(farm_net, "http_json", lambda url, data=None, method=None, timeout=0: sent.append(data) or {"printer": "off"})
     f = farm.Farm(FakeMoonraker())
     p = powered({"phase": "idle", "nozzle": 35, "jobs": 0}, PSU)
     p.auto_off = 30
@@ -593,8 +598,8 @@ def test_auto_off_is_kept(monkeypatch):
 
 def test_open_through_tailscale_when_away():
     f = farm.Farm(FakeMoonraker())
-    big = farm.Printer("192.168.1.12", 7125, "big", macs=["48:8f:4c:16:d6:27"])
-    other = farm.Printer("192.168.1.30", 7125, "mk3d", macs=["aa:aa:aa:aa:aa:aa"])
+    big = farm_printer.Printer("192.168.1.12", 7125, "big", macs=["48:8f:4c:16:d6:27"])
+    other = farm_printer.Printer("192.168.1.30", 7125, "mk3d", macs=["aa:aa:aa:aa:aa:aa"])
     big.page = "http://192.168.1.12/"
     macs = {"100.70.1.12": ["48:8f:4c:16:d6:27"], "100.70.0.9": ["bb:bb:bb:bb:bb:bb"]}
     f.link_tailscale([f.local, big, other], peers=[("100.70.1.12", "printer-2"), ("100.70.0.9", "nas")],
@@ -640,7 +645,7 @@ def test_a_file_reaches_the_printer_as_moonraker_expects():
     mr = FakeMoonrakerHTTP()
     try:
         data = b"G28\nG1 X10\n" * 50000                            # about 550 kB
-        result = farm.upload_file("http://127.0.0.1:%d" % mr.port, "part (2).gcode", io.BytesIO(data), len(data), start=True)
+        result = farm_net.upload_file("http://127.0.0.1:%d" % mr.port, "part (2).gcode", io.BytesIO(data), len(data), start=True)
         path, ctype, body = mr.got[0]
         boundary = ctype.split("boundary=")[1].encode()
         assert path == "/server/files/upload" and result["print_started"]
@@ -656,7 +661,7 @@ def test_a_file_reaches_the_printer_as_moonraker_expects():
 
 def test_printing_only_on_a_free_printer(monkeypatch):
     sent = []
-    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0: sent.append((url, data)) or "ok")
+    monkeypatch.setattr(farm_net, "http_json", lambda url, data=None, method=None, timeout=0: sent.append((url, data)) or "ok")
     f = farm.Farm(FakeMoonraker())
     pid = f.add([{"host": "10.1.1.2", "port": 7125, "name": "ender"}])[0]
     p = f.printers[pid]
@@ -681,14 +686,14 @@ def test_api_files_print_pause_upload(monkeypatch, tmp_path):
             return [{"path": "old.gcode", "size": 10, "modified": 1}, {"path": "new.gcode", "size": 20, "modified": 9},
                     {"path": "notes.txt", "size": 1, "modified": 5}]
         return "ok"
-    monkeypatch.setattr(farm, "http_json", fake)
+    monkeypatch.setattr(farm_net, "http_json", fake)
     uploaded = []
-    monkeypatch.setattr(farm, "upload_file", lambda base, name, fobj, size, start=False: uploaded.append((base, name, (fobj.seek(0), fobj.read())[1], size, start)) or {"ok": 1})
-    monkeypatch.setattr(farm, "UPLOADS", str(tmp_path))
+    monkeypatch.setattr(farm_net, "upload_file", lambda base, name, fobj, size, start=False: uploaded.append((base, name, (fobj.seek(0), fobj.read())[1], size, start)) or {"ok": 1})
+    monkeypatch.setattr(farm_net, "UPLOADS", str(tmp_path))
     f = farm.Farm(FakeMoonraker())
     pid = f.add([{"host": "10.1.1.2", "port": 7125, "name": "ender"}])[0]
     f.printers[pid].card = {"phase": "idle", "reason": ""}
-    server = farm.serve(f, 0)
+    server = farm_api.serve(f, 0)
     base = "http://127.0.0.1:%d" % server.server_address[1]
     try:
         code, body = call(base + "/farm/%s/files" % pid)
@@ -719,16 +724,16 @@ THUMBS = [{"width": 300, "height": 300, "size": 9000, "relative_path": ".thumbs/
 
 
 def test_the_picture_that_fits_and_where_it_is():
-    assert farm.pick_thumb(THUMBS, 96)["width"] == 300
-    assert farm.pick_thumb(THUMBS, 24)["width"] == 32
-    assert farm.pick_thumb(THUMBS, 600)["width"] == 300               # the largest there is
-    assert farm.pick_thumb([], 96) is None and farm.pick_thumb(None, 96) is None
-    assert farm.thumb_path("part.gcode", THUMBS[0]) == "/server/files/gcodes/.thumbs/part-300x300.png"
+    assert farm_card.pick_thumb(THUMBS, 96)["width"] == 300
+    assert farm_card.pick_thumb(THUMBS, 24)["width"] == 32
+    assert farm_card.pick_thumb(THUMBS, 600)["width"] == 300               # the largest there is
+    assert farm_card.pick_thumb([], 96) is None and farm_card.pick_thumb(None, 96) is None
+    assert farm_card.thumb_path("part.gcode", THUMBS[0]) == "/server/files/gcodes/.thumbs/part-300x300.png"
     # next to the file, in its folder
-    assert farm.thumb_path("jobs/my part.gcode", {"relative_path": ".thumbs/my part-32x32.png"}) == \
+    assert farm_card.thumb_path("jobs/my part.gcode", {"relative_path": ".thumbs/my part-32x32.png"}) == \
         "/server/files/gcodes/jobs/.thumbs/my%20part-32x32.png"
-    assert farm.thumb_path("part.gcode", {"relative_path": "../../moonraker.conf"}) == ""
-    assert farm.thumb_path("part.gcode", None) == ""
+    assert farm_card.thumb_path("part.gcode", {"relative_path": "../../moonraker.conf"}) == ""
+    assert farm_card.thumb_path("part.gcode", None) == ""
 
 
 class FakeMoonrakerFiles:
@@ -775,7 +780,7 @@ class FakeMoonrakerFiles:
 def test_a_files_facts_and_picture_through_the_farm():
     mr = FakeMoonrakerFiles()
     f = farm.Farm(FakeMoonraker(), local_port=mr.port)
-    server = farm.serve(f, 0)
+    server = farm_api.serve(f, 0)
     base = "http://127.0.0.1:%d/farm/local" % server.server_address[1]
     try:
         code, body = call(base + "/meta?file=jobs%2Fpart.gcode")
@@ -886,10 +891,10 @@ def updater(monkeypatch, state="standby", idle="Idle"):
         if "mcu=mcu_version" in url:
             return {"status": {"mcu": {"mcu_version": "v0.13.0-800-g9cb99754"}, "mcu toolhead": {"mcu_version": "v0.13.0-809-gc63b2951"}}}
         return "ok"
-    monkeypatch.setattr(farm, "http_json", fake)
+    monkeypatch.setattr(farm_net, "http_json", fake)
     monkeypatch.setattr(farm.threading, "Thread", lambda target, args, daemon: type("T", (), {"start": lambda self: target(*args)})())
     f = farm.Farm(FakeMoonraker())
-    p = farm.Printer("10.1.1.2", 7125, pid="v1")
+    p = farm_printer.Printer("10.1.1.2", 7125, pid="v1")
     f.printers["v1"] = p
     p.card = {"phase": "idle"}
     p.updates, p.firmware = p._updates(), p._firmware()
@@ -961,20 +966,20 @@ def test_everything_at_once_in_a_safe_order(monkeypatch):
 
 
 def test_an_eject_stopped_by_an_error_is_not_ejecting_forever():
-    running = farm.summarize(status("printing", ae=tracker(objects=1, busy=True), idle_timeout={"state": "Printing"}))
+    running = farm_card.summarize(status("printing", ae=tracker(objects=1, busy=True), idle_timeout={"state": "Printing"}))
     assert running["phase"] == "ejecting"                       # in the print's end G-code
-    by_hand = farm.summarize(status("standby", ae=tracker(objects=1, busy=True), idle_timeout={"state": "Printing"}))
+    by_hand = farm_card.summarize(status("standby", ae=tracker(objects=1, busy=True), idle_timeout={"state": "Printing"}))
     assert by_hand["phase"] == "ejecting"                       # run from the console
-    stopped = farm.summarize(status("error", ae=tracker(objects=1, busy=True), idle_timeout={"state": "Ready"}))
+    stopped = farm_card.summarize(status("error", ae=tracker(objects=1, busy=True), idle_timeout={"state": "Ready"}))
     assert (stopped["phase"], stopped["reason"]) == ("needs", "error")   # the flag outlived the eject
 
 
 def test_a_printer_cooling_with_klipper_free_takes_push_now():
     ae = dict(tracker(objects=2, busy=True), bg=True, cooling=True)
-    card = farm.summarize(status("complete", ae=ae, idle_timeout={"state": "Ready"}))
+    card = farm_card.summarize(status("complete", ae=ae, idle_timeout={"state": "Ready"}))
     assert (card["phase"], card["reason"]) == ("ejecting", "cooling")
     ae = dict(tracker(objects=2, busy=True), bg=True, cooling=False)       # pushing now
-    assert farm.summarize(status("complete", ae=ae))["phase"] == "ejecting"
+    assert farm_card.summarize(status("complete", ae=ae))["phase"] == "ejecting"
 
 
 def test_the_spool_on_each_printer(monkeypatch):
@@ -986,8 +991,8 @@ def test_the_spool_on_each_printer(monkeypatch):
             return {"response": {"id": 7, "remaining_weight": 231.6, "initial_weight": 1000,
                                  "filament": {"name": "PLA Orange", "material": "PLA", "color_hex": "F07F1E", "vendor": {"name": "Generic"}}}}
         raise OSError(url)
-    monkeypatch.setattr(farm, "http_json", fake)
-    p = farm.Printer("10.1.1.2", 7125)
+    monkeypatch.setattr(farm_net, "http_json", fake)
+    p = farm_printer.Printer("10.1.1.2", 7125)
     assert p._spool() == {"id": 7, "name": "Generic PLA Orange", "material": "PLA", "colour": "#F07F1E", "left": 232, "full": 1000}
 
 
@@ -996,13 +1001,13 @@ def test_no_spool_without_spoolman(monkeypatch):
         if url.endswith("/server/spoolman/status"):
             raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
         raise OSError(url)
-    monkeypatch.setattr(farm, "http_json", fake)
-    assert farm.Printer("10.1.1.2", 7125)._spool() is None
+    monkeypatch.setattr(farm_net, "http_json", fake)
+    assert farm_printer.Printer("10.1.1.2", 7125)._spool() is None
 
     def none_chosen(url, data=None, method=None, timeout=0):
         return {"spoolman_connected": True, "spool_id": None}
-    monkeypatch.setattr(farm, "http_json", none_chosen)
-    assert farm.Printer("10.1.1.2", 7125)._spool() is None
+    monkeypatch.setattr(farm_net, "http_json", none_chosen)
+    assert farm_printer.Printer("10.1.1.2", 7125)._spool() is None
 
 
 def test_what_a_printer_made():
@@ -1015,12 +1020,12 @@ def test_what_a_printer_made():
         {"status": "in_progress", "start_time": 3500, "filament_used": 50.0},
         {"status": "completed", "end_time": 10, "print_duration": 99999, "filament_used": 9999.0},      # before the period
     ]
-    r = farm.production(jobs, since=500)
+    r = farm_card.production(jobs, since=500)
     assert (r["jobs"], r["ok"], r["stopped"], r["rate"]) == (3, 2, 1, 67)
     assert r["hours"] == 1.8
-    assert r["grams"] == round(12.0 + 500.0 * farm.GRAMS_PER_MM + 5.0)
+    assert r["grams"] == round(12.0 + 500.0 * farm_card.GRAMS_PER_MM + 5.0)
     assert r["top"] == [["clips.gcode", 2]]
-    assert farm.production([], since=0)["rate"] is None
+    assert farm_card.production([], since=0)["rate"] is None
 
 
 def test_the_farm_production_report(monkeypatch):
@@ -1031,7 +1036,7 @@ def test_the_farm_production_report(monkeypatch):
                 raise OSError("no route")
             return {"jobs": [{"status": "completed", "end_time": time.time(), "print_duration": 7200, "filament_used": 0.0}]}
         raise OSError(url)
-    monkeypatch.setattr(farm, "http_json", fake)
+    monkeypatch.setattr(farm_net, "http_json", fake)
     f = farm.Farm(FakeMoonraker())
     f.add([{"host": "10.0.0.2", "port": 7125, "name": "a"}, {"host": "10.0.0.9", "port": 7125, "name": "away"}])
     rep = f.report("7")
@@ -1041,7 +1046,7 @@ def test_the_farm_production_report(monkeypatch):
     assert rep["total"]["jobs"] == sum(r.get("jobs", 0) for r in rep["printers"])
     with pytest.raises(ValueError):
         f.report("365")
-    assert farm.report_since("7", now=time.mktime((2026, 10, 22, 15, 0, 0, 0, 0, -1))) == time.mktime((2026, 10, 16, 0, 0, 0, 0, 0, -1))
+    assert farm_card.report_since("7", now=time.mktime((2026, 10, 22, 15, 0, 0, 0, 0, -1))) == time.mktime((2026, 10, 16, 0, 0, 0, 0, 0, -1))
 
 
 # ------------------------------------------------------------- settings for a kind of printer
@@ -1062,15 +1067,15 @@ def test_a_printers_settings_as_the_macros_merge_them(monkeypatch):
     def fake(url, data=None, method=None, timeout=0):
         asked.append(url)
         return {"status": settings_status(file={"direction": "back"}, saved={"cool_temp": 40, "gone": 1})}
-    monkeypatch.setattr(farm, "http_json", fake)
-    got = farm.Printer("10.1.1.2", 7125, "voron").read_settings()
+    monkeypatch.setattr(farm_net, "http_json", fake)
+    got = farm_printer.Printer("10.1.1.2", 7125, "voron").read_settings()
     assert got["values"] == {"cool_temp": 40, "push_z": 1.0, "direction": "back", "verify": True, "notify": "", "home_z_gcode": "G28 Z"}
     assert got["changed"] == ["cool_temp", "direction"] and got["kept"] is True
     assert "gcode_macro%20_AUTO_EJECT_OVERRIDES" in asked[0]
 
-    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0: {"status": {}})
+    monkeypatch.setattr(farm_net, "http_json", lambda url, data=None, method=None, timeout=0: {"status": {}})
     with pytest.raises(LookupError):
-        farm.Printer("10.1.1.3", 7125, "ender").read_settings()
+        farm_printer.Printer("10.1.1.3", 7125, "ender").read_settings()
 
 
 def test_copying_settings_sets_only_what_differs(monkeypatch):
@@ -1081,7 +1086,7 @@ def test_copying_settings_sets_only_what_differs(monkeypatch):
             return {"status": settings_status(saved={"cool_temp": 40}, keep=False)}
         sent.append(data["script"])
         return "ok"
-    monkeypatch.setattr(farm, "http_json", fake)
+    monkeypatch.setattr(farm_net, "http_json", fake)
     f = farm.Farm(FakeMoonraker())
     f.add([{"host": "10.1.1.2", "port": 7125, "name": "voron-02"}])
     pid = list(f.printers)[0]
@@ -1121,7 +1126,7 @@ def test_saved_sets_for_a_kind_of_printer():
 def test_api_settings_and_sets(api, monkeypatch):
     f, base = api
     pid = list(f.printers)[0]
-    monkeypatch.setattr(farm, "http_json", lambda url, data=None, method=None, timeout=0:
+    monkeypatch.setattr(farm_net, "http_json", lambda url, data=None, method=None, timeout=0:
                         {"status": settings_status(saved={"cool_temp": 40})} if "/objects/query" in url else "ok")
     code, body = call(base + "/farm/%s/settings" % pid)
     assert code == 200 and body["settings"]["changed"] == ["cool_temp"]
@@ -1150,7 +1155,7 @@ class Now:
 
 @pytest.fixture
 def queue_farm(monkeypatch, tmp_path):
-    monkeypatch.setattr(farm, "QUEUE_DIR", str(tmp_path / "queue"))
+    monkeypatch.setattr(farm_queue, "QUEUE_DIR", str(tmp_path / "queue"))
     monkeypatch.setattr(farm.threading, "Thread", Now)
     sent = []
     refuse = ["10.0.0.9"]                    # this one refuses its first copy
@@ -1161,7 +1166,7 @@ def queue_farm(monkeypatch, tmp_path):
             refuse.clear()
             raise RuntimeError("Klipper is busy")
         return {"print_started": True}
-    monkeypatch.setattr(farm, "upload_file", upload)
+    monkeypatch.setattr(farm_net, "upload_file", upload)
     f = farm.Farm(FakeMoonraker())
     ids = f.add([{"host": "10.0.0.%d" % i, "port": 7125, "name": "p%d" % i} for i in (1, 2, 3, 9)])
     for pid in ids:
@@ -1180,12 +1185,12 @@ def card(f, pid, at, **c):
 def test_the_material_a_file_was_sliced_for(tmp_path):
     a = tmp_path / "a.gcode"
     a.write_bytes(b"G28\n" * 40000 + b"; filament_type = PETG;PLA\n")
-    assert farm.gcode_material(str(a)) == "PETG"
+    assert farm_card.gcode_material(str(a)) == "PETG"
     b = tmp_path / "b.gcode"
     b.write_bytes(b"G28\n")
-    assert farm.gcode_material(str(b)) == ""
-    assert farm.same_material("PLA", "PLA+") and farm.same_material("", "PETG")
-    assert not farm.same_material("PLA", "PETG") and not farm.same_material("PLA", "PLA-CF")
+    assert farm_card.gcode_material(str(b)) == ""
+    assert farm_card.same_material("PLA", "PLA+") and farm_card.same_material("", "PETG")
+    assert not farm_card.same_material("PLA", "PETG") and not farm_card.same_material("PLA", "PLA-CF")
 
 
 def test_the_farm_queue_sends_each_copy_to_the_next_free_printer(queue_farm):
@@ -1247,10 +1252,10 @@ def test_the_farm_queue_never_forces_a_printer(queue_farm):
     assert f.dispatch(2000.0) == []
     f.queue_change({"running": True})
     # a copy that never shows up printing, and one cancelled: stopped, and the bed is checked first
-    f.dispatch(1000.0 + farm.QUEUE_RETRY + 1)
+    f.dispatch(1000.0 + farm_queue.QUEUE_RETRY + 1)
     assert f.queue["jobs"][0]["runs"][-1]["state"] == "printing"
     card(f, bad, 1500.0, phase="idle", state="standby", filename="")
-    f.track_queue(1000.0 + farm.QUEUE_RETRY + 1 + farm.QUEUE_START + 1)
+    f.track_queue(1000.0 + farm_queue.QUEUE_RETRY + 1 + farm_queue.QUEUE_START + 1)
     assert f.queue["jobs"][0]["runs"][-1]["state"] == "stopped" and bad in f.need_clear
     view = f.queue_view()["jobs"][0]
     assert (view["stopped"], view["left"]) == (1, 4)
@@ -1258,7 +1263,7 @@ def test_the_farm_queue_never_forces_a_printer(queue_farm):
     with pytest.raises(ValueError):
         f.queue_change({"id": job, "copies": 0})
     assert f.queue_change({"id": job, "move": -1}) and f.queue_change({"id": job, "remove": True})
-    assert f.queue["jobs"] == [] and not any(os.listdir(farm.QUEUE_DIR))
+    assert f.queue["jobs"] == [] and not any(os.listdir(farm_queue.QUEUE_DIR))
     with pytest.raises(LookupError):
         f.queue_change({"id": job, "copies": 2})
     with pytest.raises(ValueError):
@@ -1267,7 +1272,7 @@ def test_the_farm_queue_never_forces_a_printer(queue_farm):
 
 def test_api_farm_queue(api, monkeypatch, tmp_path):
     f, base = api
-    monkeypatch.setattr(farm, "QUEUE_DIR", str(tmp_path / "queue"))
+    monkeypatch.setattr(farm_queue, "QUEUE_DIR", str(tmp_path / "queue"))
     pid = list(f.printers)[0]
     req = urllib.request.Request(base + "/farm/queue/upload?name=part.gcode&copies=2&printers=%s,gone" % pid, data=b"G28\n",
                                  headers={"Content-Type": "application/octet-stream"})

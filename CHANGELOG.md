@@ -16,6 +16,10 @@ All notable changes to this project are documented here. The format is based on
   the count of all of them.
 
 ### Changed
+- `push/farm.py` (1800 lines) is split by what each part does: `farm_printer.py` (one printer),
+  `farm_queue.py` (the farm queue), `farm_card.py` (what a printer's answers say), `farm_net.py`
+  (Moonraker's API and the search) and `farm_api.py` (the API for the page). The code moved as it
+  was; the farm works as before.
 - While the bed cools with the printer free (`cool_background`), the button that stops the cooling
   says what it does: **Stop, I'll take them off**, on the Overview and the farm card, and it asks
   first (the bed may still be hot).

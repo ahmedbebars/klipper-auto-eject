@@ -19,8 +19,9 @@ in Moonraker's database, so this service needs no port of its own. It
 reads the printer over Moonraker's HTTP API on this machine. Messages are
 encrypted for each device (RFC 8291), so the push services cannot read them.
 
-It also runs the farm (farm.py): every Klipper printer on the network in the
-auto-eject page, with notifications from all of them.
+It also runs the farm (farm.py and the farm_*.py next to it): every Klipper
+printer on the network in the auto-eject page, with notifications from all
+of them.
 
 Needs Python 3.9+ and the cryptography package.
 """
@@ -307,6 +308,7 @@ def main():
     published = False
     if args.api_port:
         import farm as farm_mod
+        import farm_api
         port = urllib.parse.urlsplit(args.moonraker).port or 7125
 
         def farm_events(name, events):
@@ -316,7 +318,7 @@ def main():
                 log.info("farm notification failed: %s", e)
 
         farm = farm_mod.Farm(moonraker, on_events=farm_events, local_port=port)
-        farm_mod.serve(farm, args.api_port)
+        farm_api.serve(farm, args.api_port)
 
         def farm_loop():
             while True:
