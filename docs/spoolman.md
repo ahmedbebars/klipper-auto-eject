@@ -64,8 +64,9 @@ Moonraker cannot reach Spoolman.
    ~/klipper-auto-eject/install.sh --spoolman
    ```
 
-   It asks for Spoolman's address (as in your browser, for example `192.168.1.50:7912`), checks
-   that Spoolman answers there, adds the section and restarts Moonraker when the printer is idle.
+   It looks for Spoolman on its own port (7912) on the printer and on your network, and asks
+   whether to use the one it found. Elsewhere (another port, another network), it asks for the
+   address as in your browser, for example `192.168.1.50:7912`. It checks that Spoolman answers, adds the section and restarts Moonraker when the printer is idle.
    By hand, it is the same address in each printer's `moonraker.conf`:
 
    ```ini

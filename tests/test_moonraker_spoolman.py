@@ -107,3 +107,33 @@ def test_the_command_line(tmp_path):
     assert run("add", str(conf), "http://192.168.1.50:7912") == "added"
     assert run("add", str(conf), "http://192.168.1.50:7912") == "present"
     assert run("server", str(conf)) == "http://192.168.1.50:7912"
+
+
+# ------------------------------------------------------------ finding Spoolman
+IP_ADDR = """1: lo    inet 127.0.0.1/8 scope host lo
+2: eth0    inet 192.168.1.18/24 brd 192.168.1.255 scope global eth0
+3: wlan0    inet 10.4.0.7/16 brd 10.4.255.255 scope global wlan0
+4: tailscale0    inet 100.75.1.2/32 scope global tailscale0
+"""
+
+
+def test_the_networks_it_looks_in():
+    # not loopback nor Tailscale, and a /24 at most
+    assert [str(n) for n in ms.networks(IP_ADDR)] == ["192.168.1.0/24", "10.4.0.0/24"]
+
+
+def test_finds_spoolman_on_the_network():
+    import ipaddress
+    asked = []
+
+    def checker(u):
+        asked.append(u)
+        return "0.27.0" if u == "http://192.168.1.15:7912" else ""
+    found = ms.find(nets=[ipaddress.ip_network("192.168.1.0/24")], checker=checker)
+    assert found == [("http://192.168.1.15:7912", "0.27.0")]
+    assert asked[0] == "http://127.0.0.1:7912" and len(asked) == 255      # this machine first, then the network
+
+
+def test_finds_nothing_without_spoolman():
+    import ipaddress
+    assert ms.find(nets=[ipaddress.ip_network("10.0.0.0/30")], checker=lambda u: "") == []

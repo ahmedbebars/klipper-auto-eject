@@ -20,6 +20,7 @@ NOTIFY=0
 PUSH=0
 FARM=0
 SPOOLMAN=0
+SPOOLMAN_FOUND=""     # "url version" lines of the Spoolman servers found on the network
 DEMON_ONLY=0
 # Moonraker's update manager restarts a service after an update only when it
 # has the update_manager section's name, so the service is klipper-auto-eject
@@ -490,6 +491,15 @@ install_notify() {
 # --------------------------------------------------------------- Spoolman
 # Spoolman runs once for all the printers (Home Assistant, a NAS, a Pi...);
 # each printer's Moonraker only needs its address.
+
+# Look once for Spoolman on its own port, here and on the local network:
+# few people have its address at hand.
+find_spoolman() {
+    [[ -n "${SPOOLMAN_FOUND}" ]] && return
+    log "Looking for Spoolman on your network (a few seconds) ..."
+    SPOOLMAN_FOUND="$(python3 "${REPO_DIR}/tools/moonraker_spoolman.py" find 2>/dev/null || true)"
+}
+
 install_spoolman() {
     local tool now addr url version
     tool="${REPO_DIR}/tools/moonraker_spoolman.py"
@@ -506,17 +516,31 @@ install_spoolman() {
         warn "Run install.sh --spoolman from a terminal: it asks where Spoolman runs."
         return
     fi
-    read -r -p "$(printf '\033[1;36m[auto-eject]\033[0m %s ' "Spoolman's address, as in your browser (e.g. 192.168.1.50:7912), or Enter to skip:")" addr
-    if [[ -z "${addr}" ]]; then
-        warn "Skipped. Run install.sh --spoolman when Spoolman is installed."
-        return
+    find_spoolman
+    url="" version=""
+    if [[ -n "${SPOOLMAN_FOUND}" ]]; then
+        if [[ "$(wc -l <<<"${SPOOLMAN_FOUND}")" -gt 1 ]]; then
+            log "Spoolman answers at:"
+            sed 's/^/    /' <<<"${SPOOLMAN_FOUND}"
+        fi
+        if ask "Use Spoolman at ${SPOOLMAN_FOUND%% *}?" y; then
+            url="${SPOOLMAN_FOUND%% *}"
+            version="$(head -n 1 <<<"${SPOOLMAN_FOUND}" | cut -d' ' -f2)"
+        fi
     fi
-    url="$(python3 "${tool}" url "${addr}")"
     if [[ -z "${url}" ]]; then
-        warn "That is not an address: ${addr}"
-        return
+        read -r -p "$(printf '\033[1;36m[auto-eject]\033[0m %s ' "Spoolman's address, as in your browser (e.g. 192.168.1.50:7912), or Enter to skip:")" addr
+        if [[ -z "${addr}" ]]; then
+            warn "Skipped. Run install.sh --spoolman when Spoolman is installed."
+            return
+        fi
+        url="$(python3 "${tool}" url "${addr}")"
+        if [[ -z "${url}" ]]; then
+            warn "That is not an address: ${addr}"
+            return
+        fi
+        version="$(python3 "${tool}" check "${url}")"
     fi
-    version="$(python3 "${tool}" check "${url}")"
     if [[ -n "${version}" ]]; then
         log "Spoolman ${version} answers at ${url}"
     elif ! ask "Spoolman does not answer at ${url}. Add it anyway?" n; then
@@ -855,7 +879,12 @@ if [[ -t 0 && $((WEB + REMOTE + NOTIFY + PUSH + FARM + SPOOLMAN)) -eq 0 ]]; then
     if [[ "${PUSH}" -eq 0 ]]; then
         ask "Messages on Telegram, Discord or the ntfy app when the printer needs you?" n && NOTIFY=1
     fi
-    ask "Do you use Spoolman, which knows what is left on each spool? (the queue stops before a spool runs out)" n && SPOOLMAN=1
+    find_spoolman
+    if [[ -n "${SPOOLMAN_FOUND}" ]]; then
+        ask "Spoolman answers at ${SPOOLMAN_FOUND%% *}. Use it, so the queue stops before a spool runs out?" y && SPOOLMAN=1
+    else
+        ask "Do you use Spoolman, which knows what is left on each spool? (the queue stops before a spool runs out)" n && SPOOLMAN=1
+    fi
     picked="macros"
     [[ "${ADD_INCLUDE}" -eq 1 ]] || picked="no macros"
     [[ "${WEB}" -eq 1 ]] && picked+=", web page"

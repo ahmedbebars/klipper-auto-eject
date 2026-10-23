@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **`install.sh` finds Spoolman by itself** on its port, on the printer and on the local network
+  (a few seconds), and asks whether to use it: the address of a Spoolman on Home Assistant or a
+  NAS is seldom at hand. Typing it stays possible.
 - **CI opens every view of the web page** at phone, tablet and desktop widths, in English and in
   Arabic, and fails on the page scrolling sideways, content wider than its card, buttons on top of
   each other, console errors or page files that do not load (`tests/layout_sweep.mjs`, with
