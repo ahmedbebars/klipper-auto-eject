@@ -165,7 +165,7 @@
 3. **ركّبها** على رأس الطباعة، واضبط ارتفاعها بالمقياس المطبوع ([hardware.md](../hardware.md)، بالإنجليزية).
 4. **ثبّت الماكروهات** عبر SSH، بسطر واحد:
    ```bash
-   cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh
+   cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
    ```
    يسألك بعض الأسئلة بنعم أو لا (صفحة الويب؟ هاتفك؟ الإشعارات؟ أكثر من طابعة؟)، ويضيف ما يحتاجه
    `printer.cfg`، ثم يعيد تشغيل Klipper بنفسه إذا لم تكن الطابعة تطبع ([التثبيت](installation.md)). وإزالته لاحقًا سطر واحد أيضًا

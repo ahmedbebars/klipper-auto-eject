@@ -143,7 +143,7 @@ that runs Klipper). You reach it over **SSH**, a text connection from your compu
    ```
 3. Paste this line and press Enter:
    ```bash
-   cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh
+   cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
    ```
 4. It asks a few questions. **Press Enter** to keep the suggested answer, the one in capitals:
 

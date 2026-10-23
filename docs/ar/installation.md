@@ -17,7 +17,7 @@
 افتح طرفية على الطابعة عبر SSH. على Windows استخدم PowerShell واكتب `ssh pi@<printer address>`، وضع اسم المستخدم في طابعتك بدل `pi`. ثم الصق هذا السطر:
 
 ```bash
-cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh
+cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
 ```
 
 يسألك السكربت بعض الأسئلة أولًا. اضغط **Enter** لتقبل الإجابة المقترحة (وهي الحرف الكبير بين القوسين):

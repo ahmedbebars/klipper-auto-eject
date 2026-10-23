@@ -142,7 +142,7 @@ Klipper). تصل إليه عبر **SSH**، وهو اتصال نصي من كمب�
    ```
 3. الصق هذا السطر واضغط Enter:
    ```bash
-   cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh
+   cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
    ```
 4. سيسألك بعض الأسئلة. **اضغط Enter** لتقبل الإجابة المقترحة، وهي المكتوبة بحرف كبير:
 

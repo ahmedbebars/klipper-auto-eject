@@ -19,7 +19,7 @@ Open a terminal on the printer over SSH (on Windows: PowerShell, `ssh pi@<printe
 your printer's user name) and paste this one line:
 
 ```bash
-cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh
+cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
 ```
 
 It asks a few questions first. Press **Enter** to keep the suggested answer (the one in capitals):

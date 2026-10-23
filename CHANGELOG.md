@@ -16,6 +16,10 @@ All notable changes to this project are documented here. The format is based on
 - `CONTRIBUTING.md` has a checklist to go through on a real printer before each release.
 
 ### Fixed
+- **Connecting to Tailscale in `install.sh` no longer stops the whole setup.** Ctrl+C, which many
+  press to copy the login link, stopped the installer with it; now it stops the login only and
+  the rest of the setup goes on. The login also shows a QR code to scan with the phone. The
+  install command in the docs works a second time too, when the folder is already there.
 - **Tall prints no longer bring the gantry down on themselves.** With the motors switched off by
   the end macro (`M84`, as `DEMON_END` does), `AUTO_EJECT HOME=1` found Z with the probe at the
   spot furthest from the parts. That kept the nozzle, the probe and the blade clear of them, but

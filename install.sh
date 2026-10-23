@@ -294,7 +294,16 @@ install_remote() {
     fi
     if ! tailscale status >/dev/null 2>&1; then
         if ask "Connect this printer to your Tailscale account now? A login link is shown, open it on any device." y; then
-            sudo tailscale up
+            log "Open the link on any device, or scan the QR code with your phone. To copy the link, select it with the mouse: Ctrl+C here stops the login."
+            # Ctrl+C (pressed to copy the link, often) stops the login only, not the whole setup
+            local up=0
+            trap 'true' INT
+            sudo tailscale up --qr || up=$?
+            trap - INT
+            if [[ ${up} -ne 0 ]] || ! tailscale status >/dev/null 2>&1; then
+                warn "The printer is not connected to Tailscale. The rest of the setup goes on; for remote access later run: ${REPO_DIR}/install.sh --remote"
+                return
+            fi
         else
             warn "Skipped. Connect it later with: sudo tailscale up"
             return

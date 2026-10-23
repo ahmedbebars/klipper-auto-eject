@@ -164,7 +164,7 @@ to check that it worked. In short:
 3. **Mount it** on the toolhead and set its height with the printed gauge ([hardware.md](docs/hardware.md)).
 4. **Install** over SSH, with one line:
    ```bash
-   cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh
+   cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
    ```
    It asks a few yes/no questions (the web page? your phone? notifications? more than one
    printer?), adds what `printer.cfg` needs, and restarts Klipper for you if it is not printing

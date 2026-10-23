@@ -213,7 +213,7 @@ About one afternoon, most of it printing the blade. Every step says how to check
 Installing is one line on the printer; it asks a few questions and does the rest:
 
 ```bash
-cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git && ./klipper-auto-eject/install.sh
+cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
 ```
 
 [Start step by step](getting-started.md){ .md-button .md-button--primary }
