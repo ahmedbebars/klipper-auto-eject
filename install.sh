@@ -501,7 +501,7 @@ find_spoolman() {
 }
 
 install_spoolman() {
-    local tool now addr url version
+    local tool now addr url version line
     tool="${REPO_DIR}/tools/moonraker_spoolman.py"
     log "Spoolman: the queue stops before a job the spool cannot finish, see docs/spoolman.md"
     if [[ ! -f "${MOONRAKER_CONF}" ]]; then
@@ -521,7 +521,7 @@ install_spoolman() {
     if [[ -n "${SPOOLMAN_FOUND}" ]]; then
         if [[ "$(wc -l <<<"${SPOOLMAN_FOUND}")" -gt 1 ]]; then
             log "Spoolman answers at:"
-            sed 's/^/    /' <<<"${SPOOLMAN_FOUND}"
+            while IFS= read -r line; do echo "    ${line}"; done <<<"${SPOOLMAN_FOUND}"
         fi
         if ask "Use Spoolman at ${SPOOLMAN_FOUND%% *}?" y; then
             url="${SPOOLMAN_FOUND%% *}"
