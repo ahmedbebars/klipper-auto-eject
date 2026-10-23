@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-23
+
 ### Fixed
 - **With DEMON Klipper Essentials, `AUTO_EJECT_GUARD` goes in DEMON's `_CUSTOM_PRE_START` hook**,
   not first in the slicer's start G-code as the docs said. DEMON stops the printer (an emergency
@@ -16,8 +18,14 @@ All notable changes to this project are documented here. The format is based on
   saved first. A guard left in the slicer then does nothing and says so; without the hook it stops
   such a print itself with a message that says where it belongs. The **In your slicer** card shows
   the command, and when the hook is set up.
+- **A list keeps its place when the page is drawn again.** The print queue's file list, which
+  redraws the page as it loads each file's facts, jumped back to the top while being scrolled;
+  every list and dialog now stays where it was.
+- The farm's list at about 1280 px wide: a printer's facts wrap instead of pushing its buttons out.
 
 ### Added
+- **Pictures, bigger under the mouse**, anywhere in the page: a file's thumbnail, a camera, a
+  drawing shows larger next to the pointer, on the backdrop its thumbnail has.
 - **One command for several farm printers** ([farm.md](docs/farm.md#one-command-for-several-printers)):
   tick printers, a group or everything shown, then **Bed is clear**, **Start the queue**,
   **Push now**, **Pause**, **Resume**, **Turn on**, **Turn off**, **Cancel the print** or
@@ -48,6 +56,10 @@ All notable changes to this project are documented here. The format is based on
   clear, continue the queue**, so the next print never starts on a hand in the printer.
   Both are on the Overview and on the printer's farm card. Then the eject goes on as always and
   starts the queue again. `AUTO_EJECT_GUARD` holds a print started by hand meanwhile.
+
+### Changed
+- CI also lints the Python (ruff) and the web page (eslint); `CONTRIBUTING.md` says how to run
+  them.
 
 ## [0.16.0] - 2026-10-22
 
@@ -582,7 +594,8 @@ All notable changes to this project are documented here. The format is based on
 - Parametric OpenSCAD blade (`hardware/plow.scad`).
 - Macro tests against Jinja2 2.11 and 3.x, and CI.
 
-[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/ahmedbebars/klipper-auto-eject/compare/v0.13.0...v0.14.0
