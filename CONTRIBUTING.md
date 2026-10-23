@@ -35,6 +35,14 @@ OpenSCAD remix in `hardware/`) and your settings. Others with the same toolhead 
    python -m pip install ruff==0.12.0 && ruff check .
    npx eslint@10.13.0 .
    ```
+   If you changed the web page, run the layout sweep too. It opens every view of the demo at
+   phone, tablet and desktop widths, in English and Arabic, and lists what it finds: the page
+   scrolling sideways, content wider than its card, buttons on top of each other, console errors.
+   It needs Node 22 or newer and Chrome, Chromium or Edge, nothing else:
+   ```bash
+   node tests/layout_sweep.mjs
+   VIEWS=farm WIDTHS=390 LANGS=ar node tests/layout_sweep.mjs   # one view, one width, one language
+   ```
 5. Update the docs and add a line to `CHANGELOG.md` under *Unreleased*.
 6. New settings go into `config/auto_eject_settings.cfg` with a comment, and into
    `docs/configuration.md`.

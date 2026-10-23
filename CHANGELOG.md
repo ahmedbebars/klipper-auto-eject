@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **CI opens every view of the web page** at phone, tablet and desktop widths, in English and in
+  Arabic, and fails on the page scrolling sideways, content wider than its card, buttons on top of
+  each other, console errors or page files that do not load (`tests/layout_sweep.mjs`, with
+  pictures of the views that fail). It needs nothing but Node and Chrome.
 - `SECURITY.md`: how to report a security problem privately, which versions get fixes, and what
   auto-eject runs and who can reach it.
 - `CONTRIBUTING.md` has a checklist to go through on a real printer before each release.

@@ -51,6 +51,22 @@ jobs:
       - name: JavaScript (eslint.config.mjs)
         run: npx --yes eslint@10.13.0 .
 
+  page:
+    name: Web page (every view, phone to desktop)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      # Node 22 and Google Chrome come with the image: nothing to install
+      - name: Layout sweep
+        run: SHOTS=sweep-shots node tests/layout_sweep.mjs
+      - name: Pictures of the views with problems
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: layout-sweep
+          path: sweep-shots
+          if-no-files-found: ignore
+
   shellcheck:
     name: ShellCheck
     runs-on: ubuntu-24.04

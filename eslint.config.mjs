@@ -47,6 +47,12 @@ export default [
     languageOptions: { globals: { ...browser, ...readonly(["caches", "clients", "registration", "Response"]) } },
   },
   {
+    // the layout sweep: Node, and the function it sends into the page
+    files: ["tests/**/*.mjs"],
+    languageOptions: { ecmaVersion: 2022, sourceType: "module", globals: { ...browser, ...readonly(["process", "Buffer"]) } },
+    rules: { ...recommended, "no-unused-vars": ["error", { args: "none", caughtErrors: "none" }] },
+  },
+  {
     files: ["tests/**/*.js"],
     languageOptions: { ecmaVersion: 2022, sourceType: "commonjs", globals: readonly(["require", "module", "process", "console", "__dirname"]) },
     rules: { ...recommended, "no-unused-vars": ["error", { args: "none", caughtErrors: "none" }] },
