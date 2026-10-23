@@ -1002,6 +1002,14 @@ html[dir="rtl"] .file-row .name, html[dir="rtl"] .fc-job .fc-file { text-align: 
   box-shadow: var(--shadow-lg); }
 .bulk-n { white-space: nowrap; }
 
+/* a picture under the mouse, bigger */
+.zoom-pop { position: fixed; z-index: var(--z-toast); pointer-events: none; padding: 6px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
+.zoom-pop[hidden] { display: none; }
+.zoom-pop img { display: block; max-width: min(420px, calc(100vw - 40px)); max-height: 70vh; height: auto; object-fit: contain; border-radius: var(--radius-md); }
+.zoom-pop.ink-dark { background: radial-gradient(120% 120% at 30% 15%, var(--print-light-1) 0%, var(--print-light-2) 80%); border-color: var(--print-edge); }
+.zoom-pop.ink-light { background: radial-gradient(120% 120% at 30% 15%, var(--print-dark-1) 0%, var(--print-dark-2) 75%); border-color: var(--print-edge); }
+
 /* the farm queue */
 .fq-jobs { display: grid; gap: 0; }
 .fq-job { display: flex; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); }
