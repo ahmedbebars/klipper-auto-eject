@@ -27,7 +27,12 @@ OpenSCAD remix in `hardware/`) and your settings. Others with the same toolhead 
    python -m pip install -r tests/requirements.txt
    python -m pytest -q tests
    ```
-4. Run `shellcheck install.sh` if you changed the installer.
+4. Run `shellcheck install.sh` if you changed the installer, and the two linters CI runs on the
+   Python and the web page (their settings are in `ruff.toml` and `eslint.config.mjs`):
+   ```bash
+   python -m pip install ruff==0.12.0 && ruff check .
+   npx eslint@10.13.0 .
+   ```
 5. Update the docs and add a line to `CHANGELOG.md` under *Unreleased*.
 6. New settings go into `config/auto_eject_settings.cfg` with a comment, and into
    `docs/configuration.md`.

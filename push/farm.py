@@ -1119,7 +1119,7 @@ class Farm:
             meta = http_json(p.base + "/server/files/metadata?filename=" + urllib.parse.quote(filename), timeout=5) or {}
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                raise LookupError("%s has no file %s" % (p.name, filename))
+                raise LookupError("%s has no file %s" % (p.name, filename)) from e
             raise
         with self.cache_lock:
             if len(self.metas) > 500:
@@ -1155,7 +1155,7 @@ class Farm:
                 data = r.read(4 << 20)
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                raise LookupError("%s has no picture" % filename)
+                raise LookupError("%s has no picture" % filename) from e
             raise
         if not ctype.startswith("image/"):
             raise LookupError("%s has no picture" % filename)

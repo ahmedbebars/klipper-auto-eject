@@ -100,7 +100,7 @@
     const f = FILES[name];
     if (f) return { parts: f.parts.length ? f.parts.map((p) => p[1]) : [circle(175, 175, 40, 36)], height: f.height, color: f.color, material: f.material };
     const n = String(name).toLowerCase();
-    const material = (/(PLA|PETG|ABS|ASA|TPU)/i.exec(name) || [, "PLA"])[1].toUpperCase();
+    const material = ((/(PLA|PETG|ABS|ASA|TPU)/i.exec(name) || [])[1] || "PLA").toUpperCase();
     const grid = (cols, rows, w, d, gap, mk) => {
       const out = [];
       for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) out.push(mk(100 + c * (w + gap), 120 + r * (d + gap), w, d));

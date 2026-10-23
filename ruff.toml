@@ -1,0 +1,11 @@
+# ruff for the Python in this repository: the notification and farm service,
+# the installer's tools, the tests. CI runs ruff 0.12.0.
+target-version = "py39"      # Debian 11 Bullseye, the oldest the service runs on
+line-length = 200
+
+[lint]
+select = ["E", "F", "W", "B"]
+ignore = [
+    "E731",  # a short lambda kept in a name reads fine here
+    "E741",  # l names a line in a loop over lines
+]

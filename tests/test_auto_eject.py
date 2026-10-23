@@ -62,7 +62,7 @@ def test_columns_start_behind_rearmost_part_and_end_at_edge(printer):
     p = pushes(lines)
     assert p, lines
     s = printer.status["gcode_macro _AUTO_EJECT_SETTINGS"]
-    for (x, y), end in p:
+    for (_x, y), end in p:
         assert end == 0.0
         # rear part ends at Y=310, plus clearance and blade offset
         assert y == pytest.approx(310 + s["rear_clearance"] + s["blade_offset"])
@@ -145,7 +145,7 @@ def test_direction_right_pushes_along_x():
     lanes = pushes(p.execute("AUTO_EJECT"), axis="X")
     assert lanes
     s = p.status["gcode_macro _AUTO_EJECT_SETTINGS"]
-    for (x, y), end in lanes:
+    for (x, _y), end in lanes:
         assert end == 450.0
         assert x == pytest.approx(100 - s["rear_clearance"] - s["blade_offset"])
 

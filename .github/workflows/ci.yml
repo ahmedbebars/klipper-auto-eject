@@ -34,6 +34,21 @@ jobs:
       - name: Run tests
         run: python -m pytest -q tests
 
+  lint:
+    name: Lint (ruff, eslint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Python (ruff.toml)
+        run: |
+          python -m pip install "ruff==0.12.0"
+          ruff check .
+      - name: JavaScript (eslint.config.mjs)
+        run: npx --yes eslint@10.13.0 .
+
   shellcheck:
     name: ShellCheck
     runs-on: ubuntu-latest

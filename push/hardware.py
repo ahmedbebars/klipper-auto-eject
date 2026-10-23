@@ -232,8 +232,9 @@ class HardwareWatcher:
             bus = cs.get("bus_state")
             if bus and bus != "active":
                 level = "warn" if bus == "warn" else "bad"
-                self._seen("canstate %s %s" % (o, bus), level, text("CAN bus to %s: %s" % (name, {"warn": "warning level", "passive": "error passive", "off": "bus off"}.get(bus, bus)),
-                                                                    "ناقل CAN إلى %s: %s" % (name, {"warn": "مستوى تحذير", "passive": "أخطاء كثيرة", "off": "منفصل عن الناقل"}.get(bus, bus))), now, 10, out)
+                en = {"warn": "warning level", "passive": "error passive", "off": "bus off"}.get(bus, bus)
+                ar = {"warn": "مستوى تحذير", "passive": "أخطاء كثيرة", "off": "منفصل عن الناقل"}.get(bus, bus)
+                self._seen("canstate %s %s" % (o, bus), level, text("CAN bus to %s: %s" % (name, en), "ناقل CAN إلى %s: %s" % (name, ar)), now, 10, out)
             errors = self._count(o + " errors", (cs.get("rx_error") or 0) + (cs.get("tx_error") or 0) + (cs.get("tx_retries") or 0), now)
             if errors >= CAN_ERRORS:
                 self._seen("canerr " + o, "warn", text("%d CAN errors to %s in 10 minutes: check the CAN cable and its 120 Ω ends." % (errors, name),

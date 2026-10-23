@@ -865,7 +865,6 @@
   }
 
   function viewOverview() {
-    const ph = phase();
     const set = sv();
     const n = parts().length;
     const why = blocked();
@@ -1990,7 +1989,6 @@
     const src = m.source[key];
     const edit = settingsUi.edits[key];
     const changed = edit !== undefined && String(edit) !== String(value);
-    const setEdit = (v) => { settingsUi.edits[key] = v; refresh("settings"); };
     const sending = settingsUi.sending[key];
     let control;
     if (typeof value === "boolean") {

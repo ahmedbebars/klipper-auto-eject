@@ -673,7 +673,6 @@ def test_printing_only_on_a_free_printer(monkeypatch):
 
 
 def test_api_files_print_pause_upload(monkeypatch, tmp_path):
-    import io
     calls = []
 
     def fake(url, data=None, method=None, timeout=0):

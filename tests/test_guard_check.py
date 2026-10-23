@@ -3,7 +3,7 @@
 
 import pytest
 
-from klipper_sim import MacroError, Printer, rect, words
+from klipper_sim import MacroError, Printer, rect
 
 from test_setup_wizard import buttons
 
