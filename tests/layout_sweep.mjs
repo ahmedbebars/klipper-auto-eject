@@ -58,12 +58,21 @@ function findBrowser() {
   return known.find((p) => fs.existsSync(p)) || null;
 }
 
-async function launch(exe) {
+// A busy CI machine sometimes starts the browser slowly, or not at all the
+// first time: wait a minute, and try once more.
+async function launch(exe, tries = 2) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "ae-sweep-"));
   const proc = spawn(exe, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--hide-scrollbars",
-    "--remote-debugging-port=0", "--user-data-dir=" + profile, "about:blank"], { stdio: "ignore" });
+    "--remote-debugging-port=0", "--user-data-dir=" + profile, "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
+  let said = "";
+  proc.stderr.on("data", (d) => { said = (said + d).slice(-2000); });
   const portFile = path.join(profile, "DevToolsActivePort");
-  for (let i = 0; i < 200 && !fs.existsSync(portFile); i++) await sleep(100);
+  for (let i = 0; i < 600 && !fs.existsSync(portFile) && proc.exitCode === null; i++) await sleep(100);
+  if (!fs.existsSync(portFile)) {
+    proc.kill();
+    if (tries > 1) return launch(exe, tries - 1);
+    throw new Error("the browser did not start: " + exe + "\n" + said);
+  }
   const [port, wsPath] = fs.readFileSync(portFile, "utf8").split("\n");
   const ws = new WebSocket("ws://127.0.0.1:" + port + wsPath);
   await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
