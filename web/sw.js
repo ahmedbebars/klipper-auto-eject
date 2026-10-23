@@ -10,6 +10,8 @@
 const CACHE = "auto-eject-v1";
 const SHELL = [
   "./", "index.html", "style.css", "app.js", "model.js", "qr.js", "moonraker.js", "demo.js",
+  "app/core.js", "app/overview.js", "app/files.js", "app/setup.js", "app/settings.js",
+  "app/farm.js", "app/farm-tools.js", "app/hardware.js", "app/updates.js", "app/zoom.js",
   "lang/en.js", "lang/ar.js", "manifest.json",
   "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png",
   "icons/badge-96.png", "icons/shortcut-farm.png", "icons/shortcut-queue.png", "icons/shortcut-check.png"

@@ -7,6 +7,7 @@ the simulator, so the page never shows a plan the printer would not run.
 
 import json
 import pathlib
+import posixpath
 import re
 import shutil
 import subprocess
@@ -19,6 +20,12 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
 NODE = shutil.which("node")
 needs_node = pytest.mark.skipif(NODE is None, reason="Node.js is not installed")
+# the page's own code: app.js, the entry, and the modules it imports from app/
+MODULES = ["app.js"] + ["app/" + p.name for p in sorted((WEB / "app").glob("*.js"))]
+
+
+def page_code():
+    return "\n".join((WEB / name).read_text(encoding="utf-8") for name in MODULES)
 
 
 def js(fn, *args):
@@ -258,9 +265,34 @@ def test_arabic_has_every_text():
 
 
 @needs_node
-@pytest.mark.parametrize("name", ["app.js", "demo.js", "model.js", "qr.js", "moonraker.js", "sw.js", "lang/en.js", "lang/ar.js"])
+@pytest.mark.parametrize("name", ["demo.js", "model.js", "qr.js", "moonraker.js", "sw.js", "lang/en.js", "lang/ar.js"])
 def test_scripts_parse(name):
     subprocess.run([NODE, "--check", str(WEB / name)], check=True)
+
+
+@needs_node
+@pytest.mark.parametrize("name", MODULES)
+def test_modules_parse(name):
+    # read as a module (import and export), not run
+    check = "new (require('vm').SourceTextModule)(require('fs').readFileSync(process.argv[1], 'utf8'))"
+    subprocess.run([NODE, "--experimental-vm-modules", "--no-warnings", "-e", check, str(WEB / name)], check=True)
+
+
+def test_every_import_is_exported():
+    """A module that imports a name its file does not export stops the whole page."""
+    exported = {}
+    for name in MODULES:
+        code = (WEB / name).read_text(encoding="utf-8")
+        exported[name] = {n.strip() for block in re.findall(r"^export \{([^}]*)\};", code, re.M) for n in block.split(",")}
+    for name in MODULES:
+        code = (WEB / name).read_text(encoding="utf-8")
+        for block, source in re.findall(r'^import \{([^}]*)\} from "([^"]+)";', code, re.M):
+            target = posixpath.normpath(posixpath.join(posixpath.dirname(name), source))
+            assert target in exported, (name, source)
+            for n in (x.strip() for x in block.split(",")):
+                assert n in exported[target], (name, n, target)
+    index = (WEB / "index.html").read_text(encoding="utf-8")
+    assert '<script type="module" src="app.js"></script>' in index
 
 
 def test_page_loads_only_local_files():
@@ -276,7 +308,7 @@ def test_page_loads_only_local_files():
 
 def test_page_only_sends_known_commands():
     """Everything the page runs is a documented macro or a dialog button."""
-    app = (WEB / "app.js").read_text(encoding="utf-8")
+    app = page_code()
     sent = set(re.findall(r'gcode\(\s*(?:homed\(\) \? )?"([A-Z_]+)', app))
     sent |= set(re.findall(r'"(AUTO_EJECT[A-Z_]*)', app))
     known = {"AUTO_EJECT", "AUTO_EJECT_SET", "AUTO_EJECT_SETUP", "AUTO_EJECT_CALIBRATE",
@@ -316,6 +348,11 @@ def test_service_worker_caches_files_that_exist():
     sw = (WEB / "sw.js").read_text(encoding="utf-8")
     shell = re.findall(r'"([^"]+)"', sw[sw.index("const SHELL"):sw.index("];")])
     assert "index.html" in shell and "app.js" in shell
+    # every module of the page, so it opens offline, and in the check for a newer page
+    assert set(MODULES) <= set(shell)
+    setup = (WEB / "app" / "setup.js").read_text(encoding="utf-8")
+    page_files = re.findall(r'"([^"]+)"', setup[setup.index("const PAGE_FILES"):setup.index("];", setup.index("const PAGE_FILES"))])
+    assert set(MODULES) <= set(page_files)
     for name in shell:
         if name != "./":
             assert (WEB / name).exists(), name
@@ -324,7 +361,7 @@ def test_service_worker_caches_files_that_exist():
 
 
 def test_page_is_an_app_only_where_browsers_allow_it():
-    app = (WEB / "app.js").read_text(encoding="utf-8")
+    app = page_code()
     assert 'navigator.serviceWorker.register("sw.js")' in app
     assert "window.isSecureContext && !DEMO" in app        # not in the demo, not over plain HTTP
     html = (WEB / "index.html").read_text(encoding="utf-8")
@@ -401,7 +438,7 @@ def test_farm_card_buttons(p, actions):
 
 def test_farm_api_matches_the_page():
     """The page calls only what push/farm.py answers, through nginx's /auto-eject/api/."""
-    app = (WEB / "app.js").read_text(encoding="utf-8")
+    app = page_code()
     assert 'const FARM_API = "../api/farm"' in app
     farm_py = (WEB.parent / "push" / "farm.py").read_text(encoding="utf-8")
     for action in re.findall(r'(clear|continue|estop): \["', app):
@@ -555,7 +592,7 @@ def test_the_stallguard_reading_in_short():
 
 def test_stallguard_raises_no_alarm():
     # it also drops at low speed: only driver warnings and motor temperatures sum the tab up
-    app = (WEB / "app.js").read_text(encoding="utf-8")
+    app = page_code()
     assert "sum_load" not in app
     for name in ("en", "ar"):
         assert "motors.sum_load" not in (WEB / "lang" / (name + ".js")).read_text(encoding="utf-8")
@@ -820,7 +857,7 @@ def test_both_dark_themes_are_the_same():
 
 
 def test_every_section_has_its_names_in_every_language():
-    views = re.findall(r'\{ id: "(\w+)", icon: "', (WEB / "app.js").read_text(encoding="utf-8"))
+    views = re.findall(r'\{ id: "(\w+)", icon: "', page_code())
     assert "overview" in views and "updates" in views
     for code in ("en", "ar"):
         text = (WEB / "lang" / (code + ".js")).read_text(encoding="utf-8")

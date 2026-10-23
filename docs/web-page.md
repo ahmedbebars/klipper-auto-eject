@@ -312,7 +312,8 @@ Anything left out is shown in English. Setting names and console messages stay i
 | File | |
 |---|---|
 | `web/index.html` | The page |
-| `web/app.js` | Views, buttons and the Moonraker connection |
+| `web/app.js` | The start: the Moonraker connection, the menu, and which view is shown |
+| `web/app/` | The views, one file each (`overview.js`, `farm.js`, `settings.js`...), and `core.js` with what they share. They are JavaScript modules: each file imports what it uses, so nothing is built or bundled |
 | `web/model.js` | The logic: the push plan, reading the settings file, checking G-code, the setup dialogs. It does what the macros do, and `tests/test_web.py` compares the two |
 | `web/moonraker.js` | A small Moonraker websocket client |
 | `web/demo.js` | The pretend printer for `?demo` |

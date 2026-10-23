@@ -20,6 +20,11 @@ All notable changes to this project are documented here. The format is based on
   `farm_queue.py` (the farm queue), `farm_card.py` (what a printer's answers say), `farm_net.py`
   (Moonraker's API and the search) and `farm_api.py` (the API for the page). The code moved as it
   was; the farm works as before.
+- `web/app.js` (4100 lines) is split the same way: `web/app.js` connects to the printer, draws
+  the menu and starts the page, and each view has its own file in `web/app/` (`overview.js`,
+  `files.js`, `setup.js`, `settings.js`, `farm.js`, `farm-tools.js`, `hardware.js`,
+  `updates.js`), with `core.js` for what they share. They are JavaScript modules, which every
+  browser loads as they are: still no build step. The page works as before.
 - While the bed cools with the printer free (`cool_background`), the button that stops the cooling
   says what it does: **Stop, I'll take them off**, on the Overview and the farm card, and it asks
   first (the bed may still be hot).

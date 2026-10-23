@@ -38,6 +38,11 @@ export default [
     rules: { ...recommended, "no-unused-vars": ["error", { args: "none", caughtErrors: "none" }] },
   },
   {
+    // the app itself is modules: each file imports what it uses from the others
+    files: ["web/app.js", "web/app/**/*.js"],
+    languageOptions: { sourceType: "module" },
+  },
+  {
     files: ["web/sw.js"],
     languageOptions: { globals: { ...browser, ...readonly(["caches", "clients", "registration", "Response"]) } },
   },
