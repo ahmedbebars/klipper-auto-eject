@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+- **With DEMON Klipper Essentials, `AUTO_EJECT_GUARD` goes in DEMON's `_CUSTOM_PRE_START` hook**,
+  not first in the slicer's start G-code as the docs said. DEMON stops the printer (an emergency
+  stop, "Machine Start Gcode is not functional") when `DEMON_START` has not come a few seconds into
+  a print, and checking the bed for parts left from the last print takes longer. The guard now
+  stops such a print itself with a message that says where it belongs, and says so even when the
+  bed is empty; the **In your slicer** card shows DEMON's hook, and when it is set up.
+
 ### Added
 - **One command for several farm printers** ([farm.md](docs/farm.md#one-command-for-several-printers)):
   tick printers, a group or everything shown, then **Bed is clear**, **Start the queue**,

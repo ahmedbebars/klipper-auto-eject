@@ -91,7 +91,9 @@ for it, so bookmark `http://<printer>/auto-eject/`.
 
 **Does it work with my print start/end macros (DEMON, Klippain, RatOS…)?**
 Yes. Put `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1` in the slicer's end G-code **after** your end
-macro, which retracts the filament while the nozzle is still hot. Details in
+macro, which retracts the filament while the nozzle is still hot. With DEMON, `AUTO_EJECT_GUARD`
+does not go in the slicer's start G-code but in DEMON's `_CUSTOM_PRE_START` hook: DEMON stops the
+printer when something runs before `DEMON_START` for more than a few seconds. Details in
 [integration.md](integration.md).
 
 ## When something goes wrong

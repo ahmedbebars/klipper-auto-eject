@@ -82,7 +82,24 @@ home with the probe ([`home_method`](configuration.md#recovery) `"auto"` or `"pr
 `"g28"`): DEMON's own Z homing probes the middle of the bed, where a part may be.
 
 **Start G-code.** Keep DEMON's start lines exactly as DEMON gives them (its `DEMON_START` line
-carries a version that DEMON checks), and add `AUTO_EJECT_GUARD` above them as the first line.
+carries a version that DEMON checks), and do **not** put `AUTO_EJECT_GUARD` above them. DEMON
+stops the printer (an emergency stop: *DKEU detected your DEMON Machine Start Gcode is not
+functional*) when `DEMON_START` has not come a few seconds into a print, and when parts from the
+last print are still known, the guard checks the bed with the probe for longer than that. Run the
+guard from DEMON's first hook instead: it runs inside `DEMON_START`, before heating and homing. In
+`demon_custom_expansion_v2.0.0.cfg`, set `variable_ceal_master_enable: True` and
+`variable_pre_start: True` in `_CUSTOM_EXPANSION_ACTIVE_LIST`, and add the line to the section that
+is already there:
+
+```ini
+[gcode_macro _CUSTOM_PRE_START] # Very first action after you hit print!
+gcode:
+  AUTO_EJECT_GUARD
+```
+
+Then `FIRMWARE_RESTART`. The web page's **In your slicer** card says when it is done. A guard
+still placed before `DEMON_START` stops the print itself with a message that says so, before DEMON
+would stop the printer.
 
 **Auto power-off.** With DEMON's `PRINTER_AUTO_OFF` switch on, `DEMON_END` switches the printer off
 5 seconds later. Klipper runs that timer even while `AUTO_EJECT` pushes, so the power would go off

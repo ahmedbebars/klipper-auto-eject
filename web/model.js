@@ -672,7 +672,13 @@
     if (!has("gcode_macro demon_start") && !has("gcode_macro _demon_version")) return null;
     const hw = (entries.find(([k]) => k === "gcode_macro _hardware_variables") || [null, {}])[1];
     const relay = /^true$/i.test(String(hw.variable_shutdown_relay || "").trim());
-    return { name: "demon", autoOff: relay && has("output_pin printer_auto_off") };
+    // AUTO_EJECT_GUARD in DEMON's first hook, which runs inside DEMON_START
+    const sec = (name) => (entries.find(([k]) => k === name) || [null, {}])[1];
+    const on = (v) => /^true$/i.test(String(v || "").trim());
+    const ceal = sec("gcode_macro _custom_expansion_active_list");
+    const guardHook = on(ceal.variable_ceal_master_enable) && on(ceal.variable_pre_start) &&
+      /^\s*AUTO_EJECT_GUARD\b/im.test(String(sec("gcode_macro _custom_pre_start").gcode || ""));
+    return { name: "demon", autoOff: relay && has("output_pin printer_auto_off"), guardHook };
   }
   // Which slicer wrote a file (Moonraker's metadata "slicer"): orca, prusa, cura or null.
   function slicerKind(name) {

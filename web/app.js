@@ -1840,8 +1840,12 @@
           demon ? h("p", { class: "muted small", text: t("slicer.demon_end") }) : null,
           demon && String(set.home_method || "").toLowerCase() === "g28" ? h("p", { class: "note warn" }, icon("alert"), h("span", { text: t("slicer.demon_g28") })) : null,
           demon && (M.macroSet(app.config) || {}).autoOff ? h("p", { class: "note" }, icon("power"), h("span", { text: t("slicer.demon_off") })) : null),
-        h("li", null, h("b", { text: t("slicer.start") }), menuPath(SLICER_PATHS[kind].start),
-          h("p", { text: t(demon ? "slicer.start_how_demon" : "slicer.start_how") }), codeCopy("AUTO_EJECT_GUARD"))),
+        // with DEMON, in its first hook: DEMON stops the printer when anything long runs before DEMON_START
+        demon ? h("li", null, h("b", { text: t("slicer.start_demon") }), menuPath("demon_custom_expansion → _CUSTOM_PRE_START"),
+          (M.macroSet(app.config) || {}).guardHook ? h("p", { class: "note ok" }, icon("ok"), h("span", { text: t("slicer.start_demon_done") }))
+            : [h("p", { text: t("slicer.start_how_demon") }), codeCopy("AUTO_EJECT_GUARD")])
+          : h("li", null, h("b", { text: t("slicer.start") }), menuPath(SLICER_PATHS[kind].start),
+            h("p", { text: t("slicer.start_how") }), codeCopy("AUTO_EJECT_GUARD"))),
       h("div", { class: "toolbar", style: { marginTop: "12px" } },
         h("a", { class: "btn primary", href: "#/check" }, icon("check"), t("slicer.check")),
         h("a", { class: "btn", href: DOCS + "/blob/main/docs/slicer-setup.md", target: "_blank", rel: "noopener" }, icon("external"), t("slicer.docs"))));

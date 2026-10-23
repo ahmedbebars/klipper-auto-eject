@@ -157,9 +157,11 @@ DEMON_END
 AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
 ```
 
-In the start G-code, keep DEMON's lines exactly as DEMON gives them, and add `AUTO_EJECT_GUARD`
-above them as the first line. The web page's **In your slicer** card finds DEMON by itself and
-says the same.
+In the start G-code, keep DEMON's lines exactly as DEMON gives them and add nothing: with DEMON,
+`AUTO_EJECT_GUARD` goes in DEMON's `_CUSTOM_PRE_START` hook, because DEMON stops the printer when
+something runs before `DEMON_START` for more than a few seconds
+([integration.md](integration.md#demon-klipper-essentials)). The web page's **In your slicer** card
+finds DEMON by itself and says the same.
 
 ## Check the G-code
 

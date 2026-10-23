@@ -93,8 +93,11 @@
 
 **هل تعمل مع ماكروهات بداية الطباعة ونهايتها عندي (DEMON وKlippain وRatOS…)؟**
 نعم. ضع `AUTO_EJECT HEIGHT=[max_layer_z] HOME=1` في كود النهاية في برنامج التقطيع **بعد** ماكرو
-النهاية، لأنه يسحب الفلامنت والفوهة ما زالت ساخنة. التفاصيل في [integration.md](../integration.md)
-(بالإنجليزية).
+النهاية، لأنه يسحب الفلامنت والفوهة ما زالت ساخنة. ومع DEMON لا يوضع `AUTO_EJECT_GUARD` في G-code البداية
+في برنامج التقطيع، بل داخل `_CUSTOM_PRE_START` في ملف `demon_custom_expansion`، مع جعل
+`variable_ceal_master_enable` و`variable_pre_start` بقيمة `True` في `_CUSTOM_EXPANSION_ACTIVE_LIST`: لأن DEMON
+يوقف الطابعة إيقاف طوارئ إذا عمل شيء قبل `DEMON_START` أكثر من بضع ثوانٍ، وفحص السرير بالمجس يستغرق أطول من
+ذلك. التفاصيل في [integration.md](../integration.md) (بالإنجليزية).
 
 ## عندما تحدث مشكلة
 
