@@ -96,6 +96,7 @@ filename: ~/printer_data/config/variables.cfg
 | `-F`, `--farm` | | تريد كل طابعاتك في صفحة واحدة: يجهّز صفحة الويب وخدمة `klipper-auto-eject` التي تجد الطابعات الأخرى على الشبكة. الطابعات الأخرى لا تحتاج أي تثبيت ([farm.md](farm.md)) |
 | `-N`, `--notify` | | تريد أيضًا إرسال إشعارات إلى هاتفك عبر تطبيق ntfy أو Telegram أو Discord: قطعة ما زالت على السرير، أو طباعة انتهت. يسأل قبل كل خطوة ([notifications.md](notifications.md)) |
 | `-S`, `--spoolman` | | تريد ربط Moonraker بـ Spoolman عندك، لتتوقف القائمة قبل مهمة لا تكفيها البكرة. يسأل عن عنوان Spoolman ويتأكد أنه يرد عليه ([البكرة وSpoolman](spoolman.md)) |
+| `--demon` | | مع DEMON Klipper Essentials، على طابعة عليها الإزالة التلقائية من قبل: يعمل فحص السرير داخل أول خطوة في DEMON بدل G-code البداية في برنامج التقطيع، ولا يتغير شيء غير ذلك. والتثبيت يفعل ذلك أيضًا ([integration.md](../integration.md#demon-klipper-essentials)) |
 | `-u`, `--uninstall` | | تريد إزالة ما أضافه السكربت: الرابط، وأسطر include، وقسم مدير التحديثات، وصفحة الويب، ونطاق Tailscale الذي أضافه إلى `trusted_clients` |
 
 مثال لطابعة ثانية تعمل كنسخة Klipper أخرى على الجهاز نفسه:

@@ -81,6 +81,7 @@ set's values to another file.
 | `-F`, `--farm` | | All your printers on one page: the web page and the `klipper-auto-eject` service, which finds the other printers on the network. They need nothing installed ([farm.md](farm.md)) |
 | `-N`, `--notify` | | Also sending notifications to your phone with the ntfy app, Telegram or Discord: a part still on the bed, a print that finished. Asks before every step ([notifications.md](notifications.md)) |
 | `-S`, `--spoolman` | | Linking Moonraker to your Spoolman, so the queue stops before a job the spool cannot finish. Asks for Spoolman's address and checks that Spoolman answers there ([spoolman.md](spoolman.md)) |
+| `--demon` | | With DEMON Klipper Essentials, on a printer that has auto-eject already: the bed check runs in DEMON's first hook instead of the slicer's start G-code, and nothing else changes. The install does it too ([integration.md](integration.md#demon-klipper-essentials)) |
 | `-u`, `--uninstall` | | Removing the link, the includes, the update manager section, the web page and the Tailscale range it added to `trusted_clients` |
 
 Example for a second printer instance:

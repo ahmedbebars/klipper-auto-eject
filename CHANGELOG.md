@@ -10,9 +10,12 @@ All notable changes to this project are documented here. The format is based on
 - **With DEMON Klipper Essentials, `AUTO_EJECT_GUARD` goes in DEMON's `_CUSTOM_PRE_START` hook**,
   not first in the slicer's start G-code as the docs said. DEMON stops the printer (an emergency
   stop, "Machine Start Gcode is not functional") when `DEMON_START` has not come a few seconds into
-  a print, and checking the bed for parts left from the last print takes longer. The guard now
-  stops such a print itself with a message that says where it belongs, and says so even when the
-  bed is empty; the **In your slicer** card shows DEMON's hook, and when it is set up.
+  a print, and checking the bed for parts left from the last print takes longer. `install.sh`
+  now sets the hook up by itself when it finds DEMON (`install.sh --demon` on a printer that has
+  auto-eject already): `AUTO_EJECT_GUARD FROM=DEMON` in `_CUSTOM_PRE_START`, a copy of the file
+  saved first. A guard left in the slicer then does nothing and says so; without the hook it stops
+  such a print itself with a message that says where it belongs. The **In your slicer** card shows
+  the command, and when the hook is set up.
 
 ### Added
 - **One command for several farm printers** ([farm.md](docs/farm.md#one-command-for-several-printers)):

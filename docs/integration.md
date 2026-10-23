@@ -85,21 +85,33 @@ home with the probe ([`home_method`](configuration.md#recovery) `"auto"` or `"pr
 carries a version that DEMON checks), and do **not** put `AUTO_EJECT_GUARD` above them. DEMON
 stops the printer (an emergency stop: *DKEU detected your DEMON Machine Start Gcode is not
 functional*) when `DEMON_START` has not come a few seconds into a print, and when parts from the
-last print are still known, the guard checks the bed with the probe for longer than that. Run the
-guard from DEMON's first hook instead: it runs inside `DEMON_START`, before heating and homing. In
-`demon_custom_expansion_v2.0.0.cfg`, set `variable_ceal_master_enable: True` and
-`variable_pre_start: True` in `_CUSTOM_EXPANSION_ACTIVE_LIST`, and add the line to the section that
-is already there:
+last print are still known, the guard checks the bed with the probe for longer than that. The
+guard runs from DEMON's first hook instead, inside `DEMON_START`, before heating and homing.
+
+`install.sh` sets this up by itself when it finds DEMON's `Demon_User_Files`. On a printer that has
+auto-eject already, run once:
+
+```bash
+~/klipper-auto-eject/install.sh --demon
+```
+
+It saves a copy of `demon_custom_expansion_v2.0.0.cfg`, turns on `variable_ceal_master_enable` and
+`variable_pre_start` in `_CUSTOM_EXPANSION_ACTIVE_LIST`, puts the line first in the section that is
+already there, keeping what you have in it, and restarts Klipper unless it is printing (in a
+terminal it asks first):
 
 ```ini
 [gcode_macro _CUSTOM_PRE_START] # Very first action after you hit print!
 gcode:
-  AUTO_EJECT_GUARD
+  AUTO_EJECT_GUARD FROM=DEMON
 ```
 
-Then `FIRMWARE_RESTART`. The web page's **In your slicer** card says when it is done. A guard
-still placed before `DEMON_START` stops the print itself with a message that says so, before DEMON
-would stop the printer.
+By hand, make the same three changes, then `FIRMWARE_RESTART`. `FROM=DEMON` tells the guard it
+runs inside `DEMON_START`. An `AUTO_EJECT_GUARD` left in the slicer's start G-code then does
+nothing and says so: DEMON's hook checks the bed a moment later. Without the hook, the guard before
+`DEMON_START` stops the print itself with a message that says so, before DEMON would stop the
+printer. The web page's **In your slicer** card shows whether the hook is set up. A new version of
+DEMON's expansion file may come without the line: run `install.sh --demon` again.
 
 **Auto power-off.** With DEMON's `PRINTER_AUTO_OFF` switch on, `DEMON_END` switches the printer off
 5 seconds later. Klipper runs that timer even while `AUTO_EJECT` pushes, so the power would go off

@@ -1843,7 +1843,8 @@
         // with DEMON, in its first hook: DEMON stops the printer when anything long runs before DEMON_START
         demon ? h("li", null, h("b", { text: t("slicer.start_demon") }), menuPath("demon_custom_expansion → _CUSTOM_PRE_START"),
           (M.macroSet(app.config) || {}).guardHook ? h("p", { class: "note ok" }, icon("ok"), h("span", { text: t("slicer.start_demon_done") }))
-            : [h("p", { text: t("slicer.start_how_demon") }), codeCopy("AUTO_EJECT_GUARD")])
+            : [h("p", { text: t("slicer.start_how_demon") }), codeCopy("~/klipper-auto-eject/install.sh --demon"),
+              h("p", { class: "muted small", text: t("slicer.start_demon_hand") })])
           : h("li", null, h("b", { text: t("slicer.start") }), menuPath(SLICER_PATHS[kind].start),
             h("p", { text: t("slicer.start_how") }), codeCopy("AUTO_EJECT_GUARD"))),
       h("div", { class: "toolbar", style: { marginTop: "12px" } },

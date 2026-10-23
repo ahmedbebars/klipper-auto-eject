@@ -20,6 +20,7 @@ NOTIFY=0
 PUSH=0
 FARM=0
 SPOOLMAN=0
+DEMON_ONLY=0
 # Moonraker's update manager restarts a service after an update only when it
 # has the update_manager section's name, so the service is klipper-auto-eject
 PUSH_NAME="klipper-auto-eject"
@@ -59,6 +60,10 @@ Run it with no options from a terminal and it asks what to set up.
   -S, --spoolman          Link Moonraker to your Spoolman, so the queue stops
                           before a job the spool cannot finish. Asks where
                           Spoolman runs (docs/spoolman.md)
+      --demon             With DEMON Klipper Essentials: check the bed from
+                          DEMON's first hook (_CUSTOM_PRE_START) instead of the
+                          slicer's start G-code, and nothing else. The install
+                          does it too (docs/integration.md)
   -u, --uninstall         Remove links, includes, the update_manager section
                           and the web page
   -h, --help              Show this help
@@ -82,6 +87,7 @@ while [[ $# -gt 0 ]]; do
         -P|--push)            PUSH=1; shift ;;
         -F|--farm)            FARM=1; WEB=1; PUSH=1; shift ;;
         -S|--spoolman)        SPOOLMAN=1; shift ;;
+        --demon)              DEMON_ONLY=1; shift ;;
         -u|--uninstall)       UNINSTALL=1; shift ;;
         -h|--help)            usage; exit 0 ;;
         *) usage; die "Unknown option: $1" ;;
@@ -157,6 +163,41 @@ config_sections() {
         return
     fi
     grep -rhoE '^\[[A-Za-z0-9_ ]+\]' "${CONFIG_DIR}" --include='*.cfg' 2>/dev/null | tr -d '[]' || true
+}
+
+# DEMON Klipper Essentials stops the printer when its DEMON_START has not come
+# a few seconds into a print, and checking the bed takes longer: with DEMON,
+# AUTO_EJECT_GUARD runs in DEMON's first hook, inside DEMON_START. Returns 1
+# without DEMON's user files.
+setup_demon() {
+    local action="$1" file="" f result
+    for f in "${CONFIG_DIR}"/Demon_User_Files/demon_custom_expansion*.cfg; do
+        [[ -f "${f}" ]] && file="${f}"
+    done
+    [[ -n "${file}" ]] || return 1
+    if ! command -v python3 >/dev/null; then
+        warn "python3 not found: put AUTO_EJECT_GUARD FROM=DEMON in DEMON's _CUSTOM_PRE_START by hand (docs/integration.md)"
+        return 0
+    fi
+    if [[ "${action}" == "remove" ]]; then
+        grep -qi 'AUTO_EJECT_GUARD' "${file}" || return 0
+        backup "${file}"
+        [[ "$(python3 "${REPO_DIR}/tools/demon_hook.py" remove "${file}")" == "removed" ]]             && log "Took AUTO_EJECT_GUARD out of DEMON's _CUSTOM_PRE_START (${file##*/})"
+        return 0
+    fi
+    case "$(python3 "${REPO_DIR}/tools/demon_hook.py" status "${file}")" in
+        present) log "DEMON already checks the bed first in every print (AUTO_EJECT_GUARD in _CUSTOM_PRE_START)" ;;
+        absent)
+            backup "${file}"
+            result="$(python3 "${REPO_DIR}/tools/demon_hook.py" add "${file}")"
+            if [[ "${result}" == "added" ]]; then
+                CHANGED_CFG=1
+                log "DEMON now checks the bed first in every print: AUTO_EJECT_GUARD FROM=DEMON in _CUSTOM_PRE_START (${file##*/})."
+                log "An AUTO_EJECT_GUARD line in your slicer's start G-code is not needed any more: take it out, or leave it, it does nothing then."
+            fi ;;
+        *) warn "${file##*/} has no _CUSTOM_PRE_START: put AUTO_EJECT_GUARD FROM=DEMON in DEMON's first hook by hand (docs/integration.md)" ;;
+    esac
+    return 0
 }
 
 # auto-eject needs these Klipper sections; add the missing ones to printer.cfg.
@@ -752,6 +793,7 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
         uninstall_push
     fi
     navi_entry remove
+    setup_demon remove || true
     if [[ -f "${MOONRAKER_CONF}" ]] && command -v python3 >/dev/null && [[ -f "${REPO_DIR}/tools/moonraker_trust.py" ]] \
         && [[ "$(python3 "${REPO_DIR}/tools/moonraker_trust.py" remove "${MOONRAKER_CONF}" "${TAILNET}")" == "removed" ]]; then
         log "Removed ${TAILNET} from Moonraker's trusted_clients (restart Moonraker to apply it)"
@@ -773,6 +815,20 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
 fi
 
 # ------------------------------------------------------------- questions
+# --demon: only DEMON's hook, on a printer that has auto-eject already
+if [[ "${DEMON_ONLY}" -eq 1 ]]; then
+    [[ -f "${REPO_DIR}/tools/demon_hook.py" ]] || die "No klipper-auto-eject in ${REPO_DIR}: install it first"
+    if ! setup_demon add; then
+        log "No DEMON Klipper Essentials in ${CONFIG_DIR}/Demon_User_Files: nothing to do."
+    elif [[ "${CHANGED_CFG}" -eq 1 ]] && { [[ ! -t 0 ]] || ask "Restart Klipper now so it loads it? (only if it is not printing)" y; }; then
+        restart_klipper
+        [[ "${RESTARTED}" -eq 1 ]] || log "Then restart Klipper: type FIRMWARE_RESTART in the Mainsail console."
+    elif [[ "${CHANGED_CFG}" -eq 1 ]]; then
+        log "Restart Klipper to use it: type FIRMWARE_RESTART in the Mainsail console."
+    fi
+    exit 0
+fi
+
 # Run with no options from a terminal: ask what to set up, in plain words.
 if [[ -t 0 && $((WEB + REMOTE + NOTIFY + PUSH + FARM + SPOOLMAN)) -eq 0 ]]; then
     printf '\n  \033[1mklipper-auto-eject\033[0m: a few questions first. Press Enter to keep the answer in capitals.\n\n'
@@ -838,6 +894,7 @@ if [[ "${ADD_INCLUDE}" -eq 1 ]]; then
         log "Added [include] lines to printer.cfg, line ${INCLUDE_LINE}, ${INCLUDE_WHERE}"
     fi
     add_required_sections
+    setup_demon add || true
 fi
 
 # --------------------------------------------------------- moonraker.conf

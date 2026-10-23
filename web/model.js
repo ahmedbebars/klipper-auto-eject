@@ -677,7 +677,7 @@
     const on = (v) => /^true$/i.test(String(v || "").trim());
     const ceal = sec("gcode_macro _custom_expansion_active_list");
     const guardHook = on(ceal.variable_ceal_master_enable) && on(ceal.variable_pre_start) &&
-      /^\s*AUTO_EJECT_GUARD\b/im.test(String(sec("gcode_macro _custom_pre_start").gcode || ""));
+      /^\s*AUTO_EJECT_GUARD\s+FROM\s*=\s*DEMON\b/im.test(String(sec("gcode_macro _custom_pre_start").gcode || ""));
     return { name: "demon", autoOff: relay && has("output_pin printer_auto_off"), guardHook };
   }
   // Which slicer wrote a file (Moonraker's metadata "slicer"): orca, prusa, cura or null.

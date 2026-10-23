@@ -201,9 +201,13 @@ def test_an_eject_stopped_by_an_error_says_so_and_keeps_the_parts():
 # DEMON Klipper Essentials stops the printer when DEMON_START has not come a
 # few seconds into a print: the guard, before it, must not take that long.
 def with_demon(p, slicer_gcode="", hooked=False):
+    """A DEMON printer a few seconds into a print; hooked: install.sh --demon
+    put AUTO_EJECT_GUARD FROM=DEMON in its _CUSTOM_PRE_START."""
     p.status["gcode_macro DEMON_START"] = {}
     p.status["gcode_macro _CORE_VARS"] = {"slicer_gcode": slicer_gcode, "stage_one_end": False, "gcode_started": False}
     p.status["gcode_macro _CUSTOM_EXPANSION_ACTIVE_LIST"] = {"ceal_master_enable": hooked, "pre_start": hooked}
+    if hooked:
+        p.set_section("gcode_macro _custom_pre_start", {"gcode": "\nAUTO_EJECT_GUARD FROM=DEMON"})
     p.status["print_stats"] = {"state": "printing", "filename": "next.gcode", "total_duration": 2.0}
     return p
 
@@ -219,9 +223,17 @@ def test_before_demon_start_the_guard_stops_cleanly_instead_of_probing():
 def test_in_demons_hook_the_guard_checks_the_bed_as_usual():
     # inside DEMON_START (_CUSTOM_PRE_START), DEMON already knows its start line
     p = with_demon(make([STENCIL], 0.4), slicer_gcode="2.3.9", hooked=True)
-    lines = p.execute("AUTO_EJECT_GUARD")
+    lines = p.execute("AUTO_EJECT_GUARD", FROM="DEMON")
     assert lines.count("PROBE") >= 4 and stored(p) == []
     assert not any("_CUSTOM_PRE_START" in m for m in p.messages)
+
+
+def test_with_demons_hook_set_up_a_guard_left_in_the_slicer_does_nothing():
+    # the first line of an old slicer profile, before DEMON_START: DEMON's hook checks right after
+    p = with_demon(make([STENCIL], 0.4), hooked=True)
+    assert "PROBE" not in p.execute("AUTO_EJECT_GUARD")
+    assert len(stored(p)) == 1                         # checked by the hook in a moment
+    assert any("not needed" in m for m in p.messages)
 
 
 def test_with_demon_an_empty_bed_starts_at_once_but_says_where_the_guard_belongs():
@@ -229,4 +241,4 @@ def test_with_demon_an_empty_bed_starts_at_once_but_says_where_the_guard_belongs
     p.execute("AUTO_EJECT_CLEAR")
     p.messages.clear()
     assert "PROBE" not in p.execute("AUTO_EJECT_GUARD")
-    assert any("with DEMON, call it from DEMON's _CUSTOM_PRE_START" in m for m in p.messages)
+    assert any("with DEMON, run it from DEMON's _CUSTOM_PRE_START" in m for m in p.messages)

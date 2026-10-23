@@ -33,7 +33,7 @@ that move the printer only when it is not printing, except `AUTO_EJECT` in the e
 
 | Command | What it does |
 |---|---|
-| `AUTO_EJECT_GUARD` | First line of the start G-code (with DEMON, its `_CUSTOM_PRE_START` hook): stops the print if parts from an earlier print may still be on the bed ([recovery.md](recovery.md)) |
+| `AUTO_EJECT_GUARD` | First line of the start G-code: stops the print if parts from an earlier print may still be on the bed ([recovery.md](recovery.md)). With DEMON, `AUTO_EJECT_GUARD FROM=DEMON` in its `_CUSTOM_PRE_START` hook ([integration.md](integration.md#demon-klipper-essentials)) |
 | `EJECT_PURGE` | After your start macro: purge a tall blob the blade can push off, instead of a thin line ([integration.md](integration.md#eject_purge-instead-of-a-purge-line)) |
 | `EJECT_PURGE X=200 Y=60` | The same, at a fixed spot |
 

@@ -668,12 +668,12 @@ def test_the_slicer_card_knows_demon():
     assert js("macroSet", {"gcode_macro _demon_version": {}})["name"] == "demon"
     assert js("macroSet", {"gcode_macro PRINT_START": {}, "gcode_macro PRINT_END": {}}) is None
     # AUTO_EJECT_GUARD in DEMON's first hook, with the hooks switched on
-    demon["gcode_macro _CUSTOM_PRE_START"] = {"gcode": "\nAUTO_EJECT_GUARD"}
+    demon["gcode_macro _CUSTOM_PRE_START"] = {"gcode": "\nAUTO_EJECT_GUARD FROM=DEMON"}
     demon["gcode_macro _CUSTOM_EXPANSION_ACTIVE_LIST"] = {"variable_ceal_master_enable": "True", "variable_pre_start": "False"}
     assert js("macroSet", demon)["guardHook"] is False
     demon["gcode_macro _CUSTOM_EXPANSION_ACTIVE_LIST"]["variable_pre_start"] = "True"
     assert js("macroSet", demon)["guardHook"] is True
-    demon["gcode_macro _CUSTOM_PRE_START"] = {"gcode": "\n# AUTO_EJECT_GUARD"}
+    demon["gcode_macro _CUSTOM_PRE_START"] = {"gcode": "\n# AUTO_EJECT_GUARD FROM=DEMON"}
     assert js("macroSet", demon)["guardHook"] is False
     assert js("macroSet", None) is None
 
