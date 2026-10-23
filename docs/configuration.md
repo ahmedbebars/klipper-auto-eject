@@ -113,8 +113,11 @@ took them off". With `cool_background: True`:
 2. The bed cools in steps of a few seconds, the fan over one part at a time; between the steps
    the printer is free.
 3. **Push now** (`AUTO_EJECT_PUSH_NOW`) pushes once the current step ends, without waiting for
-   the bed. **I took the parts off** (`AUTO_EJECT_CLEAR`) stops the cooling, pushes nothing and
-   lets the queue go on. Both are on the web page's **Overview** and on the printer's farm card.
+   the bed. **I took the parts off** (`AUTO_EJECT_CLEAR`) stops the cooling and pushes nothing:
+   the toolhead stops after the step that runs now (a few seconds), so press it first, then take
+   the parts off. The job queue keeps waiting until **Bed is clear, continue the queue**
+   (`AUTO_EJECT_CONTINUE`), so the next print never starts while your hands are in the printer.
+   Both are on the web page's **Overview** and on the printer's farm card.
 4. Otherwise, once the bed is cool (or `cool_timeout` has passed), the eject goes on as always:
    push, check the bed, and start the job queue again.
 

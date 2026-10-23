@@ -658,18 +658,25 @@
         this.say("// AUTO_EJECT: pushing once this cooling step ends, in a few seconds");
         return;
       }
-      case "AUTO_EJECT_CLEAR":
-        if (this.status["gcode_macro _AUTO_EJECT_STATE"].bg) this.state({ bg: false, cooling: false, push_now: false, busy: false });
+      case "AUTO_EJECT_CLEAR": {
+        const bg = this.status["gcode_macro _AUTO_EJECT_STATE"].bg;
+        if (bg) this.state({ bg: false, cooling: false, push_now: false, busy: false });
         this.state({ objects: [], height: 0, leftover: [] });
         this.setParts([]);
         this.say("// AUTO_EJECT: stored parts forgotten, the bed is treated as clear");
-        this.nextJobSoon();
+        // taken off while the bed cooled: the queue waits for AUTO_EJECT_CONTINUE
+        if (bg) this.say("// AUTO_EJECT: the cooling stopped and the job queue waits. Once your hands are out of the printer: AUTO_EJECT_CONTINUE (Bed is clear, continue the queue)");
+        else this.nextJobSoon();
         return;
+      }
       case "AUTO_EJECT_BIN_EMPTY":
         this.state({ bin: 0 });
         this.say("// AUTO_EJECT: parts box emptied, counting from 0");
         return;
       case "AUTO_EJECT_CONTINUE":
+        if (this.status["gcode_macro _AUTO_EJECT_STATE"].bg) {
+          throw new Error("AUTO_EJECT_CONTINUE: the bed is still cooling before its eject. Take the parts off and run AUTO_EJECT_CLEAR first, or wait for the eject.");
+        }
         this.say("// action:prompt_end");
         this.setParts([]);
         this.queue.state = "ready";

@@ -86,8 +86,21 @@ def test_parts_taken_off_by_hand_while_it_cools():
     assert "M107" in lines and not pushed(lines)
     st = state(p)
     assert st["bg"] is False and st["cooling"] is False and st["busy"] is False and st["objects"] == []
-    assert p.remote_calls[-1] == "start_job_queue"
-    assert p.fire("_AUTO_EJECT_BG") == []                  # nothing left to do
+    assert p.fire("_AUTO_EJECT_BG") == []                  # nothing moves any more
+    # a hand may still be in the printer: the next print waits for "continue"
+    assert p.remote_calls == ["pause_job_queue"]
+    assert any("job queue waits" in m for m in p.messages)
+    p.run_gcode("AUTO_EJECT_CONTINUE")
+    assert p.remote_calls == ["pause_job_queue", "start_job_queue"]
+    assert state(p)["bg_held"] is False
+
+
+def test_continue_is_refused_while_the_bed_still_cools():
+    p = make(cooling=0.0)
+    eject(p)
+    with pytest.raises(MacroError, match="still cooling"):
+        p.run_gcode("AUTO_EJECT_CONTINUE")
+    assert "start_job_queue" not in p.remote_calls
 
 
 def test_by_hand_from_the_console_the_queue_is_left_alone():

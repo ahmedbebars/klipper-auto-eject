@@ -44,7 +44,8 @@ All notable changes to this project are documented here. The format is based on
   default; [configuration.md](docs/configuration.md#cooling-with-the-printer-free)). The print
   ends first and the job queue waits; the bed cools in steps of a few seconds with the printer
   free in between, so **Push now** (`AUTO_EJECT_PUSH_NOW`) pushes without waiting for the bed,
-  and **I took the parts off** (`AUTO_EJECT_CLEAR`) stops the eject and lets the queue go on.
+  and **I took the parts off** (`AUTO_EJECT_CLEAR`) stops the eject; the queue waits for **Bed is
+  clear, continue the queue**, so the next print never starts on a hand in the printer.
   Both are on the Overview and on the printer's farm card. Then the eject goes on as always and
   starts the queue again. `AUTO_EJECT_GUARD` holds a print started by hand meanwhile.
 

@@ -509,7 +509,7 @@ window.AE_LANG("en", "English", "ltr", {
   "act.push_confirm": "The blade pushes the parts off now, without waiting for the bed to cool. A part stuck hard may need the full cooling.",
   "act.push_soon": "Pushing in a few seconds, once this cooling step ends.",
   "act.bg_desc": "The bed cools with the printer free. Push now, or take the parts off yourself.",
-  "act.bg_clear_desc": "Took them off while the bed cooled: no push, and the queue goes on",
+  "act.bg_clear_desc": "The cooling stops and nothing is pushed. Take the parts off, then Bed is clear, continue the queue",
   "act.clear_desc": "Forget the stored parts and treat the bed as clear",
   "act.clear_confirm": "Only do this when the bed is really empty: the next print starts on top of anything left there.",
   "act.continue": "Bed is clear, continue the queue",
