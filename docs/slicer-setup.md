@@ -63,6 +63,9 @@ AUTO_EJECT HEIGHT=[max_layer_z] HOME=1
 has cooled, and `HOME=1` homes again around the parts if the end macro turned the motors off
 ([integration.md](integration.md)).
 
+To cool the bed to another temperature for some materials ([`cool_temps`](configuration.md#cooling)),
+pass the material too: `AUTO_EJECT HEIGHT=[max_layer_z] MATERIAL=[filament_type] HOME=1`.
+
 ---
 
 ## PrusaSlicer / SuperSlicer

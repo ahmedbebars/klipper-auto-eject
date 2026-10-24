@@ -703,6 +703,13 @@ def test_when_the_cooling_pushes_anyway():
 
 
 @needs_node
+def test_the_page_shows_the_materials_cooling_temperature():
+    assert js("coolTarget", {"cool_temp": 25.0}, {"cool_temp": 32}) == 25
+    assert js("coolTarget", {"cool_temp": 0.0}, {"cool_temp": 32}) == 32       # no material of its own
+    assert js("coolTarget", {}, {"cool_temp": 32}) == 32                       # older macros
+
+
+@needs_node
 def test_the_slicer_card_knows_demon():
     demon = {"gcode_macro DEMON_START": {"gcode": ""}, "gcode_macro DEMON_END": {"gcode": ""},
              "gcode_macro _HARDWARE_VARIABLES": {"variable_shutdown_relay": "False"}}

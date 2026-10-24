@@ -278,7 +278,7 @@ function phase() {
     const set = sv();
     // in the background the macro says itself whether it still cools
     if (st.bg) return st.cooling ? "cooling" : "working";
-    if (!st.swept && bed && set.cool_mode === "temperature" && bed.target === 0 && bed.temperature > set.cool_temp + 0.3) return "cooling";
+    if (!st.swept && bed && set.cool_mode === "temperature" && bed.target === 0 && bed.temperature > M.coolTarget(st, set) + 0.3) return "cooling";
     return "working";
   }
   if (ps.state === "printing") return "printing";

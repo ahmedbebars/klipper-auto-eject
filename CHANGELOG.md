@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **A cooling temperature for each material** (`cool_temps`, e.g. `PETG=25,ABS=45`): PETG often
+  holds on to a smooth PEI sheet until the bed is cooler than PLA needs. The slicer names the
+  material in the end G-code (`AUTO_EJECT ... MATERIAL=[filament_type]`); materials not listed,
+  and prints without it, use `cool_temp` as before. The page shows the temperature the bed cools
+  to.
+
+### Fixed
+- The installer tests skip, instead of failing, where `bash` does not run (Windows with the WSL
+  `bash.exe` and no Linux installed).
+
 ## [0.18.0] - 2026-10-23
 
 ### Added

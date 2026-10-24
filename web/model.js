@@ -875,6 +875,12 @@
   // Seconds until the eject pushes anyway while it waits for the bed to cool
   // (cool_timeout), or until cool_time is up; null when it is not waiting.
   // The macros keep the start in Klipper's print time.
+  // The temperature an eject cools to: its material's from cool_temps, or cool_temp.
+  function coolTarget(state, set) {
+    const own = Number((state || {}).cool_temp);
+    return own > 0 ? own : Number((set || {}).cool_temp);
+  }
+
   function coolLeft(state, set, estimated) {
     if (!state || !state.cooling || typeof estimated !== "number") return null;
     const limit = Number((set || {}).cool_mode === "time" ? set.cool_time : (set || {}).cool_timeout);
@@ -1124,7 +1130,7 @@
     noticeFor, ntfyTopic, notifierKind, farmOrder, farmKind, farmCounts, farmFilter, farmGroups, farmPending, ejectRunning, farmBulk, FARM_BULK, farmSpoolLow, farmReportCsv, farmFirmware, farmActions, farmToday, farmLink, farmAway, farmQrLinks, copyList, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
     hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft,
     lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, parseVersion, firmwareAge, boardCode, configNotes, updateArea, updateAreas, scrubReport, supportReport, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
-    PromptParser, formatDuration, settingArg, validSettingText, macroSet
+    PromptParser, formatDuration, coolTarget, settingArg, validSettingText, macroSet
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AEModel = api;

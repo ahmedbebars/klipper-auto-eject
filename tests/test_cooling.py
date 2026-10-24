@@ -97,3 +97,62 @@ def test_no_tour_without_cooling():
 def test_bed_already_cool_means_no_pass():
     p = make(bed=25.0, cool_temp=28)
     assert hovers(cooling_part(p.execute("AUTO_EJECT"))) == []
+
+
+# ------------------------------------------------------- cool_temps by material
+def test_a_material_of_its_own_cools_to_its_temperature():
+    p = make(bed=60.0, cooling=0.5, cool_temp=32, cool_temps="PETG=25,ABS=45")
+    p.execute("AUTO_EJECT", MATERIAL="PETG")
+    assert p.status["heater_bed"]["temperature"] <= 25
+    assert any("waiting for the bed to reach 25 C for PETG" in m for m in p.messages)
+
+
+def test_the_name_from_the_slicer_may_be_lower_case_or_spaced():
+    p = make(bed=60.0, cooling=0.5, cool_temps="PETG = 25, abs=45")
+    p.execute("AUTO_EJECT", MATERIAL="petg")
+    assert p.status["heater_bed"]["temperature"] <= 25
+
+
+def test_a_material_not_listed_uses_cool_temp():
+    p = make(bed=60.0, cooling=0.5, cool_temp=32, cool_temps="PETG=25")
+    p.execute("AUTO_EJECT", MATERIAL="ASA")
+    assert 25 < p.status["heater_bed"]["temperature"] <= 32
+    assert any("waiting for the bed to reach 32 C," in m for m in p.messages)
+
+
+def test_pla_plus_takes_plas_unless_it_has_its_own():
+    p = make(bed=60.0, cooling=0.5, cool_temps="PLA=28")
+    p.execute("AUTO_EJECT", MATERIAL="PLA+")
+    assert p.status["heater_bed"]["temperature"] <= 28
+    p = make(bed=60.0, cooling=0.5, cool_temps="PLA=28,PLA+=26")
+    p.execute("AUTO_EJECT", MATERIAL="PLA+")
+    assert p.status["heater_bed"]["temperature"] <= 26
+
+
+def test_a_warmer_material_pushes_sooner():
+    p = make(bed=40.0, cooling=0.5, cool_temp=32, cool_temps="ABS=45")
+    assert hovers(cooling_part(p.execute("AUTO_EJECT", MATERIAL="ABS"))) == []
+
+
+def test_the_next_print_without_material_is_back_on_cool_temp():
+    p = make(bed=60.0, cooling=0.5, cool_temp=32, cool_temps="PETG=25")
+    p.execute("AUTO_EJECT", MATERIAL="PETG")
+    p.set_objects(PARTS)
+    p.execute("_AUTO_EJECT_CAPTURE")
+    p.status["heater_bed"]["temperature"] = 60.0
+    p.execute("AUTO_EJECT")
+    assert 25 < p.status["heater_bed"]["temperature"] <= 32
+    assert p.status["gcode_macro _AUTO_EJECT_STATE"]["cool_for"] == ""
+
+
+def test_entries_that_are_not_a_temperature_are_left_out():
+    p = make(bed=60.0, cooling=0.5, cool_temp=32, cool_temps="PETG=warm,=20,ABS,PETG=0")
+    p.execute("AUTO_EJECT", MATERIAL="PETG")
+    assert 25 < p.status["heater_bed"]["temperature"] <= 32
+
+
+def test_a_warm_room_names_the_material_to_change():
+    p = make(cooling=0.0, cool_temps="PETG=25")
+    p.execute("AUTO_EJECT", MATERIAL="PETG")
+    assert any("not 25 C: pushing anyway. If the room is warm, raise the PETG temperature in cool_temps." in m
+               for m in p.messages)

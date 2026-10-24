@@ -160,3 +160,10 @@ def test_a_cool_bed_needs_no_background():
     lines = p.execute("AUTO_EJECT")
     assert pushed(lines) and state(p)["bg"] is False
     assert "pause_job_queue" not in p.remote_calls
+
+
+def test_a_material_of_its_own_cools_to_its_temperature_in_the_background():
+    p = make(bed=60.0, cooling=0.5, cool_temps="PETG=25")
+    p.execute("AUTO_EJECT", MATERIAL="PETG")
+    assert any("cooling the bed to 25 C for PETG with the printer free" in m for m in p.messages)
+    assert state(p)["cool_temp"] == 25.0

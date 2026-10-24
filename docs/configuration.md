@@ -90,6 +90,7 @@ Choose `push_current` so that a part that won't move makes the motor skip. Start
 |---|---|---|
 | `cool_mode` | `"temperature"` | `"temperature"` waits for the bed to reach `cool_temp`, `"time"` waits `cool_time` seconds, `"none"` doesn't wait |
 | `cool_temp` | `32` | Bed temperature in °C at which parts release. PEI and CryoGrip usually release PLA below 30–35 °C |
+| `cool_temps` | `""` | Another temperature for some materials, as `MATERIAL=temperature` with commas and no spaces, e.g. `PETG=25,ABS=45`. PETG often holds on to a smooth PEI sheet until the bed is cooler. It needs the material in the end G-code: `AUTO_EJECT HEIGHT=[max_layer_z] MATERIAL=[filament_type] HOME=1` ([slicer-setup.md](slicer-setup.md)). Materials not listed, and prints without `MATERIAL`, use `cool_temp`; `PLA+` uses `PLA`'s if it has none of its own |
 | `cool_timeout` | `1800` | The longest wait for `cool_temp`, in seconds. In a warm room the bed may never get there: after this the parts are pushed anyway, with a warning |
 | `cool_time` | `600` | Seconds, for `"time"` mode (also for beds without a `heater_bed`) |
 | `heaters_off` | `True` | Turn the hotend and bed heaters off before cooling |

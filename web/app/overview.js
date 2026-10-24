@@ -45,7 +45,7 @@ function heroText() {
   if (ph === "offline") sub = t("status.sub.offline");
   else if (ph === "shutdown") sub = app.klippyMsg || "";
   else if (ph === "cooling") {
-    const vars = { now: num((app.status.heater_bed || {}).temperature || 0), target: num(set.cool_temp, 0) };
+    const vars = { now: num((app.status.heater_bed || {}).temperature || 0), target: num(M.coolTarget(st, set), 0) };
     // it pushes anyway after cool_timeout: say when
     const left = M.coolLeft(st, set, (app.status.toolhead || {}).estimated_print_time);
     sub = left === null ? t("status.sub.cooling", vars) : t("status.sub.cooling_by", Object.assign(vars, { at: iso(fmtClock(Date.now() / 1000 + left)) }));
@@ -72,7 +72,7 @@ function progress() {
   }
   if (ph === "cooling") {
     const bed = (app.status.heater_bed || {}).temperature || 0;
-    const target = sv().cool_temp;
+    const target = M.coolTarget(aeState(), sv());
     const start = Math.max(app.coolStart || bed, bed);
     const v = start > target ? (start - bed) / (start - target) : 1;
     return { value: Math.max(0.02, Math.min(1, v)), text: "⁦" + num(bed) + " → " + num(target, 0) + " °C⁩" };

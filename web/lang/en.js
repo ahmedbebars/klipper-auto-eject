@@ -871,6 +871,7 @@ window.AE_LANG("en", "English", "ltr", {
   "set.verify_points": "Where the probe checks for each part.",
   "set.reduce_current": "Lower the motor current while pushing, so a stuck part makes the motor skip instead of breaking something.",
   "set.cool_temp": "With cool_mode temperature: push once the bed is below this, in °C.",
+  "set.cool_temps": "Another temperature for some materials, as MATERIAL=temperature with commas and no spaces, e.g. PETG=25,ABS=45: PETG often holds on to a smooth PEI sheet until the bed is cooler. Add MATERIAL=[filament_type] to AUTO_EJECT in the end G-code. Other materials use cool_temp; PLA+ uses PLA's.",
   "set.cool_time": "With cool_mode time: seconds to wait before pushing.",
   "set.heaters_off": "Turn the bed and hotend heaters off before cooling.",
   "set.thin_parts_action": "What to do with prints lower than min_part_height.",
