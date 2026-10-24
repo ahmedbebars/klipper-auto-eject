@@ -9,7 +9,19 @@ import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BASH = shutil.which("bash")
-needs_bash = pytest.mark.skipif(BASH is None, reason="bash is not installed")
+
+
+def bash_works():
+    # Windows has a bash.exe for WSL that fails when no Linux is installed
+    if BASH is None:
+        return False
+    try:
+        return subprocess.run([BASH, "-c", "true"], capture_output=True, timeout=10).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+needs_bash = pytest.mark.skipif(not bash_works(), reason="a working bash is needed")
 BLOCK = "[include auto_eject.cfg]\n[include auto_eject_settings.cfg]"
 
 

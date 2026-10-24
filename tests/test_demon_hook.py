@@ -99,7 +99,10 @@ BASH = shutil.which("bash")
 def python3_works():
     if BASH is None:
         return False
-    return subprocess.run([BASH, "-c", "python3 -c 'print(1)'"], capture_output=True).returncode == 0
+    try:
+        return subprocess.run([BASH, "-c", "python3 -c 'print(1)'"], capture_output=True, timeout=10).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
 
 
 @pytest.mark.skipif(not python3_works(), reason="bash with python3 is needed")
