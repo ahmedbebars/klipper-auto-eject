@@ -145,7 +145,9 @@ that runs Klipper). You reach it over **SSH**, a text connection from your compu
    ```bash
    cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
    ```
-4. It asks a few questions. **Press Enter** to keep the suggested answer, the one in capitals:
+4. It shows what it can set up, on one screen of tick boxes: tick a line with **Space**, then
+   press **Enter**. (Without that screen it asks the same things one at a time: **press
+   Enter** to keep the suggested answer, the one in capitals.)
 
    | It asks | Say yes if |
    |---|---|

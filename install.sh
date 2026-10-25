@@ -22,6 +22,7 @@ FARM=0
 SPOOLMAN=0
 SPOOLMAN_FOUND=""     # "url version" lines of the Spoolman servers found on the network
 DEMON_ONLY=0
+PLAIN=0               # --plain: the questions one by one, without the menu
 # Moonraker's update manager restarts a service after an update only when it
 # has the update_manager section's name, so the service is klipper-auto-eject
 PUSH_NAME="klipper-auto-eject"
@@ -35,7 +36,8 @@ usage() {
     cat <<EOF
 Usage: install.sh [options]
 
-Run it with no options from a terminal and it asks what to set up.
+Run it with no options from a terminal and it asks what to set up, on one
+screen of tick boxes (with whiptail, or one question at a time without it).
 
   -c, --config-dir DIR    Klipper config directory (default: ~/printer_data/config)
   -r, --repo-dir DIR      Where to keep the repository (default: ~/klipper-auto-eject)
@@ -65,6 +67,7 @@ Run it with no options from a terminal and it asks what to set up.
                           DEMON's first hook (_CUSTOM_PRE_START) instead of the
                           slicer's start G-code, and nothing else. The install
                           does it too (docs/integration.md)
+      --plain             Ask the questions one at a time, without the menu
   -u, --uninstall         Remove links, includes, the update_manager section
                           and the web page
   -h, --help              Show this help
@@ -89,6 +92,7 @@ while [[ $# -gt 0 ]]; do
         -F|--farm)            FARM=1; WEB=1; PUSH=1; shift ;;
         -S|--spoolman)        SPOOLMAN=1; shift ;;
         --demon)              DEMON_ONLY=1; shift ;;
+        --plain)              PLAIN=1; shift ;;
         -u|--uninstall)       UNINSTALL=1; shift ;;
         -h|--help)            usage; exit 0 ;;
         *) usage; die "Unknown option: $1" ;;
@@ -154,6 +158,64 @@ ask() {
     fi
     read -r -p "$(printf '\033[1;36m[auto-eject]\033[0m %s %s ' "$1" "${hint}")" answer
     [[ "${answer:-${2:-n}}" =~ ^[Yy] ]]
+}
+
+# What to set up, as one screen of tick boxes. whiptail is on most printer
+# hosts already; without it, or with --plain, this returns 1 and the
+# questions are asked one at a time. A choice that needs another comes back
+# to the screen with a word on why.
+pick_with_menu() {
+    if [[ "${PLAIN}" -eq 1 ]] || ! command -v whiptail >/dev/null; then
+        return 1
+    fi
+    local on=() line spool="Spoolman: the queue stops before a spool runs out" width
+    [[ "${ADD_INCLUDE}" -eq 1 ]] && on+=(blade)
+    on+=(web)
+    if [[ -n "${SPOOLMAN_FOUND}" ]]; then
+        spool="Spoolman at ${SPOOLMAN_FOUND%% *}: stop before a spool runs out"
+        on+=(spoolman)
+    fi
+    width="$(tput cols 2>/dev/null || echo 80)"
+    (( width > 90 )) && width=90
+    (( width < 60 )) && width=60
+    tick() { [[ " ${on[*]} " == *" $1 "* ]] && echo ON || echo OFF; }
+    while true; do
+        line="$(whiptail --title "klipper-auto-eject" --separate-output --checklist \
+            "Space ticks or clears a line, Enter goes on, Esc stops. Anything left out can be added later." \
+            15 "${width}" 7 \
+            blade "The blade pushes the prints off this printer" "$(tick blade)" \
+            web "The auto-eject page in Mainsail: bed, queue, settings" "$(tick web)" \
+            remote "Your phone, from anywhere (a free Tailscale account)" "$(tick remote)" \
+            push "Notifications on the phone (needs the line above)" "$(tick push)" \
+            farm "All your printers on one page (printer farm)" "$(tick farm)" \
+            notify "Messages on Telegram, Discord or the ntfy app" "$(tick notify)" \
+            spoolman "${spool}" "$(tick spoolman)" \
+            3>&1 1>&2 2>&3)" || { log "Stopped: nothing was changed."; exit 0; }
+        mapfile -t on <<<"${line}"
+        if [[ " ${on[*]} " == *" push "* && " ${on[*]} " != *" remote "* ]]; then
+            whiptail --title "klipper-auto-eject" --msgbox \
+                "Notifications on the phone need the phone access above: the phone only takes them from an HTTPS address, which Tailscale gives. Tick both, or clear notifications." 10 "${width}"
+            continue
+        fi
+        if [[ " ${on[*]} " == *" farm "* && " ${on[*]} " != *" web "* ]]; then
+            whiptail --title "klipper-auto-eject" --msgbox \
+                "The printer farm is a part of the auto-eject page. Tick the page too, or clear the farm." 9 "${width}"
+            continue
+        fi
+        break
+    done
+    ADD_INCLUDE=0
+    for line in "${on[@]}"; do
+        case "${line}" in
+            blade)    ADD_INCLUDE=1 ;;
+            web)      WEB=1 ;;
+            remote)   REMOTE=1 ;;
+            push)     PUSH=1 ;;
+            farm)     FARM=1; PUSH=1 ;;
+            notify)   NOTIFY=1 ;;
+            spoolman) SPOOLMAN=1 ;;
+        esac
+    done
 }
 
 # The config sections Klipper has loaded, from Moonraker; when Klipper does
@@ -862,28 +924,31 @@ if [[ "${DEMON_ONLY}" -eq 1 ]]; then
     exit 0
 fi
 
-# Run with no options from a terminal: ask what to set up, in plain words.
+# Run with no options from a terminal: ask what to set up, in plain words,
+# on one screen of tick boxes, or one question at a time.
 if [[ -t 0 && $((WEB + REMOTE + NOTIFY + PUSH + FARM + SPOOLMAN)) -eq 0 ]]; then
-    printf '\n  \033[1mklipper-auto-eject\033[0m: a few questions first. Press Enter to keep the answer in capitals.\n\n'
-    if [[ "${ADD_INCLUDE}" -eq 1 ]] && ! ask "Will this printer push its prints off with the blade? (No: only the web page or the farm)" y; then
-        ADD_INCLUDE=0
-    fi
-    ask "Add the auto-eject page to Mainsail (bed map, print queue, settings)?" y && WEB=1
-    ask "Watch and control the printer from your phone, from anywhere? (a free Tailscale account)" n && REMOTE=1
-    if [[ "${REMOTE}" -eq 1 ]]; then
-        ask "Notifications on your phone when the printer needs you?" y && PUSH=1
-    fi
-    if [[ "${WEB}" -eq 1 ]]; then
-        ask "More than one Klipper printer? See them all on one page (printer farm)?" n && { FARM=1; PUSH=1; }
-    fi
-    if [[ "${PUSH}" -eq 0 ]]; then
-        ask "Messages on Telegram, Discord or the ntfy app when the printer needs you?" n && NOTIFY=1
-    fi
     find_spoolman
-    if [[ -n "${SPOOLMAN_FOUND}" ]]; then
-        ask "Spoolman answers at ${SPOOLMAN_FOUND%% *}. Use it, so the queue stops before a spool runs out?" y && SPOOLMAN=1
-    else
-        ask "Do you use Spoolman, which knows what is left on each spool? (the queue stops before a spool runs out)" n && SPOOLMAN=1
+    if [[ ! -t 1 ]] || ! pick_with_menu; then
+        printf '\n  \033[1mklipper-auto-eject\033[0m: a few questions first. Press Enter to keep the answer in capitals.\n\n'
+        if [[ "${ADD_INCLUDE}" -eq 1 ]] && ! ask "Will this printer push its prints off with the blade? (No: only the web page or the farm)" y; then
+            ADD_INCLUDE=0
+        fi
+        ask "Add the auto-eject page to Mainsail (bed map, print queue, settings)?" y && WEB=1
+        ask "Watch and control the printer from your phone, from anywhere? (a free Tailscale account)" n && REMOTE=1
+        if [[ "${REMOTE}" -eq 1 ]]; then
+            ask "Notifications on your phone when the printer needs you?" y && PUSH=1
+        fi
+        if [[ "${WEB}" -eq 1 ]]; then
+            ask "More than one Klipper printer? See them all on one page (printer farm)?" n && { FARM=1; PUSH=1; }
+        fi
+        if [[ "${PUSH}" -eq 0 ]]; then
+            ask "Messages on Telegram, Discord or the ntfy app when the printer needs you?" n && NOTIFY=1
+        fi
+        if [[ -n "${SPOOLMAN_FOUND}" ]]; then
+            ask "Spoolman answers at ${SPOOLMAN_FOUND%% *}. Use it, so the queue stops before a spool runs out?" y && SPOOLMAN=1
+        else
+            ask "Do you use Spoolman, which knows what is left on each spool? (the queue stops before a spool runs out)" n && SPOOLMAN=1
+        fi
     fi
     picked="macros"
     [[ "${ADD_INCLUDE}" -eq 1 ]] || picked="no macros"

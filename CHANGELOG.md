@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **`install.sh` asks on one screen of tick boxes** (whiptail, on most printer hosts already)
+  instead of a question at a time: the blade, the web page, phone access, notifications, the
+  farm, messages and Spoolman. A Spoolman found on the network is ticked with its address; a
+  choice that needs another brings the screen back with a word on why; Esc changes nothing.
+  Without whiptail, or with `--plain`, the questions come one at a time as before.
 - **A cooling temperature for each material** (`cool_temps`, e.g. `PETG=25,ABS=45`): PETG often
   holds on to a smooth PEI sheet until the bed is cooler than PLA needs. The slicer names the
   material in the end G-code (`AUTO_EJECT ... MATERIAL=[filament_type]`); materials not listed,

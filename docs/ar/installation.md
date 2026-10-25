@@ -20,7 +20,39 @@
 cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
 ```
 
-يسألك السكربت بعض الأسئلة أولًا. اضغط **Enter** لتقبل الإجابة المقترحة (وهي الحرف الكبير بين القوسين):
+يعرض السكربت أولًا ما يمكنه تجهيزه في شاشة واحدة. ضع علامة على ما تريد بمفتاح **Space** ثم اضغط
+**Enter**، ومفتاح **Esc** يوقفه دون أن يغيّر شيئًا. وإذا وجد Spoolman على شبكتك تجده معلَّمًا
+ومعه عنوانه:
+
+```text
+┌──────────────────── klipper-auto-eject ────────────────────┐
+│ Space ticks or clears a line, Enter goes on, Esc stops.     │
+│                                                             │
+│  [*] blade     The blade pushes the prints off this printer │
+│  [*] web       The auto-eject page in Mainsail              │
+│  [ ] remote    Your phone, from anywhere (Tailscale)        │
+│  [ ] push      Notifications on the phone                   │
+│  [ ] farm      All your printers on one page                │
+│  [ ] notify    Messages on Telegram, Discord or ntfy        │
+│  [*] spoolman  Spoolman at http://192.168.1.50:7912         │
+│                                                             │
+│                 <Ok>                 <Cancel>               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| السطر | معناه |
+|---|---|
+| `blade` | ستدفع هذه الطابعة طبعاتها خارج السرير بالشفرة. أزل العلامة إذا كنت تريد صفحة الويب أو مزرعة الطابعات فقط |
+| `web` | صفحة الإزالة التلقائية في Mainsail: خريطة السرير وقائمة الطباعة والإعدادات |
+| `remote` | مشاهدة الطابعة والتحكم فيها من هاتفك من أي مكان، بحساب Tailscale مجاني |
+| `push` | إشعارات على الهاتف عندما تحتاجك الطابعة. تحتاج السطر السابق |
+| `farm` | كل طابعاتك في صفحة واحدة (مزرعة الطابعات). تحتاج سطر `web` |
+| `notify` | رسائل عبر Telegram أو Discord أو تطبيق ntfy |
+| `spoolman` | ربط Spoolman، لتتوقف القائمة قبل أن تنفد البكرة |
+
+إذا اخترت الإشعارات دون الوصول من الهاتف، أو المزرعة دون صفحة الويب، تعود الشاشة وتشرح السبب.
+وإذا لم يكن `whiptail` موجودًا (أو مع `--plain`) يسأل الأسئلة نفسها واحدًا بعد الآخر. اضغط
+**Enter** لتقبل الإجابة المقترحة (وهي الحرف الكبير بين القوسين):
 
 ```text
 [auto-eject] Will this printer push its prints off with the blade? (No: only the web page or the farm) [Y/n]
@@ -95,6 +127,7 @@ filename: ~/printer_data/config/variables.cfg
 | `-P`, `--push` | | تريد أيضًا تثبيت خدمة `klipper-auto-eject`: فتصل الإشعارات إلى تطبيق الإزالة التلقائية حتى وهو مغلق، وتعمل مزرعة الطابعات. الإشعارات تحتاج HTTPS (`--remote`)، و`sudo` مرة واحدة ([notifications.md](notifications.md)) |
 | `-F`, `--farm` | | تريد كل طابعاتك في صفحة واحدة: يجهّز صفحة الويب وخدمة `klipper-auto-eject` التي تجد الطابعات الأخرى على الشبكة. الطابعات الأخرى لا تحتاج أي تثبيت ([farm.md](farm.md)) |
 | `-N`, `--notify` | | تريد أيضًا إرسال إشعارات إلى هاتفك عبر تطبيق ntfy أو Telegram أو Discord: قطعة ما زالت على السرير، أو طباعة انتهت. يسأل قبل كل خطوة ([notifications.md](notifications.md)) |
+| `--plain` | | تريد الأسئلة واحدًا بعد الآخر، دون شاشة العلامات |
 | `-S`, `--spoolman` | | تريد ربط Moonraker بـ Spoolman عندك، لتتوقف القائمة قبل مهمة لا تكفيها البكرة. يسأل عن عنوان Spoolman ويتأكد أنه يرد عليه ([البكرة وSpoolman](spoolman.md)) |
 | `--demon` | | مع DEMON Klipper Essentials، على طابعة عليها الإزالة التلقائية من قبل: يعمل فحص السرير داخل أول خطوة في DEMON بدل G-code البداية في برنامج التقطيع، ولا يتغير شيء غير ذلك. والتثبيت يفعل ذلك أيضًا ([integration.md](../integration.md#demon-klipper-essentials)) |
 | `-u`, `--uninstall` | | تريد إزالة ما أضافه السكربت: الرابط، وأسطر include، وقسم مدير التحديثات، وصفحة الويب، ونطاق Tailscale الذي أضافه إلى `trusted_clients` |

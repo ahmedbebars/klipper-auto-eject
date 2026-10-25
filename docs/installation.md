@@ -22,7 +22,30 @@ your printer's user name) and paste this one line:
 cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
 ```
 
-It asks a few questions first. Press **Enter** to keep the suggested answer (the one in capitals):
+It first shows what it can set up, on one screen. Tick what you want with **Space** and press
+**Enter**; **Esc** stops without changing anything. A Spoolman it finds on your network is
+ticked already, with its address:
+
+```text
+┌──────────────────── klipper-auto-eject ────────────────────┐
+│ Space ticks or clears a line, Enter goes on, Esc stops.     │
+│                                                             │
+│  [*] blade     The blade pushes the prints off this printer │
+│  [*] web       The auto-eject page in Mainsail              │
+│  [ ] remote    Your phone, from anywhere (Tailscale)        │
+│  [ ] push      Notifications on the phone                   │
+│  [ ] farm      All your printers on one page                │
+│  [ ] notify    Messages on Telegram, Discord or ntfy        │
+│  [*] spoolman  Spoolman at http://192.168.1.50:7912         │
+│                                                             │
+│                 <Ok>                 <Cancel>               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Phone notifications need the phone access, and the printer farm needs the web page: tick one
+without the other and the screen comes back and says so. Without `whiptail` (or with
+`--plain`) it asks the same things one at a time instead. Press **Enter** to keep the
+suggested answer (the one in capitals):
 
 ```text
 [auto-eject] Will this printer push its prints off with the blade? (No: only the web page or the farm) [Y/n]
@@ -80,6 +103,7 @@ set's values to another file.
 | `-P`, `--push` | | Also installing the `klipper-auto-eject` service: the auto-eject app gets notifications even while it is closed, and the printer farm works. Notifications need HTTPS (`--remote`); `sudo` once ([notifications.md](notifications.md)) |
 | `-F`, `--farm` | | All your printers on one page: the web page and the `klipper-auto-eject` service, which finds the other printers on the network. They need nothing installed ([farm.md](farm.md)) |
 | `-N`, `--notify` | | Also sending notifications to your phone with the ntfy app, Telegram or Discord: a part still on the bed, a print that finished. Asks before every step ([notifications.md](notifications.md)) |
+| `--plain` | | Asking the questions one at a time, without the screen of tick boxes |
 | `-S`, `--spoolman` | | Linking Moonraker to your Spoolman, so the queue stops before a job the spool cannot finish. Asks for Spoolman's address and checks that Spoolman answers there ([spoolman.md](spoolman.md)) |
 | `--demon` | | With DEMON Klipper Essentials, on a printer that has auto-eject already: the bed check runs in DEMON's first hook instead of the slicer's start G-code, and nothing else changes. The install does it too ([integration.md](integration.md#demon-klipper-essentials)) |
 | `-u`, `--uninstall` | | Removing the link, the includes, the update manager section, the web page and the Tailscale range it added to `trusted_clients` |
