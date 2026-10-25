@@ -42,7 +42,7 @@ def menu(tmp_path, answers, found="", plain=0, whiptail=True):
     bin_dir.mkdir()
     if whiptail:
         fake = bin_dir / "whiptail"
-        fake.write_text(FAKE_WHIPTAIL, encoding="utf-8", newline="\n")
+        fake.write_bytes(FAKE_WHIPTAIL.encode())    # LF line ends, on Python 3.9 too
         fake.chmod(0o755)
     (tmp_path / "answers").write_text("\n".join(answers) + "\n", encoding="utf-8")
     script = (functions() + "\nADD_INCLUDE=1 WEB=0 REMOTE=0 PUSH=0 FARM=0 NOTIFY=0 SPOOLMAN=0\n"
