@@ -28,6 +28,7 @@ it worked.
 | [Notifications](notifications.md) | A message on your phone when the printer needs you, or when a print is done |
 | [Remote access](remote-access.md) | Watch and control the printer from your phone, from anywhere, without opening it to the internet |
 | [Spoolman](spoolman.md) | With Spoolman, the queue stops before a job the spool on the printer cannot finish |
+| [Board firmware](firmware.md) | After a Klipper update, one line brings every board's firmware to Klipper's version |
 | [Printer farm](farm.md) | Every printer on your network on one page, found by itself; the others need nothing installed |
 
 ## 3. Use it every day

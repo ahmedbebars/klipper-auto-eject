@@ -17,6 +17,15 @@ All notable changes to this project are documented here. The format is based on
   material in the end G-code (`AUTO_EJECT ... MATERIAL=[filament_type]`); materials not listed,
   and prints without it, use `cool_temp` as before. The page shows the temperature the bed cools
   to.
+- **`install.sh --firmware` brings every board's firmware to Klipper's version** after a Klipper
+  update: the main board, CAN toolhead boards, a USB to CAN bridge and the host, built while
+  Klipper runs, then flashed in a safe order (CAN, USB, the bridge, the host and a restart of the
+  computer) after a yes, never while printing, pushing parts off or heating. The build settings
+  come from the board itself (Klipper v0.13.0-752 and newer), from the last build, from a settings
+  file on the printer, or from two questions (the crystal and the bootloader). Each build is
+  checked against the chip, pins and speeds the board reports before anything is written, and
+  Katapult's start address before a CAN write. The installer names the boards behind at the end,
+  and the Updates tab points to it ([docs/firmware.md](docs/firmware.md)).
 
 ### Fixed
 - **The install line gets the latest version when the folder is already there.** It used to

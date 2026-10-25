@@ -22,7 +22,8 @@ FARM=0
 SPOOLMAN=0
 SPOOLMAN_FOUND=""     # "url version" lines of the Spoolman servers found on the network
 DEMON_ONLY=0
-PLAIN=0               # --plain: the questions one by one, without the menu
+FIRMWARE=0
+PLAIN=0              # --plain: the questions one by one, without the menu
 # Moonraker's update manager restarts a service after an update only when it
 # has the update_manager section's name, so the service is klipper-auto-eject
 PUSH_NAME="klipper-auto-eject"
@@ -67,6 +68,10 @@ screen of tick boxes (with whiptail, or one question at a time without it).
                           DEMON's first hook (_CUSTOM_PRE_START) instead of the
                           slicer's start G-code, and nothing else. The install
                           does it too (docs/integration.md)
+      --firmware          Bring the firmware of the printer's boards to Klipper's
+                          version, and nothing else: it builds each board's
+                          firmware, says what it will do and asks first. Never
+                          while printing (docs/firmware.md)
       --plain             Ask the questions one at a time, without the menu
   -u, --uninstall         Remove links, includes, the update_manager section
                           and the web page
@@ -92,7 +97,8 @@ while [[ $# -gt 0 ]]; do
         -F|--farm)            FARM=1; WEB=1; PUSH=1; shift ;;
         -S|--spoolman)        SPOOLMAN=1; shift ;;
         --demon)              DEMON_ONLY=1; shift ;;
-        --plain)              PLAIN=1; shift ;;
+        --firmware)           FIRMWARE=1; shift ;;
+        --plain)             PLAIN=1; shift ;;
         -u|--uninstall)       UNINSTALL=1; shift ;;
         -h|--help)            usage; exit 0 ;;
         *) usage; die "Unknown option: $1" ;;
@@ -924,6 +930,13 @@ if [[ "${DEMON_ONLY}" -eq 1 ]]; then
     exit 0
 fi
 
+# --firmware: only the boards' firmware, brought to Klipper's version
+if [[ "${FIRMWARE}" -eq 1 ]]; then
+    [[ -f "${REPO_DIR}/tools/firmware.py" ]] || die "No klipper-auto-eject in ${REPO_DIR}: install it first"
+    command -v python3 >/dev/null || die "python3 is not installed"
+    exec python3 "${REPO_DIR}/tools/firmware.py" --moonraker "http://127.0.0.1:$(moonraker_port)" update
+fi
+
 # Run with no options from a terminal: ask what to set up, in plain words,
 # on one screen of tick boxes, or one question at a time.
 if [[ -t 0 && $((WEB + REMOTE + NOTIFY + PUSH + FARM + SPOOLMAN)) -eq 0 ]]; then
@@ -1102,6 +1115,14 @@ if [[ -n "${SPOOLMAN_URL}" ]]; then
 else
     echo "  Optional: with Spoolman, the queue stops before a spool runs out:"
     echo "    ${REPO_DIR}/install.sh --spoolman (docs/spoolman.md)"
+fi
+FIRMWARE_BEHIND=""
+if command -v python3 >/dev/null; then
+    FIRMWARE_BEHIND="$(python3 "${REPO_DIR}/tools/firmware.py" --moonraker "http://127.0.0.1:$(moonraker_port)" behind 2>/dev/null || true)"
+fi
+if [[ -n "${FIRMWARE_BEHIND}" ]]; then
+    echo "  Optional: these boards run older firmware than Klipper (${FIRMWARE_BEHIND}):"
+    echo "    ${REPO_DIR}/install.sh --firmware (docs/firmware.md)"
 fi
 NOTIFY_KIND=""
 if [[ -f "${MOONRAKER_CONF}" ]] && command -v python3 >/dev/null; then

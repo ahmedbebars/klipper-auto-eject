@@ -115,7 +115,8 @@ manager sees it, and what that means for this printer:
   Klipper. If none does, they need no reflash;
 - Klipper's own notes on config changes (`docs/Config_Changes.md`), when an update adds one;
 - each board's firmware against Klipper: how many updates behind, and whether the board code
-  changed since. The same line is under each board on **Hardware**;
+  changed since. The same line is under each board on **Hardware**. To reflash them,
+  `install.sh --firmware` ([firmware.md](firmware.md));
 - everything else Moonraker updates (Moonraker, Mainsail or Fluidd, crowsnest, auto-eject…), the
   ones with a new version first.
 

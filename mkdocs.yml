@@ -126,6 +126,7 @@ nav:
       - Notifications: notifications.md
       - Printer farm: farm.md
       - Spoolman: spoolman.md
+      - Board firmware: firmware.md
   - Reference:
       - Configuration: configuration.md
       - Strategies: strategies.md
@@ -142,6 +143,7 @@ nav:
       - الإشعارات: ar/notifications.md
       - مزرعة الطابعات: ar/farm.md
       - البكرة وSpoolman: ar/spoolman.md
+      - برامج اللوحات: ar/firmware.md
       - الأسئلة الشائعة: ar/faq.md
       - السلامة: ar/safety.md
   - Live demo: demo.md

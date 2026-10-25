@@ -95,6 +95,7 @@ Each line is a shortcut to its page.
 | [Your macros](docs/integration.md) | Stock macros, DEMON Klipper Essentials, Klippain, RatOS and others |
 | [Print in a row](docs/integration.md#moonraker-job-queue) | Moonraker's job queue: the next print starts once the bed is clear |
 | [Settings](docs/configuration.md) | Every setting explained, in your own file that updates never touch |
+| [Board firmware](docs/firmware.md) | After a Klipper update, one line rebuilds and flashes every board, CAN, USB and the host, in a safe order and never while printing |
 | [Removing it](docs/uninstall.md) | One line takes it all back off |
 
 **The web page**
@@ -290,7 +291,7 @@ All commands and options: [docs/commands.md](docs/commands.md).
 | [FAQ](docs/faq.md) | [Installation](docs/installation.md) | [Integration](docs/integration.md) | [Strategies](docs/strategies.md) |
 | [Glossary](docs/glossary.md) | [Guided setup](docs/setup-wizard.md) | [Recovery](docs/recovery.md) | [Probes](docs/probes.md) |
 | [Safety](docs/safety.md) | [Slicer setup](docs/slicer-setup.md) | [Web page](docs/web-page.md) | [Troubleshooting](docs/troubleshooting.md) |
-| [العربية](docs/ar/README.md) | [Removing it](docs/uninstall.md) | | |
+| [العربية](docs/ar/README.md) | [Removing it](docs/uninstall.md) | [Board firmware](docs/firmware.md) | |
 | | | [Remote access](docs/remote-access.md) | |
 | | | [Notifications](docs/notifications.md) | |
 | | | [Printer farm](docs/farm.md) | |
