@@ -19,6 +19,10 @@ All notable changes to this project are documented here. The format is based on
   to.
 
 ### Fixed
+- **The install line gets the latest version when the folder is already there.** It used to
+  run the copy that was already on the printer, so a printer that had it from before kept the
+  old installer. Now it updates that copy first (`git pull --ff-only`) and stops, changing
+  nothing, if a file in it was edited by hand.
 - The installer tests skip, instead of failing, where `bash` does not run (Windows with the WSL
   `bash.exe` and no Linux installed).
 

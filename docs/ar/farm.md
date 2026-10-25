@@ -34,8 +34,7 @@
    تكون طابعة تبقى تعمل دائمًا. لا تحتاج هذه الطابعة إلى شفرة.
 2. **على تلك الطابعة**، عبر SSH:
    ```bash
-   cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git
-   ~/klipper-auto-eject/install.sh --farm
+   cd ~ && if [ -d klipper-auto-eject ]; then git -C klipper-auto-eject pull --ff-only; else git clone https://github.com/ahmedbebars/klipper-auto-eject.git; fi && ./klipper-auto-eject/install.sh --farm
    ```
    هذا يثبّت صفحة الويب وخدمة `klipper-auto-eject` التي تشغّل المزرعة. يطلب كلمة المرور مرة
    واحدة. إذا لم تكن على هذه الطابعة شفرة، أضف `--no-include`: المزرعة لا تحتاج ماكروهات

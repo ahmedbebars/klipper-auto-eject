@@ -17,7 +17,7 @@
 افتح طرفية على الطابعة عبر SSH. على Windows استخدم PowerShell واكتب `ssh pi@<printer address>`، وضع اسم المستخدم في طابعتك بدل `pi`. ثم الصق هذا السطر:
 
 ```bash
-cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
+cd ~ && if [ -d klipper-auto-eject ]; then git -C klipper-auto-eject pull --ff-only; else git clone https://github.com/ahmedbebars/klipper-auto-eject.git; fi && ./klipper-auto-eject/install.sh
 ```
 
 يعرض السكربت أولًا ما يمكنه تجهيزه في شاشة واحدة. ضع علامة على ما تريد بمفتاح **Space** ثم اضغط

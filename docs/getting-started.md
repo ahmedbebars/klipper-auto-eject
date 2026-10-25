@@ -143,7 +143,7 @@ that runs Klipper). You reach it over **SSH**, a text connection from your compu
    ```
 3. Paste this line and press Enter:
    ```bash
-   cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
+   cd ~ && if [ -d klipper-auto-eject ]; then git -C klipper-auto-eject pull --ff-only; else git clone https://github.com/ahmedbebars/klipper-auto-eject.git; fi && ./klipper-auto-eject/install.sh
    ```
 4. It shows what it can set up, on one screen of tick boxes: tick a line with **Space**, then
    press **Enter**. (Without that screen it asks the same things one at a time: **press

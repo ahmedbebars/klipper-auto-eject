@@ -37,8 +37,7 @@ until you press **Bed is clear**.
    preferably one that stays on. It does not need a blade.
 2. **On that printer**, over SSH:
    ```bash
-   cd ~ && git clone https://github.com/ahmedbebars/klipper-auto-eject.git
-   ~/klipper-auto-eject/install.sh --farm
+   cd ~ && if [ -d klipper-auto-eject ]; then git -C klipper-auto-eject pull --ff-only; else git clone https://github.com/ahmedbebars/klipper-auto-eject.git; fi && ./klipper-auto-eject/install.sh --farm
    ```
    This installs the web page and the `klipper-auto-eject` service, which runs the farm. It
    asks for your password once. If this printer has no blade, add `--no-include`: the farm

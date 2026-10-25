@@ -19,7 +19,7 @@ Open a terminal on the printer over SSH (on Windows: PowerShell, `ssh pi@<printe
 your printer's user name) and paste this one line:
 
 ```bash
-cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
+cd ~ && if [ -d klipper-auto-eject ]; then git -C klipper-auto-eject pull --ff-only; else git clone https://github.com/ahmedbebars/klipper-auto-eject.git; fi && ./klipper-auto-eject/install.sh
 ```
 
 It first shows what it can set up, on one screen. Tick what you want with **Space** and press

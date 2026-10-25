@@ -142,7 +142,7 @@ Klipper). تصل إليه عبر **SSH**، وهو اتصال نصي من كمب�
    ```
 3. الصق هذا السطر واضغط Enter:
    ```bash
-   cd ~ && { [ -d klipper-auto-eject ] || git clone https://github.com/ahmedbebars/klipper-auto-eject.git; } && ./klipper-auto-eject/install.sh
+   cd ~ && if [ -d klipper-auto-eject ]; then git -C klipper-auto-eject pull --ff-only; else git clone https://github.com/ahmedbebars/klipper-auto-eject.git; fi && ./klipper-auto-eject/install.sh
    ```
 4. سيعرض ما يمكنه تجهيزه في شاشة واحدة من العلامات: ضع العلامة على السطر بمفتاح **Space** ثم
    اضغط **Enter**. (إذا لم تظهر هذه الشاشة يسأل الأسئلة نفسها واحدًا بعد الآخر: **اضغط Enter**
