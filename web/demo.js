@@ -161,6 +161,7 @@
   // Moonraker's update manager: Klipper a few updates behind (Klipper's own
   // recent updates), Mainsail with a new version, the rest up to date
   const KLIPPER_VERSION = "v0.13.0-809-gc63b2951";
+  const DEMO_MAIN_OLD = "v0.13.0-800-g9cb99754";    // the mainboard, behind Klipper until the board update
   const DEMO_DAY = 1792411200;      // 2026-10-19, noon UTC
   const kc = (sha, day, subject) => ({ sha, author: "Klipper", date: String(DEMO_DAY + day * 86400), subject, message: subject, tag: null });
   const DEMO_UPDATES = {
@@ -759,7 +760,7 @@
     const st = this.status;
     const busy = st.print_stats.state === "printing" || st["gcode_macro _AUTO_EJECT_STATE"].busy;
     const t = Date.now() / 1000, wob = (n) => Math.round((n + Math.sin(t / 25 + n) * 0.6) * 10) / 10;
-    const mcu = (chip, awake, sent) => ({ mcu_version: chip === "stm32h723xx" ? "v0.13.0-800-g9cb99754" : KLIPPER_VERSION, mcu_constants: { MCU: chip },
+    const mcu = (chip, awake, sent) => ({ mcu_version: chip === "stm32h723xx" ? this.fwTo || DEMO_MAIN_OLD : KLIPPER_VERSION, mcu_constants: { MCU: chip },
       last_stats: { mcu_awake: awake, srtt: 0.0011, bytes_retransmit: sent, bytes_invalid: 0, freq: 1 } });
     switch (k) {
       case "mcu": return mcu("stm32h723xx", busy ? 0.008 : 0.002, 9);
@@ -1015,7 +1016,7 @@
       jobs: this.queue.jobs.length, queue: this.queue.state,
       stats: { hours: 128.4, jobs: 97, recent: 50, recent_ok: 48, today_ok: 3, today_bad: 0 },
       bin: ae.bin || 0, bin_cap: this.settings().bin_capacity || 0, power: null,
-      updates: this.farmLocalUpdates(), firmware: { klipper: this.localKlipper || KLIPPER_VERSION, boards: [["mcu", "v0.13.0-800-g9cb99754"], ["mcu toolhead", KLIPPER_VERSION]] },
+      updates: this.farmLocalUpdates(), firmware: { klipper: this.localKlipper || KLIPPER_VERSION, boards: [["mcu", this.fwTo || DEMO_MAIN_OLD], ["mcu toolhead", KLIPPER_VERSION]] },
       job: this.farmLocalJob || null };
   };
   Demo.prototype.farmLocalUpdates = function () {
@@ -1194,6 +1195,45 @@
       q.jobs.splice(to, 0, q.jobs.splice(i, 1)[0]);
     }
     return later({ saved: true });
+  };
+
+  // The board update (push/firmware_job.py), for the demo's Updates tab: the
+  // mainboard is behind Klipper, and the button writes it in about ten seconds.
+  Demo.prototype.firmware = function (path) {
+    const ok = (v) => new Promise((resolve) => setTimeout(() => resolve(v), 120));
+    const fail = (msg) => new Promise((resolve, reject) => setTimeout(() => reject(new Error(msg)), 120));
+    const job = this.firmwareJob();
+    if (path === "/update") {
+      if (job && job.state === "running") return fail("The boards are being updated already.");
+      const ps = this.status.print_stats.state;
+      if (ps === "printing" || ps === "paused") return fail("The printer is " + ps + ".");
+      this.fwStarted = Date.now();
+      return ok({ started: true });
+    }
+    const main = this.fwTo || DEMO_MAIN_OLD;
+    return ok({
+      status: { klipper: KLIPPER_VERSION, rights: { usb: true, host: true }, boards: [
+        { name: "mcu", chip: "stm32h723xx", link: "usb", version: main, age: this.fwTo ? "same" : "older", settings: "board", why: "", method: "usb" },
+        { name: "toolhead", chip: "stm32g0b1xx", link: "can", version: KLIPPER_VERSION, age: "same", settings: "board", why: "", method: "can" }] },
+      job
+    });
+  };
+  Demo.prototype.firmwareJob = function () {
+    if (!this.fwStarted) return null;
+    const s = (Date.now() - this.fwStarted) / 1000;
+    const step = s < 2 ? "checking" : s < 6 ? "building" : s < 10 ? "flashing" : s < 12 ? "starting" : "";
+    if (!step) this.fwTo = KLIPPER_VERSION;
+    const board = { checking: "waiting", building: "building", flashing: "flashing", starting: "written", "": "done" }[step];
+    const lines = ["Klipper is " + KLIPPER_VERSION + ". To build: mcu (" + DEMO_MAIN_OLD + ")"];
+    if (s >= 2) lines.push("Building mcu (stm32h723xx, from the settings it reports) ...");
+    if (s >= 6) lines.push("  done in 4 s", "", "Klipper stops while these are flashed, in this order:",
+      "  1. mcu: over USB with Klipper's flash script", "Flashing mcu ...");
+    if (s >= 10) lines.push("  written.", "Klipper is starting ...");
+    if (!step) lines.push("  mcu: now " + KLIPPER_VERSION);
+    return { state: step ? "running" : "done", step, klipper: KLIPPER_VERSION, message: "", reboot: false, pid: 1,
+      started: this.fwStarted / 1000, at: Math.min(Date.now(), this.fwStarted + 12000) / 1000,
+      boards: [{ name: "mcu", how: "usb", version: DEMO_MAIN_OLD, state: board, why: "", code: "", now: step ? "" : KLIPPER_VERSION }],
+      log: lines.join("\n") + "\n" };
   };
 
   // What the farm API (push/farm.py) answers, for the demo's Farm tab.

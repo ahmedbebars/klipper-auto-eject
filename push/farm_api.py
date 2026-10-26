@@ -1,5 +1,6 @@
 """The farm's HTTP API for the auto-eject page, on 127.0.0.1; nginx
-publishes it at /auto-eject/api/.
+publishes it at /auto-eject/api/. Also this printer's board update
+(firmware_job.py), at firmware.
 
 Part of the farm (farm.py).
 """
@@ -27,7 +28,7 @@ def trusted(address):
     return any(ip in n for n in TRUSTED)
 
 
-def make_handler(farm):
+def make_handler(farm, firmware=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "klipper-auto-eject"
 
@@ -116,6 +117,26 @@ def make_handler(farm):
             # the page asks again with the file's date when the file changes
             return self._send(200, pic[1], pic[0], cache="private, max-age=3600")
 
+        def _firmware(self, parts, method, url):
+            """This printer's boards: their firmware against Klipper's, and the update."""
+            if firmware is None:
+                return self._send(404, {"error": "not found"})
+            if parts == ["firmware"] and method == "GET":
+                fresh = (urllib.parse.parse_qs(url.query).get("fresh") or ["0"])[0] == "1"
+                return self._send(200, firmware.view(fresh))
+            if parts == ["firmware", "update"] and method == "POST":
+                # only the page: a form on another site cannot send JSON without asking first
+                if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
+                    return self._send(415, {"error": "JSON only"})
+                job = farm.local.job
+                if job and job.get("state") == "running":
+                    return self._send(409, {"error": "%s is updating its software" % farm.local.name})
+                try:
+                    return self._send(200, {"started": firmware.start()})
+                except PermissionError as e:
+                    return self._send(409, {"error": str(e)})
+            return self._send(404, {"error": "not found"})
+
         def _route(self, method):
             url = urllib.parse.urlsplit(self.path)
             path = url.path.rstrip("/")
@@ -142,6 +163,8 @@ def make_handler(farm):
             if not trusted(self._client()):
                 return self._send(403, {"error": "not allowed from this network"})
             try:
+                if parts and parts[0] == "firmware":
+                    return self._firmware(parts, method, url)
                 if parts == ["farm"] and method == "GET":
                     return self._send(200, farm.view())
                 if parts == ["farm", "report"] and method == "GET":
@@ -250,7 +273,7 @@ def make_handler(farm):
     return Handler
 
 
-def serve(farm, port=7128):
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(farm))
+def serve(farm, port=7128, firmware=None):
+    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(farm, firmware))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server

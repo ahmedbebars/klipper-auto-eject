@@ -2,10 +2,10 @@
  */
 
 import {
-  $, aeState, app, client, DEMO, DOCS, fmtDate, h, head, icon, iso, M, num, probe, settings, store, t
+  $, aeState, app, client, DEMO, DOCS, fmtDate, h, head, icon, iso, lang, M, num, probe, settings, store, t
 } from "./core.js";
 import { cleanError, confirm, refresh, route, toast } from "../app.js";
-import { copyText } from "./setup.js";
+import { codeCopy, copyText } from "./setup.js";
 import { farm, farmCall, farmShown, loadFarm } from "./farm.js";
 import { boardName, hwParts } from "./hardware.js";
 
@@ -326,8 +326,121 @@ function fleetCard() {
       list.map(row))));
 }
 
+// The boards updated from here: tools/firmware.py, run in the background by
+// the klipper-auto-eject service on this printer (push/firmware_job.py),
+// which nginx serves at ../api/firmware. Without the service the card says
+// what to run over SSH, as before.
+const FW_API = "../api/firmware";
+const FW_SSH = "~/klipper-auto-eject/install.sh --firmware";
+const fwu = { data: null, available: null, at: 0, loading: false, log: false };
+
+function fwCall(path, body) {
+  if (DEMO) return client.firmware(path, body);
+  const opts = body === undefined ? { cache: "no-store" } : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  return fetch(FW_API + path, opts).then((r) => r.json().catch(() => ({}))
+    .then((j) => (r.ok ? j : Promise.reject(new Error(j.error || "HTTP " + r.status)))));
+}
+function fwRunning() { return !!(fwu.data && fwu.data.job && fwu.data.job.state === "running"); }
+function loadFirmware() {
+  if (fwu.loading) return;
+  fwu.loading = true;
+  const was = fwRunning();
+  fwCall("").then((d) => { fwu.data = d; fwu.available = true; }, () => { if (!fwu.data) fwu.available = false; })
+    .then(() => {
+      fwu.loading = false;
+      fwu.at = Date.now();
+      if (was && !fwRunning()) upd.mcuKey = "";          // ask the boards their new versions
+      refresh();
+    });
+}
+// while the Updates page is shown: every 2 s during an update, else once a minute
+setInterval(() => {
+  if (document.hidden || fwu.available === false || route() !== "updates") return;
+  if (fwRunning() || Date.now() - fwu.at > 60000) loadFirmware();
+}, 2000);
+
+// a board as the page names it (Main board...), from firmware.py's name for it ("mcu")
+function fwObj(name) { return name === "mcu" ? "mcu" : "mcu " + name; }
+function fwLabel(name) {
+  const b = hwParts().mcus.find((x) => x.obj === fwObj(name));
+  return b ? boardName(b) : name;
+}
+function fwNames(list) { return list.map((b) => fwLabel(b.name)).join(lang === "ar" ? "، " : ", "); }
+
+function fwStart(plan) {
+  const body = t("upd.fwu.confirm_body", { names: fwNames(plan.go) }) + (plan.host ? " " + t("upd.fwu.confirm_host") : "");
+  return confirm(t("upd.fwu.confirm_title"), body, t("upd.fwu.button")).then((ok) => {
+    if (!ok) return null;
+    return fwCall("/update", {}).then(() => { toast(t("upd.fwu.started"), "ok"); loadFirmware(); }, (e) => toast(cleanError(e.message), "bad"));
+  });
+}
+
+// why a board was left out or stopped: in the page's words when it knows
+// them, else in firmware.py's own (English)
+function fwWhy(b, running) {
+  if (b.code === "reset" && b.state === "flashing" && running) return noteLine({ level: "warn", text: t("upd.fwu.why.reset") }, "fw-why");
+  const known = b.code === "setup" || b.code === "answers";
+  const text = known ? t("upd.fwu.why." + b.code) : b.why;
+  return text ? h("span", { class: "fw-why" + (known ? "" : " ltr"), text }) : null;
+}
+
+const FW_OK = ["written", "done"], FW_BAD = ["failed", "still", "left"];
+function fwJob(job) {
+  const running = job.state === "running", boards = job.boards || [];
+  let top;
+  if (running) top = h("p", { class: "fw-step" }, h("span", { class: "spinner" }), h("b", { text: t("upd.fwu.step." + (job.step || "checking")) }));
+  else if (job.state === "done") top = noteLine({ level: "ok", text: t(!boards.length ? "upd.fwu.nothing" : job.reboot ? "upd.fwu.done_reboot" : "upd.fwu.done") });
+  else {
+    top = h("p", { class: "note warn" }, icon("alert"), h("span", null, h("b", { text: t("upd.fwu.failed") }),
+      job.message ? h("span", { class: "fw-msg ltr", text: job.message.replace(/^Stopped: /, "") }) : null));
+  }
+  const rows = boards.length ? h("div", { class: "fw-rows" }, boards.map((b) => {
+    const mark = running && ["building", "flashing"].includes(b.state) ? h("span", { class: "spinner" })
+      : icon(FW_OK.includes(b.state) ? "ok" : FW_BAD.includes(b.state) ? "alert" : "info");
+    return h("div", { class: "fw-row", "data-state": b.state }, mark, h("b", { dir: "auto", text: fwLabel(b.name) }),
+      h("span", { class: "muted", text: t("upd.fwu.state." + b.state) }),
+      b.state === "done" && b.now ? h("span", { class: "muted ltr", text: b.now }) : null,
+      fwWhy(b, running));
+  })) : null;
+  const when = !running && job.at ? h("p", { class: "muted fw-when", text: t("upd.fwu.at", { t: iso(fmtDate(job.at, true)) }) }) : null;
+  const log = job.log ? h("details", { class: "fw-log", open: fwu.log, ontoggle: (e) => { fwu.log = e.target.open; } },
+    h("summary", { text: t("upd.fwu.log") }), h("pre", { class: "upd-body ltr", text: job.log })) : null;
+  return h("div", { class: "fw-job" }, top, rows, when, log);
+}
+
+// The button, what it would write, and what it cannot: from firmware.py's
+// report through the service. The last update stays shown for a day.
+function fwPanel() {
+  if (!fwu.available || !fwu.data) return null;
+  const job = fwu.data.job, running = fwRunning(), parts = [];
+  if (job && (running || Date.now() / 1000 - (job.at || 0) < 86400)) parts.push(fwJob(job));
+  if (!running) {
+    const plan = M.firmwarePlan(fwu.data.status);
+    const busy = ["printing", "paused"].includes((app.status.print_stats || {}).state);
+    const note = (key, list) => h("p", { class: "note" }, icon("info"), h("span", { text: t(key, { names: fwNames(list) }) }));
+    if (plan.go.length) {
+      // a plain button when GitHub says nothing in the board code changed: no need, but possible
+      const needed = plan.go.some((b) => {
+        const m = upd.mcus.find((x) => x.obj === fwObj(b.name));
+        const n = m ? firmwareNote(m.version) : null;
+        return !n || n.level !== "ok";
+      });
+      parts.push(h("div", { class: "fw-act" },
+        h("button", { type: "button", class: "btn" + (needed ? " primary" : ""), disabled: busy, onclick: () => fwStart(plan) }, icon("download"), t("upd.fwu.button")),
+        h("span", { class: "muted", text: busy ? t("upd.fwu.busy") : t(plan.host ? "upd.fwu.what_host" : "upd.fwu.what", { names: fwNames(plan.go) }) })));
+    }
+    if (plan.setup.length) parts.push(note("upd.fwu.setup", plan.setup));
+    if (plan.answers.length) parts.push(note("upd.fwu.answers", plan.answers));
+    if (plan.setup.length || plan.answers.length) parts.push(codeCopy(FW_SSH));
+    if (plan.manual.length) parts.push(note("upd.fwu.manual", plan.manual));
+    for (const b of plan.none) parts.push(h("p", { class: "note" }, icon("info"), h("span", null, h("b", { dir: "auto", text: fwLabel(b.name) + ": " }), h("span", { class: "ltr", text: b.why || "" }))));
+  }
+  return parts.length ? h("div", { class: "fw-panel" }, parts) : null;
+}
+
 function viewUpdates() {
   loadUpdates();
+  if (fwu.available === null) loadFirmware();
   const vi = upd.status;
   if (!vi) return { el: h("div", null, head("upd.title", "upd.intro"), h("div", { class: "card empty" }, h("span", { class: "spinner" }))) };
   if (!Object.keys(vi).length) return { el: h("div", null, head("upd.title", "upd.intro"),
@@ -338,6 +451,8 @@ function viewUpdates() {
     return h("div", { class: "upd-board" }, h("div", { class: "upd-head" }, icon("chip"), h("b", { text: boardName(b) }),
       h("span", { class: "muted ltr", text: m.version })), noteLine(firmwareNote(m.version)));
   });
+  // the update button too: also while Klipper stops at boards too old for it, and lists none
+  const fwp = fwPanel();
   const newer = (c) => (c.commits_behind || []).length > 0 || !!(c.version && c.remote_version && c.version !== c.remote_version && c.remote_version !== "?");
   const others = Object.keys(vi).filter((k) => k !== "klipper" && k !== "system")
     .sort((a, b) => newer(vi[b]) - newer(vi[a]) || ((vi[b].commits_behind || []).length - (vi[a].commits_behind || []).length) || a.localeCompare(b));
@@ -354,7 +469,7 @@ function viewUpdates() {
       h("div", { class: "stack" },
         farmShown() && (farm.data.printers || []).length > 1 ? fleetCard() : null,
         vi.klipper ? klipperUpdates(vi.klipper) : null,
-        boards.length ? h("section", { class: "card" }, h("h2", null, icon("chip"), t("upd.boards")), boards) : null,
+        boards.length || fwp ? h("section", { class: "card" }, h("h2", null, icon("chip"), t("upd.boards")), boards, fwp) : null,
         others.length ? h("section", { class: "card" }, h("h2", null, icon("layers"), t("upd.others")), others.map(other)) : null))
   };
 }
@@ -363,7 +478,8 @@ viewUpdates.sig = function () {
   // drawn again once connected, so it can ask
   return JSON.stringify([app.conn, (app.objects || []).length, !!vi, vi && Object.entries(vi).map(([k, c]) => [k, c.version, c.remote_version, (c.commits_behind || []).length]),
     app.klipperVersion, upd.mcus, Object.keys(upd.res).length, upd.open,
-    farmShown() && farm.data.printers.map((p) => [p.id, p.name, p.phase, p.updates, p.firmware, p.job])]);
+    farmShown() && farm.data.printers.map((p) => [p.id, p.name, p.phase, p.updates, p.firmware, p.job]),
+    fwu.available, fwu.data, fwu.log, (app.status.print_stats || {}).state]);
 };
 
 export { firmwareNote, noteLine, reportButton, viewActivity, viewGuide, viewUpdates };

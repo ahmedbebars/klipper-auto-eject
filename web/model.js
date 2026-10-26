@@ -971,6 +971,25 @@
     if (c === 0) return { state: a.sha && b.sha && a.sha !== b.sha ? "unknown" : "same", by: 0 };
     return { state: c < 0 ? "older" : "newer", by: a.tag === b.tag ? Math.abs(a.count - b.count) : null };
   }
+  // What the Updates page's button would do with each board behind Klipper,
+  // from tools/firmware.py's report (status --json): written by the button
+  // ("go"), only once the one-time setup lets it write with no password
+  // ("setup"), only after two answers over SSH ("answers"), by hand only
+  // ("manual"), or not at all, with firmware.py's reason ("none").
+  function firmwarePlan(report) {
+    const out = { go: [], setup: [], answers: [], manual: [], none: [], host: false };
+    const rights = (report && report.rights) || {};
+    for (const b of (report && report.boards) || []) {
+      if (b.age === "same" || b.age === "not_klipper") continue;
+      const kind = b.settings === null || b.settings === undefined ? "none"
+        : b.method === "manual" ? "manual"
+        : (b.method === "host" || b.method === "usb") && !rights[b.method] ? "setup"
+        : b.settings === "file" || b.settings === "ask" ? "answers" : "go";
+      out[kind].push(b);
+      if (kind === "go" && b.method === "host") out.host = true;
+    }
+    return out;
+  }
   // The files of a change that run on the boards, not on the computer.
   function boardCode(files) {
     return (files || []).map((f) => (typeof f === "string" ? f : f && f.filename) || "").filter((f) => /^(src|lib)\//.test(f));
@@ -1129,7 +1148,7 @@
     planPushes, probeKind, parseObjectDefines, findEjectCommand, macroAfterEject, findHeight, checkFile,
     noticeFor, ntfyTopic, notifierKind, farmOrder, farmKind, farmCounts, farmFilter, farmGroups, farmPending, ejectRunning, farmBulk, FARM_BULK, farmSpoolLow, farmReportCsv, farmFirmware, farmActions, farmToday, farmLink, farmAway, farmQrLinks, copyList, farmService, thumbPick, thumbPath, fileFacts, tmcSteppers, driverFlags, stallguard, motorSensor,
     hwParts, fanStopped, heaterWatch, throttleFlags, hostChecks, grew, cfgSection, flowRate, coolLeft,
-    lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, parseVersion, firmwareAge, boardCode, configNotes, updateArea, updateAreas, scrubReport, supportReport, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
+    lengthGrams, fileGrams, gramsLeft, spoolPlan, spoolName, parseVersion, firmwareAge, firmwarePlan, boardCode, configNotes, updateArea, updateAreas, scrubReport, supportReport, endMacros, endMacroInFile, slicerKind, slicerEndGcode,
     PromptParser, formatDuration, coolTarget, settingArg, validSettingText, macroSet
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

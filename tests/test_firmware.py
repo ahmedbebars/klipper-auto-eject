@@ -4,6 +4,8 @@ import io
 import json
 import os
 import pathlib
+import shutil
+import signal
 import sys
 from types import SimpleNamespace
 
@@ -179,7 +181,21 @@ def printer(tmp_path, monkeypatch):
     config.mkdir(parents=True)
     monkeypatch.setattr(fwm.time, "sleep", lambda s: None)
     monkeypatch.setattr(fwm.shutil, "which", lambda name: "/usr/bin/" + name)
-    return SimpleNamespace(klipper=klipper, config=config, work=tmp_path / "work", events=[])
+    # the computer's own files, here: no rules set up yet, and the host firmware running
+    root = tmp_path / "root"
+    root.mkdir()
+    monkeypatch.setattr(fwm, "SUDOERS", str(root / "sudoers"))
+    monkeypatch.setattr(fwm, "UDEV", str(root / "udev.rules"))
+    monkeypatch.setattr(fwm, "STAGED", tmp_path / "cache" / "klipper_mcu")
+    monkeypatch.setattr(fwm, "HOST_MCU", str(root / "klipper_mcu"))
+    (root / "klipper_mcu").write_bytes(b"old host firmware")
+    return SimpleNamespace(klipper=klipper, config=config, work=tmp_path / "work", root=root, events=[])
+
+
+def set_up_rights(printer):
+    """What install.sh --firmware leaves when asked to flash with no password."""
+    (printer.root / "sudoers").write_text("")
+    (printer.root / "udev.rules").write_text("")
 
 
 class FakeMoon:
@@ -250,6 +266,8 @@ class FakeRun:
             (out / "klipper.dict").write_text(json.dumps({"config": self.built[out.parent.name], "version": HOST,
                                                           "kconfig": "CONFIG_SHORT=y\n"}))
             fwm.firmware_file(out, values).write_bytes(b"firmware")
+        elif fwm.INSTALL in cmd:
+            shutil.copyfile(cmd[-2], cmd[-1])
         elif any(c.endswith("flashtool.py") for c in cmd):
             if "-s" in cmd:
                 return 0, "Application Start: 0x%X\nMCU type: stm32g0b1xx\nStatus Request Complete\n" % self.start
@@ -530,11 +548,26 @@ def test_rp2040_without_its_flash_tool_asks_for_libusb(printer, tmp_path):
         fwm.flash_usb(b, fw_file(tmp_path, 0x10000100), printer.klipper, "python", FakeRun(printer), None, None)
 
 
-def test_the_host_file_is_replaced_in_one_step(printer, tmp_path):
+def test_the_host_file_is_put_in_place_with_the_command_the_sudo_rule_names(printer, tmp_path):
     run = FakeRun(printer)
     fwm.flash_host(board(constants=HOST_MCU), fw_file(tmp_path), run, None)
     (cmd,) = run.cmds
-    assert cmd[:3] == ["sudo", "sh", "-c"] and "mv -f" in cmd[3] and cmd[-2:] == [fwm.HOST_MCU, str(tmp_path / "klipper.bin")]
+    assert cmd == ["sudo", fwm.INSTALL, "-m", "755", str(fwm.STAGED), fwm.HOST_MCU]
+    assert pathlib.Path(fwm.HOST_MCU).read_bytes() == (tmp_path / "klipper.bin").read_bytes()
+    # with no one to type a password, sudo must not wait for one
+    fwm.flash_host(board(constants=HOST_MCU), fw_file(tmp_path), run, None, alone=True)
+    assert run.cmds[-1][:3] == ["sudo", "-n", fwm.INSTALL]
+
+
+def test_a_host_copy_that_did_not_land_stops(printer, tmp_path):
+    with pytest.raises(fwm.Stop, match="not the new firmware"):
+        fwm.flash_host(board(constants=HOST_MCU), fw_file(tmp_path), lambda cmd, **kw: (0, ""), None)
+
+
+def test_usb_writes_without_sudo_once_the_udev_rule_is_there(printer, tmp_path):
+    run = FakeRun(printer)
+    fwm.flash_usb(usb_board(tmp_path), fw_file(tmp_path, 0x8008000), printer.klipper, "python", run, None, None, nosudo=True)
+    assert run.cmds[0][-2:] == ["--no-sudo", str(tmp_path / "klipper.bin")]
 
 
 # ------------------------------------------------------------------ the build
@@ -591,14 +624,14 @@ def first(events, text):
 def test_the_update_builds_first_then_flashes_can_before_the_host(printer):
     moon, lines = three_boards(printer), []
     run = FakeRun(printer, built={"toolhead": G0B1_CAN, "host": HOST_MCU})
-    assert fwm.update(moon, assume_yes=True, run=run, out=lines.append, work=printer.work) == 0
+    assert fwm.update(moon, assume_yes=True, run=run, out=lines.append, work=printer.work, tty=True) == 0
     ev = printer.events
     builds = [i for i, e in enumerate(ev) if e.startswith("make")]
     assert len(builds) == 4                                           # the mainboard is up to date already
     assert max(builds) < first(ev, "/machine/services/stop?service=klipper")
-    assert first(ev, "/machine/services/stop") < first(ev, "flashtool.py -i can0 -u aabbccddeeff -f") < first(ev, "sudo sh")
+    assert first(ev, "/machine/services/stop") < first(ev, "flashtool.py -i can0 -u aabbccddeeff -f") < first(ev, "sudo " + fwm.INSTALL)
     # the host firmware runs once the computer restarts; Klipper starts then
-    assert first(ev, "sudo sh") < first(ev, "/machine/reboot")
+    assert first(ev, "sudo " + fwm.INSTALL) < first(ev, "/machine/reboot")
     assert not [e for e in ev if e.startswith("/machine/services/start")]
     assert (printer.config / "firmware" / "toolhead.config").read_text() == "CONFIG_SHORT=y\n"
     assert not (printer.config / "firmware" / "host.config").exists()
@@ -691,6 +724,80 @@ def test_a_waiting_job_queue_is_paused_first(printer):
     assert first(printer.events, "/server/job_queue/pause") < first(printer.events, "services/stop")
 
 
+def usb_can_host(printer, tmp_path):
+    """A mainboard on USB, a toolhead on CAN and the host, all behind Klipper."""
+    dev = tmp_path / "usb-Klipper_stm32f446xx_1-if00"
+    dev.write_text("")
+    return FakeMoon(printer, {
+        "mcu": (OLD, F446_USB, "CONFIG_MACH_STM32=y\nCONFIG_MACH_STM32F446=y\nCONFIG_STM32_FLASH_START_8000=y\n", {"serial": str(dev)}),
+        "mcu toolhead": (OLD, G0B1_CAN, G0B1_KCONFIG, {"canbus_uuid": "AABBCCDDEEFF"}),
+        "mcu host": (OLD, HOST_MCU, None, {"serial": "/tmp/klipper_host_mcu"}),
+    })
+
+
+BUILT = {"mcu": F446_USB, "toolhead": G0B1_CAN, "host": HOST_MCU}
+
+
+def test_with_no_one_at_a_terminal_usb_and_the_host_wait_for_the_setup(printer, tmp_path):
+    path = tmp_path / "progress.json"
+    run = FakeRun(printer, built=BUILT)
+    assert fwm.update(usb_can_host(printer, tmp_path), assume_yes=True, run=run, out=lambda s: None, work=printer.work,
+                      tty=False, progress=fwm.Progress(path)) == 0
+    state = json.loads(path.read_text())
+    assert {b["name"]: (b["state"], b["code"]) for b in state["boards"]} == {
+        "mcu": ("left", "setup"), "toolhead": ("done", ""), "host": ("left", "setup")}
+    assert state["step"] == "starting"
+    assert not [e for e in printer.events if "sudo" in e or "flash_usb" in e]
+
+
+def test_once_set_up_the_page_flashes_them_with_no_password(printer, tmp_path):
+    set_up_rights(printer)
+    path = tmp_path / "progress.json"
+    run = FakeRun(printer, built=BUILT)
+    assert fwm.update(usb_can_host(printer, tmp_path), assume_yes=True, run=run, out=lambda s: None, work=printer.work,
+                      tty=False, progress=fwm.Progress(path)) == 0
+    ev = printer.events
+    assert first(ev, "flashtool.py -i can0") < first(ev, "flash_usb.py") < first(ev, "sudo -n " + fwm.INSTALL) < first(ev, "/machine/reboot")
+    assert next(e for e in ev if "flash_usb.py" in e).endswith("--no-sudo " + str(printer.work / "mcu" / "out" / "klipper.bin"))
+    state = json.loads(path.read_text())
+    assert [b["state"] for b in state["boards"]] == ["written"] * 3
+    assert state["step"] == "rebooting" and state["reboot"] is True
+
+
+def test_the_progress_file_ends_with_what_stopped_it(printer, tmp_path, monkeypatch):
+    moon = three_boards(printer)
+    moon.objects["print_stats"]["state"] = "printing"
+    monkeypatch.setattr(fwm, "Moonraker", lambda base, timeout=15: moon)
+    monkeypatch.setattr(fwm.signal, "signal", lambda *a: None)
+    path = tmp_path / "progress.json"
+    assert fwm.main(["update", "--yes", "--progress", str(path)]) == 1
+    state = json.loads(path.read_text())
+    assert state["state"] == "failed" and "printing" in state["message"] and state["pid"] == os.getpid()
+    assert {b["name"]: b["state"] for b in state["boards"]} == {"toolhead": "waiting", "host": "waiting"}
+
+
+def test_a_stop_signal_goes_through_the_clean_up():
+    with pytest.raises(SystemExit, match="signal 15"):
+        fwm._terminated(signal.SIGTERM, None)
+
+
+def test_the_restart_for_the_host_firmware_is_how_the_update_ends(tmp_path, monkeypatch):
+    handlers = {}
+    monkeypatch.setattr(fwm.signal, "signal", lambda sig, fn: handlers.update({sig: fn}))
+    monkeypatch.setattr(fwm, "Moonraker", lambda base, timeout=15: None)
+
+    def update(moon, progress=None, **kw):
+        progress.board("host", "written")
+        progress.step("rebooting")
+        handlers[signal.SIGTERM](signal.SIGTERM, None)      # the restart stops this process on the way
+    monkeypatch.setattr(fwm, "update", update)
+    path = tmp_path / "progress.json"
+    with pytest.raises(SystemExit) as stopped:
+        fwm.main(["update", "--yes", "--progress", str(path)])
+    state = json.loads(path.read_text())
+    assert stopped.value.code == 0 and state["state"] == "done" and state["message"] == ""
+
+
 def test_a_probe_with_its_own_board_is_left_alone(printer):
     # a Beacon or a Cartographer: an MCU object, but no [mcu] section and not Klipper's firmware
     moon = three_boards(printer)
@@ -705,6 +812,7 @@ def test_status_lists_each_board(printer):
     lines = []
     rows = fwm.status(three_boards(printer), as_json=True, out=lines.append)
     assert json.loads(lines[0])["klipper"] == HOST
+    assert json.loads(lines[0])["rights"] == {"usb": False, "host": False}
     got = {r["name"]: (r["age"], r["settings"], r["method"]) for r in rows}
     assert got == {"mcu": ("same", "ask", "usb"), "toolhead": ("older", "board", "can"), "host": ("older", "host", "host")}
 

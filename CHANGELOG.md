@@ -26,6 +26,14 @@ All notable changes to this project are documented here. The format is based on
   checked against the chip, pins and speeds the board reports before anything is written, and
   Katapult's start address before a CAN write. The installer names the boards behind at the end,
   and the Updates tab points to it ([docs/firmware.md](docs/firmware.md)).
+- **An Update the boards button on the Updates tab** runs the same update through the
+  klipper-auto-eject service, in the background, and shows each board as it is built, written and
+  on its new version. The result stays shown for a day, also after the computer restarted for the
+  host firmware. With no one to type a password, USB boards and the host need a setup once, which
+  `install.sh --firmware` offers: a udev rule for boards in their bootloader and a sudo rule for
+  the one command that puts the host firmware in place (`--uninstall` removes both). Without it the
+  button writes the CAN boards and says what to run for the rest
+  ([docs/firmware.md](docs/firmware.md#from-the-web-page)).
 
 ### Fixed
 - **The install line gets the latest version when the folder is already there.** It used to

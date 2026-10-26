@@ -21,7 +21,8 @@ encrypted for each device (RFC 8291), so the push services cannot read them.
 
 It also runs the farm (farm.py and the farm_*.py next to it): every Klipper
 printer on the network in the auto-eject page, with notifications from all
-of them.
+of them; and the Updates page's button that updates this printer's boards
+(firmware_job.py).
 
 Needs Python 3.9+ and the cryptography package.
 """
@@ -309,6 +310,7 @@ def main():
     if args.api_port:
         import farm as farm_mod
         import farm_api
+        import firmware_job
         port = urllib.parse.urlsplit(args.moonraker).port or 7125
 
         def farm_events(name, events):
@@ -318,7 +320,8 @@ def main():
                 log.info("farm notification failed: %s", e)
 
         farm = farm_mod.Farm(moonraker, on_events=farm_events, local_port=port)
-        farm_api.serve(farm, args.api_port)
+        farm.firmware = firmware_job.FirmwareJob(args.moonraker)
+        farm_api.serve(farm, args.api_port, farm.firmware)
 
         def farm_loop():
             while True:

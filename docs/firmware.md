@@ -12,7 +12,8 @@ a flash command that is different for each board. One line does it for all of th
 ```
 
 It is optional, and nothing is written to a board before you say yes. The **Updates** tab of the
-[web page](web-page.md#updates) shows when a board is behind, and the installer says it at the end.
+[web page](web-page.md#updates) shows when a board is behind, and has a button that does the same
+([from the web page](#from-the-web-page)). The installer also says it at the end.
 
 ## What it does
 
@@ -32,7 +33,7 @@ It is optional, and nothing is written to a board before you say yes. The **Upda
    | 1 | CAN boards (a toolhead board) | Katapult over CAN, after it checks where Katapult starts the firmware | No |
    | 2 | USB boards (most main boards) | Klipper's own flash script, as `make flash` runs it: Katapult when the board has it, else DFU (STM32) or the boot mode (RP2040) | Katapult: no. DFU and the RP2040 boot mode: sudo asks for it |
    | 3 | A USB to CAN bridge | Katapult, after the boards behind it | No |
-   | 4 | The host (`[mcu host]`, the computer's own) | sudo copies the new file, then the computer restarts | sudo asks for it |
+   | 4 | The host (`[mcu host]`, the computer's own) | sudo puts the new file in place, then the computer restarts | sudo asks for it |
 
 6. It stops Klipper, flashes, starts Klipper again and shows each board's new version. After the
    host, the whole computer restarts instead: on some boards (BTT CB1 and CB2), a `klipper-mcu`
@@ -56,6 +57,32 @@ Nothing is done while the printer prints or is paused, while Klipper runs a comm
 auto-eject pushes parts off or cools them in the background, or while a heater is on. It checks
 again just before it stops Klipper. A job queue with jobs waiting is paused first: start it again
 when you are ready. If a flash fails, or you press Ctrl+C, Klipper starts again.
+
+## From the web page
+
+With the klipper-auto-eject service on the printer (`install.sh --push` or `--farm`,
+[notifications.md](notifications.md)), the **Updates** tab has an **Update the boards** button under
+the boards' firmware. It says which boards it would write and asks first. Then it runs the same
+update in the background, and each board shows as it is built, written, and on its new version.
+Klipper is stopped meanwhile. After the host the computer restarts, and the page is back a minute
+or two later. You can close the page: the update goes on, and the tab shows how it ended for a day.
+The button stands out only when the board code changed since the boards' version.
+
+No one is there to type a password, so the button writes some boards only after a setup, done
+once. `install.sh --firmware` offers it the first time you run it in a terminal, and asks for your
+sudo password for it:
+
+| What | Where | For |
+|---|---|---|
+| A udev rule: the user Klipper runs as may write to a board in its bootloader (STM32 DFU, the RP2040 and RP2350 boot modes, the HID bootloader) | `/etc/udev/rules.d/60-klipper-auto-eject-firmware.rules` | USB boards: whether one has Katapult shows only once it is in its bootloader |
+| A sudo rule for one command, with its exact arguments: the copy of the host firmware to `/usr/local/bin/klipper_mcu` | `/etc/sudoers.d/klipper-auto-eject-firmware` | The host |
+| The service lets an update go on when it restarts on the way (an auto-eject update, for example) | `/etc/systemd/system/klipper-auto-eject.service.d/firmware.conf` | Every update |
+
+The host firmware runs as root. With the sudo rule, a program running as that user could put a
+program of its own in its place, so say no if other people or programs use that account. Without
+the setup, the button writes the CAN boards and the bridge, leaves the others out, and shows the
+line to run. A board that needs the two questions (below) is left out too, until they are answered
+once over SSH. `install.sh --uninstall` takes the three files out again.
 
 ## Where the build settings come from
 
@@ -99,6 +126,7 @@ hand: when you are not sure, look in the board's guide first.
 | No Katapult answered | Nothing was written. Switch the printer off and on, then flash that board by hand |
 | The board has not come back yet | Press the board's RESET button, or switch the printer off and on |
 | The bridge has no Katapult | It waits in DFU mode: run the `dfu-util` line it shows, or switch the printer off and on to go back to the old firmware |
+| Left out: it needs a password here | From the web page only: run `install.sh --firmware` once over SSH and say yes to the web page question |
 
 What each command printed is in `~/.cache/klipper-auto-eject/firmware/<board>/build.log`.
 
@@ -112,5 +140,10 @@ python3 ~/klipper-auto-eject/tools/firmware.py update --build-only        # buil
 python3 ~/klipper-auto-eject/tools/firmware.py update --only toolhead     # these boards only
 ```
 
-`update --yes` asks nothing: a board that needs an answer is left out. `--moonraker URL` reaches
-a Moonraker on another port.
+`update --yes` asks nothing: a board that needs an answer is left out, and with no one at a
+terminal so is a board that needs a password. `update --progress FILE` keeps the update's state in
+a JSON file, which is how the web page follows it. `--moonraker URL` reaches a Moonraker on another
+port.
+
+The web page's update keeps its state in `~/.cache/klipper-auto-eject/firmware-update.json`, and
+what it printed in `firmware-update.log` next to it.

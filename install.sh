@@ -32,6 +32,10 @@ OLD_PUSH_UNIT="/etc/systemd/system/auto-eject-push.service"
 TAILNET="100.64.0.0/10"
 BRANCH="main"
 NGINX_SNIPPET="/etc/nginx/auto-eject.conf"
+# install.sh --firmware, when asked: the Updates page flashes the boards with no password
+FW_SUDOERS="/etc/sudoers.d/klipper-auto-eject-firmware"
+FW_UDEV="/etc/udev/rules.d/60-klipper-auto-eject-firmware.rules"
+FW_DROPIN="/etc/systemd/system/${PUSH_NAME}.service.d/firmware.conf"
 
 usage() {
     cat <<EOF
@@ -71,7 +75,8 @@ screen of tick boxes (with whiptail, or one question at a time without it).
       --firmware          Bring the firmware of the printer's boards to Klipper's
                           version, and nothing else: it builds each board's
                           firmware, says what it will do and asks first. Never
-                          while printing (docs/firmware.md)
+                          while printing. Asks once whether the web page's
+                          Updates button may do it too (docs/firmware.md)
       --plain             Ask the questions one at a time, without the menu
   -u, --uninstall         Remove links, includes, the update_manager section
                           and the web page
@@ -744,6 +749,72 @@ uninstall_push() {
     push_moonraker_links remove
 }
 
+# ------------------------------------------------------ the boards' firmware
+# The Updates page's button flashes with no one there to type a password: a
+# udev rule lets this user write to a board in its bootloader (STM32 DFU, the
+# RP2040 boot mode, the HID bootloader), and a sudo rule lets it run one
+# command, the copy of the host firmware, with the very arguments
+# tools/firmware.py gives it. The host firmware runs as root, so a program
+# running as this user could put its own there: asked first, once.
+firmware_rights() {
+    local user staged tmp
+    [[ -f "${FW_SUDOERS}" && -f "${FW_UDEV}" ]] && return 0
+    [[ -t 0 ]] || return 0
+    user="$(id -un)"
+    staged="${HOME}/.cache/klipper-auto-eject/klipper_mcu"
+    log "The Updates page of the web page can do this too, with a button. For the host firmware and for"
+    log "USB boards without Katapult it has to work without a password: a sudo rule for the one command that"
+    log "copies the host firmware, and a udev rule for boards in their bootloader (docs/firmware.md)."
+    warn "The host firmware runs as root: a program running as ${user} could then put its own there."
+    if ! ask "Let the web page flash the boards without a password? (asks for your sudo password once)" n; then
+        return 0
+    fi
+    if [[ ! "${staged}" =~ ^[A-Za-z0-9_./-]+$ ]] || [[ ! -x /usr/bin/install ]]; then
+        warn "Skipped: ${staged} cannot go in a sudo rule as it is."
+        return 0
+    fi
+    tmp="$(mktemp)"
+    printf '%s\n' "# klipper-auto-eject (install.sh --firmware): the Updates page puts new host firmware in place" \
+        "${user} ALL=(root) NOPASSWD: /usr/bin/install -m 755 ${staged} /usr/local/bin/klipper_mcu" > "${tmp}"
+    if ! sudo visudo -cqf "${tmp}"; then
+        rm -f "${tmp}"
+        warn "sudo does not take the rule: nothing was changed."
+        return 0
+    fi
+    sudo install -m 440 -o root -g root "${tmp}" "${FW_SUDOERS}"
+    rm -f "${tmp}"
+    sudo tee "${FW_UDEV}" >/dev/null <<UDEV
+# klipper-auto-eject (install.sh --firmware): ${user} writes to a board in its
+# bootloader without sudo: STM32 DFU, the RP2040 and RP2350 boot modes, the HID bootloader
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="df11", OWNER="${user}", MODE="0664"
+SUBSYSTEM=="usb", ATTR{idVendor}=="2e8a", ATTR{idProduct}=="0003", OWNER="${user}", MODE="0664"
+SUBSYSTEM=="usb", ATTR{idVendor}=="2e8a", ATTR{idProduct}=="000f", OWNER="${user}", MODE="0664"
+SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="beba", OWNER="${user}", MODE="0664"
+UDEV
+    sudo udevadm control --reload-rules 2>/dev/null || true
+    # a board update goes on when the service restarts on the way (an auto-eject update)
+    sudo mkdir -p "${FW_DROPIN%/*}"
+    printf '%s\n' "# klipper-auto-eject (install.sh --firmware): a board update goes on when the service restarts" \
+        "[Service]" "KillMode=process" | sudo tee "${FW_DROPIN}" >/dev/null
+    sudo systemctl daemon-reload
+    log "Done: the button on the Updates page can update every board now."
+    [[ -f "${PUSH_UNIT}" ]] || log "The button needs the klipper-auto-eject service too: install.sh --push (docs/notifications.md)"
+}
+
+uninstall_firmware_rights() {
+    local f removed=0
+    for f in "${FW_SUDOERS}" "${FW_UDEV}" "${FW_DROPIN}"; do
+        [[ -f "${f}" ]] || continue
+        sudo rm -f "${f}"
+        removed=1
+    done
+    [[ "${removed}" -eq 1 ]] || return 0
+    sudo rmdir "${FW_DROPIN%/*}" 2>/dev/null || true
+    sudo udevadm control --reload-rules 2>/dev/null || true
+    sudo systemctl daemon-reload
+    log "Removed the rules that let the web page flash the boards without a password"
+}
+
 # ------------------------------------------------------------- web page
 # nginx site files that serve Mainsail or Fluidd
 nginx_sites() {
@@ -893,6 +964,7 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
     if [[ -f "${PUSH_UNIT}" || -f "${OLD_PUSH_UNIT}" ]]; then
         uninstall_push
     fi
+    uninstall_firmware_rights
     navi_entry remove
     setup_demon remove || true
     if [[ -f "${MOONRAKER_CONF}" ]] && command -v python3 >/dev/null && [[ -f "${REPO_DIR}/tools/moonraker_trust.py" ]] \
@@ -934,6 +1006,7 @@ fi
 if [[ "${FIRMWARE}" -eq 1 ]]; then
     [[ -f "${REPO_DIR}/tools/firmware.py" ]] || die "No klipper-auto-eject in ${REPO_DIR}: install it first"
     command -v python3 >/dev/null || die "python3 is not installed"
+    firmware_rights
     exec python3 "${REPO_DIR}/tools/firmware.py" --moonraker "http://127.0.0.1:$(moonraker_port)" update
 fi
 

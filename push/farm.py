@@ -92,6 +92,7 @@ class Farm(FarmQueue):
         self.cache_lock = threading.Lock()
         self.metas = {}                      # (printer, file) -> (when, Moonraker's metadata)
         self.thumbs = collections.OrderedDict()   # (printer, picture, modified) -> (type, bytes)
+        self.firmware = None                 # this printer's board update (firmware_job.FirmwareJob)
         self.load()
 
     def load(self):
@@ -552,6 +553,8 @@ class Farm(FarmQueue):
             raise LookupError("%s has no %s to update" % (p.name, ", ".join(unknown) or "software"))
         if p.job and p.job.get("state") == "running":
             raise PermissionError("%s is updating already" % p.name)
+        if p.local and self.firmware and self.firmware.running():
+            raise PermissionError("%s is updating its boards" % p.name)
         if p.card.get("phase") in BUSY:
             raise PermissionError("%s cannot update now (%s)" % (p.name, p.card.get("phase")))
         order = sorted(set(names), key=lambda n: (UPDATE_ORDER.get(n, 0), n))

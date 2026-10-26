@@ -28,6 +28,7 @@ It takes out everything the installer put in, and keeps a copy of `printer.cfg` 
 | The update manager section, the notifications and the Tailscale range in `trusted_clients` | `moonraker.conf` |
 | The Auto-eject page and its menu entry | Mainsail or Fluidd, and nginx |
 | The notification and farm service | `klipper-auto-eject` |
+| The rules that let the web page flash the boards with no password, if you said yes to them | `/etc/sudoers.d/`, `/etc/udev/rules.d/` ([firmware.md](firmware.md#from-the-web-page)) |
 
 ## 3. Restart
 

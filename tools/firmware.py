@@ -5,7 +5,7 @@ Used by install.sh --firmware (docs/firmware.md), on the printer's computer
 as the user Klipper runs as.
 
     firmware.py [--moonraker URL] status [--json]
-    firmware.py [--moonraker URL] update [--yes] [--only NAME,...] [--build-only]
+    firmware.py [--moonraker URL] update [--yes] [--only NAME,...] [--build-only] [--progress FILE]
     firmware.py [--moonraker URL] behind
 
 status lists each board with its firmware against Klipper's, where its build
@@ -27,15 +27,24 @@ The build settings, what make menuconfig sets, come from:
      questions it cannot answer: its crystal and its bootloader.
 Each build is checked against what the board reports (its chip, the pins
 and speed it talks on) before anything is written to it.
+
+The Updates page's button runs update --yes --progress FILE through the
+klipper-auto-eject service, with no one to type a password. install.sh
+--firmware can set that up once: a udev rule lets the user write to a board
+in its bootloader (DFU, the RP2040 boot mode), and a sudo rule lets it run
+the one command that puts the host firmware in place. Without them those
+boards are left out when no one is at a terminal.
 """
 
 import argparse
 import ast
+import filecmp
 import json
 import os
 import pathlib
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -53,6 +62,12 @@ WORK = pathlib.Path.home() / ".cache" / "klipper-auto-eject" / "firmware"
 VERSION = re.compile(r"^(v?\d+(?:\.\d+)*)(?:-(\d+)-g([0-9a-f]{4,40}))?", re.I)
 KATAPULT_TOOL = "lib/katapult/flashtool.py"     # in Klipper's own folder
 HOST_MCU = "/usr/local/bin/klipper_mcu"
+# what install.sh --firmware sets up, when asked, to flash with no password:
+# the sudo rule names this one command, with these very arguments
+SUDOERS = "/etc/sudoers.d/klipper-auto-eject-firmware"
+UDEV = "/etc/udev/rules.d/60-klipper-auto-eject-firmware.rules"
+INSTALL = "/usr/bin/install"
+STAGED = WORK.parent / "klipper_mcu"
 TOOLCHAIN = "sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi"
 NO_BOOTLOADER = ("CONFIG_STM32_FLASH_START_0000", "CONFIG_RPXXXX_FLASH_START_0100", "CONFIG_RPXXXX_FLASH_START_0000")
 FROM = {"board": "the settings it reports", "saved": "its saved settings", "host": "the host's settings",
@@ -479,10 +494,24 @@ ORDER = {"can": 0, "usb": 1, "bridge": 2, "host": 3}
 SAYS = {
     "can": "over CAN with Katapult, no password",
     "bridge": "the USB to CAN bridge, with Katapult, after the boards behind it",
-    "usb": "over USB with Klipper's flash script (Katapult needs no password; DFU and the RP2040 boot mode ask for sudo)",
-    "host": "the computer's own: sudo copies it, then the computer restarts",
+    "usb": "over USB with Klipper's flash script (Katapult needs no password; DFU and the RP2040 boot mode ask for sudo, "
+           "unless install.sh --firmware set them up)",
+    "host": "the computer's own: sudo puts it in place, then the computer restarts",
     "manual": "by hand: no script here can write it (a serial port, or a link Klipper does not name); the file is kept for you",
 }
+
+
+# why a board is left out with no one at a terminal, before install.sh --firmware sets it up
+ALONE = {
+    "usb": "over USB it may need DFU or the RP2040 boot mode, which ask for a password here",
+    "host": "sudo puts the host firmware in place, and asks for a password here",
+}
+
+
+def rights():
+    """What flashes with no password, once install.sh --firmware set it up:
+    {"usb": a board in DFU or the RP2040 boot mode, "host": the host firmware}."""
+    return {"usb": os.path.exists(UDEV), "host": os.path.exists(SUDOERS)}
 
 
 def identity(constants, strict=False):
@@ -609,10 +638,11 @@ def _wait_path(path, seconds):
     return os.path.exists(path)
 
 
-def flash_usb(board, fw, klipper, python, run, log, ask):
+def flash_usb(board, fw, klipper, python, run, log, ask, nosudo=False):
     """Klipper's own flash script, as make flash runs it: it asks the board for
     its bootloader and writes with Katapult when that answers, else with DFU
-    (STM32) or the boot mode (RP2040) through sudo."""
+    (STM32) or the boot mode (RP2040), through sudo unless nosudo (the udev
+    rule of install.sh --firmware lets the user write to them)."""
     dev, chip, klipper = board["link"]["device"], board["chip"], pathlib.Path(klipper)
     katapult = dev.replace("usb-Klipper_", "usb-katapult_")
     if not os.path.exists(dev) and os.path.exists(katapult):
@@ -630,6 +660,8 @@ def flash_usb(board, fw, klipper, python, run, log, ask):
         cmd = [python, "scripts/flash_usb.py", "-t", chip, "-d", dev]
         if chip.startswith("stm32"):
             cmd += ["-s", "0x%x" % fw["start"]]
+        if nosudo:
+            cmd.append("--no-sudo")
         rc, out = run(cmd + [fw["file"]], log=log, cwd=klipper, show=True, check=False)
         # dfu-util often fails to read the board's state once it has left DFU
         # mode with the new firmware: what it wrote is whole by then
@@ -638,17 +670,65 @@ def flash_usb(board, fw, klipper, python, run, log, ask):
             raise Stop("flash_usb.py failed:\n%s" % tail)
     if not _wait_path(dev, 15):
         ask("The board has not come back yet. Press its RESET button (or switch the printer off and on), then Enter:", "")
-        if not _wait_path(dev, 30):
+        if not _wait_path(dev, 90):
             raise Stop("the board did not come back on %s" % dev)
 
 
-def flash_host(board, fw, run, log):
-    """The computer's own: the new file is put in place of the old one, which
-    keeps running until the computer restarts."""
-    run(["sudo", "sh", "-c", 'cp "$2" "$1.new" && mv -f "$1.new" "$1"', "sh", HOST_MCU, fw["file"]], log=log, show=True)
+def flash_host(board, fw, run, log, alone=False):
+    """The computer's own: the new file takes the old one's place, which keeps
+    running until the computer restarts (install writes over a program that
+    runs, where cp cannot). The command is the one install.sh --firmware's
+    sudo rule names; alone, sudo must not wait for a password."""
+    STAGED.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(fw["file"], STAGED)
+    run(["sudo"] + (["-n"] if alone else []) + [INSTALL, "-m", "755", STAGED, HOST_MCU], log=log, show=True)
+    if not filecmp.cmp(STAGED, HOST_MCU, shallow=False):
+        raise Stop("%s is not the new firmware after the copy" % HOST_MCU)
 
 
 # ------------------------------------------------------------------ the update
+
+class Progress:
+    """The update as it goes, in a JSON file the web page reads (--progress):
+    the step it is at, each board's state and why. With no file, nothing.
+
+    A board is waiting, building, ready, left (out), flashing, written,
+    failed, done (it runs the new version) or still (it does not)."""
+
+    def __init__(self, path=None):
+        self.path = pathlib.Path(path) if path else None
+        self.data = {"state": "running", "step": "checking", "klipper": "", "boards": [], "message": "",
+                     "pid": os.getpid(), "started": time.time(), "at": time.time()}
+        self._write()
+
+    def _write(self):
+        if not self.path:
+            return
+        self.data["at"] = time.time()
+        tmp = self.path.with_name(self.path.name + ".tmp")
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            tmp.write_text(json.dumps(self.data))
+            os.replace(tmp, self.path)      # the page never reads half a file
+        except OSError:
+            pass
+
+    def step(self, step, **values):
+        self.data.update(values, step=step)
+        self._write()
+
+    def board(self, name, state, why="", code="", **values):
+        b = next((x for x in self.data["boards"] if x["name"] == name), None)
+        if b is None:
+            b = {"name": name}
+            self.data["boards"].append(b)
+        b.update(values, state=state, why=why, code=code)
+        self._write()
+
+    def end(self, state, message=""):
+        self.data.update(state=state, step="", message=message)
+        self._write()
+
 
 def busy(moon):
     """Why the boards cannot be flashed now, or "" when they can."""
@@ -752,7 +832,10 @@ def _paths(info):
             os.path.dirname(info.get("config_file") or "") or str(home / "printer_data" / "config"))
 
 
-def status(moon, as_json=False, out=print):
+def report(moon):
+    """Each board against Klipper, where its settings come from and how it is
+    flashed, and what flashes with no password: what status and the web page
+    show."""
     info = moon.call("/printer/info")
     klipper, _, config_dir = _paths(info)
     kconfigs = kconfig_files(klipper)
@@ -763,8 +846,14 @@ def status(moon, as_json=False, out=print):
         rows.append({"name": b["name"], "chip": b["chip"], "link": b["link"]["kind"], "version": b["version"],
                      "age": age(b["version"], host) if ours(b) else "not_klipper", "settings": src["from"],
                      "why": src.get("why", ""), "method": method(b)})
+    return {"klipper": host, "boards": rows, "rights": rights()}
+
+
+def status(moon, as_json=False, out=print):
+    r = report(moon)
+    host, rows = r["klipper"], r["boards"]
     if as_json:
-        out(json.dumps({"klipper": host, "boards": rows}, indent=2))
+        out(json.dumps(r, indent=2))
         return rows
     out("Klipper %s" % (host or "?"))
     for r in rows:
@@ -787,8 +876,13 @@ def behind(moon, out=print):
     return names
 
 
-def update(moon, only=None, assume_yes=False, build_only=False, run=None, out=print, ask=ask_line, work=WORK):
+def update(moon, only=None, assume_yes=False, build_only=False, run=None, out=print, ask=ask_line, work=WORK,
+           tty=None, progress=None):
     run = run or Runner()
+    progress = progress or Progress()
+    # no one at a terminal (the web page's button): sudo cannot ask for a password
+    alone = not (sys.stdin.isatty() if tty is None else tty)
+    can = rights()
     info = moon.call("/printer/info")
     host = info.get("software_version", "")
     klipper, python, config_dir = _paths(info)
@@ -798,9 +892,12 @@ def update(moon, only=None, assume_yes=False, build_only=False, run=None, out=pr
     if not found:
         raise Stop("Klipper names no boards%s." % (": " + info["state_message"].strip() if info.get("state_message") else ""))
     todo = [b for b in found if ours(b) and age(b["version"], host) != "same" and (not wanted or b["name"].lower() in wanted)]
+    progress.step("checking", klipper=host)
     if not todo:
         out("Every board runs Klipper %s already." % host if not wanted else "Those boards run Klipper %s already, or there are none by those names." % host)
         return 0
+    for b in todo:
+        progress.board(b["name"], "waiting", how=method(b), version=b["version"])
     why = busy(moon)
     if why:
         raise Stop(why + " Nothing was changed.")
@@ -809,31 +906,41 @@ def update(moon, only=None, assume_yes=False, build_only=False, run=None, out=pr
     # the settings first, while nothing has changed yet
     plan = []
     for b in todo:
-        src = source(b, klipper, config_dir, kconfigs)
+        src, how = source(b, klipper, config_dir, kconfigs), method(b)
         if src["from"] is None:
             out("  %s: left out, %s." % (b["name"], src["why"]))
+            progress.board(b["name"], "left", why=src["why"], code="settings")
+            continue
+        if alone and how in ALONE and not can[how]:
+            out("  %s: left out, %s: install.sh --firmware can set that up once." % (b["name"], ALONE[how]))
+            progress.board(b["name"], "left", why=ALONE[how], code="setup")
             continue
         text = None if assume_yes and src["from"] in ("file", "ask") else settings_for(b, src, kconfigs, ask=ask, out=out)
         if text is None:
             out("  %s: left out, no settings to build it with%s." % (b["name"], " (run it without --yes to answer)" if assume_yes else ""))
+            progress.board(b["name"], "left", why="no settings to build it with", code="answers" if assume_yes else "settings")
             continue
-        plan.append({"board": b, "text": text, "from": src["from"], "how": method(b)})
+        plan.append({"board": b, "text": text, "from": src["from"], "how": how})
     if any(p["board"]["chip"].startswith(("stm32", "rp2")) for p in plan) and not shutil.which("arm-none-eabi-gcc"):
         raise Stop("the compiler for the boards is missing. Install it with:\n    %s" % TOOLCHAIN)
 
     # build them all while Klipper still runs
+    progress.step("building")
     ready = []
     for p in plan:
         b, t = p["board"], time.time()
         out("Building %s (%s, from %s) ..." % (b["name"], b["chip"] or "host", FROM[p["from"]]))
+        progress.board(b["name"], "building")
         try:
             fw = build(b, p["text"], klipper, run, work=work)
         except Stop as e:
             out("  not built: %s" % e)
+            progress.board(b["name"], "left", why=str(e), code="build")
             continue
         diff = differences(b, fw, strict=p["from"] != "board")
         if diff:
             out("  built, but it would not be the same board any more, so it is left out:\n%s" % "\n".join("    " + d for d in diff))
+            progress.board(b["name"], "left", why="; ".join(diff), code="differs")
             continue
         out("  done in %d s: %s" % (time.time() - t, fw["file"]))
         if not same_version(fw["version"], host):
@@ -842,10 +949,13 @@ def update(moon, only=None, assume_yes=False, build_only=False, run=None, out=pr
         p["fw"] = fw
         if p["how"] in ("can", "bridge") and not fw["bootloader"]:
             out("  %s has no bootloader, so it cannot be written over CAN: write %s over its USB or SWD." % (b["name"], fw["file"]))
+            progress.board(b["name"], "left", why="no bootloader: write %s over its USB or SWD" % fw["file"], code="manual")
         elif p["how"] == "manual":
             out("  %s: write %s by hand, the way it was written the first time (often from an SD card)." % (b["name"], fw["file"]))
+            progress.board(b["name"], "left", why="write %s by hand" % fw["file"], code="manual")
         else:
             ready.append(p)
+            progress.board(b["name"], "ready")
     if build_only:
         out("Built; nothing was flashed. The files are in %s." % work)
         return 0
@@ -871,21 +981,27 @@ def update(moon, only=None, assume_yes=False, build_only=False, run=None, out=pr
         moon.call("/server/job_queue/pause", {})
         out("The job queue is paused for the update: start it again when you are ready.")
     service = klipper_service(moon)
+    progress.step("flashing", reboot=host_too)
     moon.call("/machine/services/stop?service=" + urllib.parse.quote(service), {})
     time.sleep(2)
-    done, failed = [], None
+    done, failed, current = [], None, None
     try:
         for p in ready:
+            current = p
             b, fw = p["board"], p["fw"]
             out("Flashing %s ..." % b["name"])
+            progress.board(b["name"], "flashing")
             if p["how"] == "can":
                 flash_can(b, fw, klipper, python, run, fw["log"])
             elif p["how"] == "bridge":
                 flash_bridge(b, fw, klipper, python, run, fw["log"])
             elif p["how"] == "usb":
-                flash_usb(b, fw, klipper, python, run, fw["log"], ask)
+                def reset(question, default, name=b["name"]):
+                    progress.board(name, "flashing", why=question, code="reset")    # the page asks for it too
+                    return ask(question, default)
+                flash_usb(b, fw, klipper, python, run, fw["log"], reset, nosudo=can["usb"])
             else:
-                flash_host(b, fw, run, fw["log"])
+                flash_host(b, fw, run, fw["log"], alone=alone)
             done.append(p)
             if p["how"] != "host":
                 keep = saved_file(config_dir, b["name"])
@@ -895,9 +1011,13 @@ def update(moon, only=None, assume_yes=False, build_only=False, run=None, out=pr
                 except OSError:
                     pass
             out("  written.")
+            progress.board(b["name"], "written")
     except Stop as e:
-        failed = (p["board"]["name"], str(e))
+        failed = (current["board"]["name"], str(e))
+        progress.board(failed[0], "failed", why=failed[1])
     except BaseException:
+        if current and current not in done:
+            progress.board(current["board"]["name"], "failed", why="stopped while it was written")
         moon.call("/machine/services/start?service=" + urllib.parse.quote(service), {})   # whatever stopped it, Klipper runs again
         raise
     if failed:
@@ -905,18 +1025,34 @@ def update(moon, only=None, assume_yes=False, build_only=False, run=None, out=pr
     if host_too and any(p["how"] == "host" for p in done):
         out("Restarting the printer's computer so the new host firmware runs. Look again in a minute or two "
             "(install.sh --firmware, or the Updates page).")
+        progress.step("rebooting")
         moon.call("/machine/reboot", {})
         return 1 if failed else 0
     moon.call("/machine/services/start?service=" + urllib.parse.quote(service), {})
     out("Klipper is starting ...")
+    progress.step("starting")
     info = wait_ready(moon)
     if info.get("state") != "ready":
         out("Klipper says: %s" % (info.get("state_message") or info.get("state") or "nothing").strip())
     now = {b["name"]: b["version"] for b in boards(moon)} if info else {}
     for p in done:
         v = now.get(p["board"]["name"], "")
-        out("  %s: %s" % (p["board"]["name"], "now %s" % v if same_version(v, p["fw"]["version"]) else "still %s" % (v or "unknown")))
+        ok = same_version(v, p["fw"]["version"])
+        out("  %s: %s" % (p["board"]["name"], "now %s" % v if ok else "still %s" % (v or "unknown")))
+        progress.board(p["board"]["name"], "done" if ok else "still", now=v)
     return 1 if failed else 0
+
+
+class Restarting(SystemExit):
+    """The restart asked for after the host firmware stopped this process: the update is over."""
+
+
+def _terminated(signum, progress=None):
+    if progress and progress.data["step"] == "rebooting":
+        failed = any(b["state"] == "failed" for b in progress.data["boards"])
+        raise Restarting(1 if failed else 0)
+    # SystemExit goes through update's clean up, so Klipper starts again
+    raise SystemExit("Stopped: the update was stopped (signal %d)." % signum)
 
 
 def main(argv=None):
@@ -929,9 +1065,12 @@ def main(argv=None):
     up.add_argument("--yes", action="store_true", help="ask nothing; a board that needs an answer is left out")
     up.add_argument("--only", default="", help="only these boards, by name: mcu,toolhead")
     up.add_argument("--build-only", action="store_true", help="build the firmware files and flash nothing")
+    up.add_argument("--progress", default="", help="keep the update's state in this JSON file, for the web page")
     sub.add_parser("behind", help="the names of the boards older than Klipper, or nothing")
     args = ap.parse_args(argv)
     moon = Moonraker(args.moonraker, timeout=5 if args.cmd == "behind" else 15)
+    progress = Progress(args.progress or None) if args.cmd == "update" else None
+    rc, said = 1, ""
     try:
         if args.cmd == "behind":
             behind(moon)
@@ -940,15 +1079,27 @@ def main(argv=None):
             status(moon, args.json)
             return 0
         if args.cmd == "update":
-            return update(moon, only=[n for n in args.only.split(",") if n], assume_yes=args.yes, build_only=args.build_only)
+            signal.signal(signal.SIGTERM, lambda signum, frame: _terminated(signum, progress))
+            rc = update(moon, only=[n for n in args.only.split(",") if n], assume_yes=args.yes, build_only=args.build_only,
+                        progress=progress)
+            return rc
     except Stop as e:
-        print("Stopped: %s" % e, file=sys.stderr)
-        return 1
+        said = "Stopped: %s" % e
     except urllib.error.HTTPError as e:
-        print("Moonraker answers, but not for Klipper (%s): is Klipper running?" % e, file=sys.stderr)
-        return 1
+        said = "Moonraker answers, but not for Klipper (%s): is Klipper running?" % e
     except (urllib.error.URLError, OSError) as e:
-        print("Moonraker does not answer at %s (%s)." % (args.moonraker, e), file=sys.stderr)
+        said = "Moonraker does not answer at %s (%s)." % (args.moonraker, e)
+    except Restarting as e:
+        rc = e.code
+        raise
+    except SystemExit as e:
+        said = str(e)
+        raise
+    finally:
+        if progress:
+            progress.end("done" if rc == 0 else "failed", said)
+    if said:
+        print(said, file=sys.stderr)
         return 1
     ap.print_help()
     return 2

@@ -27,7 +27,7 @@ bed and starts the next job by itself.
 | **Blade and setup** | The measured blade (height above the nozzle tip, distance ahead of it, width) in a side view, the probe type, buttons for the guided setup, the blade measurement and a dry run, and downloads for the test parts (calibration block, blade gauge, test cube). The setup dialogs open right in the page. **In your slicer**: for OrcaSlicer, PrusaSlicer/SuperSlicer or Cura, where each setting is and the lines to paste, with a **Copy** button. The end G-code names the end macro this printer really uses, found in its newest file or its config (`PRINT_END`, `END_PRINT`, `DEMON_END`…). On a printer with DEMON Klipper Essentials it says to keep DEMON's start lines as they are with `AUTO_EJECT_GUARD` above them, and warns when `home_method` is `"g28"`. |
 | **Settings** | Every setting from `auto_eject_settings.cfg`, grouped like the file, with its explanation, a switch, a list or a number box, and where the value comes from (your file, or saved here; a default shows nothing). The sections are listed at the side with how many you have set, and **Only my changes** shows just those. Changes are saved with `AUTO_EJECT_SET` and kept after a restart. Klipper takes no command while the bed is being cleared, so a change made then waits for the end of the eject, and the page says so. |
 | **Hardware** | Everything Klipper and Moonraker tell about the machine, live: boards and their links, motors, heaters, fans, the computer, sensors and the camera, with a line that says whether all is normal and a tile for each part at the top that takes you to it. Under each board, whether its firmware is behind Klipper and needs a reflash. See [Hardware](#hardware). |
-| **Updates** | What changed in Klipper and the rest since your versions, from Moonraker's update manager: each update in Klipper's words with what it is about (motion, heaters, board firmware…), whether it changes the code on the boards (then reflash them after updating), and Klipper's notes on config changes. Each board's firmware against Klipper, and whether it needs a reflash. What an update changes comes from GitHub; without internet the list still shows. |
+| **Updates** | What changed in Klipper and the rest since your versions, from Moonraker's update manager: each update in Klipper's words with what it is about (motion, heaters, board firmware…), whether it changes the code on the boards (then reflash them after updating), and Klipper's notes on config changes. Each board's firmware against Klipper, whether it needs a reflash, and a button that reflashes them. What an update changes comes from GitHub; without internet the list still shows. |
 | **Activity** | The auto-eject messages from the console, newest first. **Report a problem** (here and on **Hardware**) gathers what a GitHub issue asks for: the versions, the printer, its state, the settings you changed and the console, without any address, to copy into the issue. |
 | **How it works** | The illustrated guide. |
 
@@ -115,8 +115,9 @@ manager sees it, and what that means for this printer:
   Klipper. If none does, they need no reflash;
 - Klipper's own notes on config changes (`docs/Config_Changes.md`), when an update adds one;
 - each board's firmware against Klipper: how many updates behind, and whether the board code
-  changed since. The same line is under each board on **Hardware**. To reflash them,
-  `install.sh --firmware` ([firmware.md](firmware.md));
+  changed since. The same line is under each board on **Hardware**. With the klipper-auto-eject
+  service, an **Update the boards** button reflashes them and shows each board as it goes; else
+  `install.sh --firmware` over SSH ([firmware.md](firmware.md#from-the-web-page));
 - everything else Moonraker updates (Moonraker, Mainsail or Fluidd, crowsnest, auto-eject…), the
   ones with a new version first.
 

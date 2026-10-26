@@ -422,6 +422,6 @@ function bladeFigure(set) {
 }
 
 export {
-  appBadge, appMode, checkPageVersion, copyText, installApp, loadPush, notifyUser, slicerUi, viewSetup, wake,
+  appBadge, appMode, checkPageVersion, codeCopy, copyText, installApp, loadPush, notifyUser, slicerUi, viewSetup, wake,
   wakeApply, wakeSupported, wakeToggle
 };

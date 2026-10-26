@@ -832,6 +832,25 @@ def test_what_a_farm_printer_can_update():
 
 
 @needs_node
+def test_what_the_board_button_would_write():
+    # tools/firmware.py's report, as the service hands it to the page
+    def b(name, method, settings="board", age="older"):
+        return {"name": name, "method": method, "settings": settings, "age": age, "why": ""}
+    report = {"klipper": "v0.13.0-816", "rights": {"usb": False, "host": False}, "boards": [
+        b("toolhead", "can"), b("mcu", "usb"), b("host", "host", settings="host"), b("same", "can", age="same"),
+        b("beacon", "usb", age="not_klipper"), b("old", "can", settings="ask"), b("uart", "manual"), b("odd", "can", settings=None)]}
+    plan = js("firmwarePlan", report)
+    names = {k: [x["name"] for x in v] for k, v in plan.items() if k != "host"}
+    assert names == {"go": ["toolhead"], "setup": ["mcu", "host"], "answers": ["old"], "manual": ["uart"], "none": ["odd"]}
+    assert plan["host"] is False
+    # once install.sh --firmware set it up, the button writes USB boards and the host too
+    report["rights"] = {"usb": True, "host": True}
+    plan = js("firmwarePlan", report)
+    assert [x["name"] for x in plan["go"]] == ["toolhead", "mcu", "host"] and plan["host"] is True
+    assert js("firmwarePlan", None)["go"] == []
+
+
+@needs_node
 def test_the_board_furthest_behind_on_a_farm_printer():
     host = "v0.13.0-816-gee2c6fb6"
     assert js("farmFirmware", {"klipper": host, "boards": [["mcu", host], ["mcu ebb", "v0.13.0-800-g9cb99754"]]}) == {"state": "older", "by": 16}
