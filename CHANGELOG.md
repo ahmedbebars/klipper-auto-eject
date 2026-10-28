@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **A switch to turn auto-eject off** (`enabled`), big at the top of the web page's Overview, or
+  `AUTO_EJECT_SET KEY=enabled VALUE=off` from the console. Off, the end of a print leaves the
+  parts on the bed with a dialog and the job queue waits, without touching the slicer's end
+  G-code. Nothing is pushed then, not even by hand, and the bed is not checked before the next
+  print. The queue and Check a file say the parts will stay.
 - **`install.sh` asks on one screen of tick boxes** (whiptail, on most printer hosts already)
   instead of a question at a time: the blade, the web page, phone access, notifications, the
   farm, messages and Spoolman. A Spoolman found on the network is ticked with its address; a

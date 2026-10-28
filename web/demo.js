@@ -372,6 +372,19 @@
     const st = this.status["gcode_macro _AUTO_EJECT_STATE"];
     const dry = params.DRY === "1";
     const h = parseFloat(params.HEIGHT || st.height || 0);
+    if (s.enabled === false && this.status.print_stats.state === "printing" && !dry && params.SOURCE !== "saved") {
+      this.say("// AUTO_EJECT: auto-eject is off (enabled: False), the parts stay on the bed for you to remove. AUTO_EJECT_SET KEY=enabled VALUE=on turns it back on.");
+      this.queue.state = "paused";
+      this.queueChanged("state_changed");
+      this.say("// AUTO_EJECT: job queue paused until the bed is clear (AUTO_EJECT_CONTINUE)");
+      if (h > 0) this.state({ height: h });
+      this.prompt("Auto-eject - remove the parts", [
+        "Auto-eject is off, so this print was left on the bed. Take it off by hand.",
+        "The job queue waits until you confirm the bed is clear."
+      ], [], [["Bed is clear - continue the queue", "_AUTO_EJECT_TALL_CLEAR", "primary"]]);
+      return;
+    }
+    if (s.enabled === false && !dry) throw new Error("AUTO_EJECT: auto-eject is off, nothing is pushed. Turn it on first: the switch at the top of the web page, or AUTO_EJECT_SET KEY=enabled VALUE=on.");
     if (h > 0 && h < s.min_part_height && s.thin_parts_action === "ignore" && !dry) {
       this.say("// AUTO_EJECT: the parts are only " + h.toFixed(1) + " mm tall (min_part_height " + s.min_part_height.toFixed(1) +
                "), too thin to push. They stay on the bed for you to remove.");
@@ -667,6 +680,7 @@
         return this.autoEject(params);
       case "AUTO_EJECT_PUSH_NOW": {
         const st = this.status["gcode_macro _AUTO_EJECT_STATE"];
+        if (this.settings().enabled === false) throw new Error("AUTO_EJECT_PUSH_NOW: auto-eject is off, nothing is pushed. Turn it on first: the switch at the top of the web page, or AUTO_EJECT_SET KEY=enabled VALUE=on.");
         if (!(st.bg && st.cooling)) throw new Error("AUTO_EJECT_PUSH_NOW: no eject is waiting for the bed to cool");
         this.state({ push_now: true });
         this.say("// AUTO_EJECT: pushing once this cooling step ends, in a few seconds");

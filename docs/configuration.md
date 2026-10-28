@@ -23,6 +23,22 @@ without quotes. Run `FIRMWARE_RESTART` after editing.
 > console `AUTO_EJECT_SET KEY=cool_temp VALUE=35`. The value is checked and saved, and is kept
 > after a restart. `AUTO_EJECT_SET KEY=cool_temp RESET=1` goes back to your file.
 
+## On or off
+
+| Setting | Default | Description |
+|---|---|---|
+| `enabled` | `True` | Push the parts off when a print ends. `False`: the `AUTO_EJECT` in the end G-code leaves them on the bed with a dialog, nothing moves, and the job queue waits for you (`thin_pause_queue`) |
+
+Switch it with the big switch at the top of the web page's **Overview**, or from the console:
+`AUTO_EJECT_SET KEY=enabled VALUE=off` and `AUTO_EJECT_SET KEY=enabled VALUE=on`. It is kept after
+a restart, so there is no need to change the slicer's end G-code.
+
+Switched off, nothing is pushed at all: `AUTO_EJECT` typed by hand, the page's **Eject now** and
+**Push now** say it is off, and an eject already waiting for the bed to cool stops and leaves the
+parts. `AUTO_EJECT_GUARD` does not check the bed either, so the next print starts on whatever is
+there: take the parts off first. A dry run still works. The parts of the last print stay stored,
+so once it is switched on again the next print checks the bed for them (`guard_action`).
+
 ## Strategy and direction
 
 | Setting | Default | Description |

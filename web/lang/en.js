@@ -495,7 +495,16 @@ window.AE_LANG("en", "English", "ltr", {
 
   "edge.front": "Front", "edge.back": "Back", "edge.left": "Left", "edge.right": "Right",
 
+  "power.label": "Auto-eject after each print",
+  "power.on_title": "Auto-eject is on",
+  "power.on_desc": "When a print ends, the parts are pushed off the bed and the bed is checked",
+  "power.off_title": "Auto-eject is off",
+  "power.off_desc": "When a print ends, the parts stay on the bed for you and the print queue waits. Nothing is pushed, and the bed is not checked before a print",
+  "power.done_on": "Auto-eject is on",
+  "power.done_off": "Auto-eject is off: the parts stay on the bed after each print",
+
   "act.title": "Control",
+  "act.why_off": "Auto-eject is off: turn it on at the top to push",
   "act.eject": "Eject now",
   "act.eject_desc": "Cool the bed, push the parts off and check the bed with the probe",
   "act.eject_confirm": "The printer cools the bed, pushes {n} parts off the {edge} edge and checks the bed. Keep hands clear and put a box under that edge.",
@@ -565,6 +574,7 @@ window.AE_LANG("en", "English", "ltr", {
   "queue.badge.ok": "Ejects",
   "queue.badge.thin": "Too thin: stays on the bed",
   "queue.badge.tall": "Too tall: stays on the bed",
+  "queue.badge.off": "Auto-eject off: stays on the bed",
   "queue.badge.unknown": "Not checked",
   "queue.total": "Waiting: {n} · about {t}",
   "queue.badge.spool": "Spool runs out",
@@ -712,6 +722,7 @@ window.AE_LANG("en", "English", "ltr", {
   "check.height_ok": "{h} mm tall: tall enough for the blade",
   "check.thin": "Only {h} mm tall, lower than min_part_height ({m} mm): it is left on the bed for you",
   "check.tall": "{h} mm tall, taller than max_part_height ({m} mm): the gantry would hit it, so it is left on the bed for you",
+  "check.off": "Auto-eject is off: the parts stay on the bed when the print ends",
   "check.reach_ok": "The blade gets behind every part ({n} pushes)",
   "check.reach_bad": "{name} is too close to the far edge, so the blade cannot get behind it. Move it toward the drop edge.",
   "check.verdict_ok": "This print will be cleared automatically",
@@ -888,6 +899,7 @@ window.AE_LANG("en", "English", "ltr", {
   "c.mm": "{v} mm",
   "c.bed": "Bed",
 
+  "sec.enabled": "On or off",
   "sec.strategy": "Strategy and direction",
   "sec.blade_offset": "Blade",
   "sec.push_z": "Motion",
@@ -901,6 +913,7 @@ window.AE_LANG("en", "English", "ltr", {
   "sec.probe_type": "Probe",
   "sec.purge_length": "EJECT_PURGE pellet",
 
+  "set.enabled": "Push the parts off when a print ends. Off: they stay on the bed with a dialog, the print queue waits for you, nothing is pushed and the bed is not checked.",
   "set.cool_mode": "How to wait for the parts to cool before pushing.",
   "set.verify_points": "Where the probe checks for each part.",
   "set.reduce_current": "Lower the motor current while pushing, so a stuck part makes the motor skip instead of breaking something.",

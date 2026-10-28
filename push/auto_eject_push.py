@@ -5,7 +5,7 @@ Runs on the printer next to Moonraker (install.sh --push). It watches the
 printer and sends a notification to every phone or computer that turned
 them on in the auto-eject page, even while the page is closed:
 
-- a part still on the bed after the eject, parts too thin or too tall to push, a print
+- a part still on the bed after the eject, parts too thin or too tall to push (or auto-eject off), a print
   that ended without an eject, a print the guard did not start
 - a print that stopped with an error or was cancelled, Klipper stopping
 - every finished print, on the devices that want it
@@ -132,7 +132,7 @@ def send(subscription, message, vapid, urgency="normal", opener=urllib.request.u
 NOTICES = [
     (re.compile(r"STILL ON THE BED"), "stuck"),
     (re.compile(r"^AUTO_EJECT_GUARD: .*(still on the bed|may still be on the bed)"), "guard"),
-    (re.compile(r"too thin to push|too tall to push"), "thin"),
+    (re.compile(r"too thin to push|too tall to push|auto-eject is off"), "thin"),
     (re.compile(r"the print ended and \d+ part\(s\) are still on the bed"), "left"),
     (re.compile(r"the parts box is (almost )?full"), "bin"),
     (re.compile(r"^AUTO_EJECT: test notification"), "test"),

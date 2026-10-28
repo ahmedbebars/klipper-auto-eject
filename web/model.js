@@ -306,7 +306,7 @@
   const NOTICES = [
     [/STILL ON THE BED/, "stuck"],
     [/^AUTO_EJECT_GUARD: .*(still on the bed|may still be on the bed)/, "guard"],
-    [/too thin to push|too tall to push/, "thin"],
+    [/too thin to push|too tall to push|auto-eject is off/, "thin"],
     [/the print ended and \d+ part\(s\) are still on the bed/, "left"],
     [/the parts box is (almost )?full/, "bin"]
   ];
@@ -365,6 +365,8 @@
         : tall ? { ok: "warn", key: "check.tall", vars: { h: fmt(height), m: fmt(s.max_part_height) } }
         : { ok: "ok", key: "check.height_ok", vars: { h: fmt(height) } });
     }
+    // switched off, the end of the print leaves them on the bed
+    if (s.enabled === false) checks.push({ ok: "warn", key: "check.off" });
     if (records.length && !thin && !tall) {
       const far = plan.pushes.filter((p) => p.clamped);
       checks.push(far.length ? { ok: "bad", key: "check.reach_bad", vars: { name: (far[0].parts || [])[0] || "" } }

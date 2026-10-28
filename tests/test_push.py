@@ -62,6 +62,13 @@ def test_parts_too_tall_to_push_are_a_problem_too():
     assert w.console([{"time": 13, "message": "// " + tall}], now=600) == [("thin", tall)]
 
 
+def test_parts_left_because_auto_eject_is_off_are_a_problem_too():
+    w = ap.Watcher()
+    w.console([])
+    off = "AUTO_EJECT: auto-eject is off (enabled: False), the parts stay on the bed for you to remove."
+    assert w.console([{"time": 13, "message": "// " + off}], now=600) == [("thin", off)]
+
+
 def test_console_lines_start_counting_from_now():
     w = ap.Watcher()
     assert w.console([{"time": 10, "message": "!! AUTO_EJECT: 'cube' is STILL ON THE BED"}]) == []

@@ -558,6 +558,17 @@ input.input.wide { width: 190px; direction: ltr; }
 .banner .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 
 /* ------------------------------------------------------------ overview */
+.ae-power { display: flex; align-items: center; gap: 14px; margin-bottom: var(--card-gap); }
+.ae-power-ic { width: 44px; height: 44px; border-radius: var(--radius-xl); display: grid; place-items: center; flex: none; background: var(--accent-soft); color: var(--accent); }
+.ae-power .txt { flex: 1; min-width: 0; }
+.ae-power .txt b { display: block; font-size: var(--text-lg); }
+.ae-power .txt span { display: block; color: var(--muted); font-size: var(--text-md); margin-top: 2px; }
+.ae-power.off { background: var(--warn-soft); border-color: transparent; }
+.ae-power.off .ae-power-ic { background: var(--surface); color: var(--warn); }
+.switch.big input { width: 52px; height: 30px; }
+.switch.big input::before { top: 4px; inset-inline-start: 4px; width: 22px; height: 22px; }
+.switch.big input:checked::before { inset-inline-start: 26px; }
+.switch.big span { font-weight: var(--weight-medium); color: var(--text); min-width: 0; }
 .hero-top { display: flex; align-items: center; gap: 16px; }
 .hero-ic { width: 56px; height: 56px; border-radius: var(--radius-2xl); display: grid; place-items: center; background: var(--state-soft); color: var(--state); flex: none; }
 .hero[data-state="working"] .hero-ic, .hero[data-state="cooling"] .hero-ic { animation: pulse 1.6s ease-in-out infinite; }

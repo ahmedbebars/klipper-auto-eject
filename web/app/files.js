@@ -28,7 +28,8 @@ function viewQueue() {
     if (!m) meta(j.filename).then(() => refresh("queue"));
     total += (m && m.estimated_time) || 0;
     let badge = h("span", { class: "badge", text: t("queue.badge.unknown") });
-    if (m && m.object_height) {
+    if (set.enabled === false) badge = h("span", { class: "badge warn", text: t("queue.badge.off") });
+    else if (m && m.object_height) {
       const thin = set.min_part_height > 0 && m.object_height < set.min_part_height && set.thin_parts_action === "ignore";
       const tall = typeof set.max_part_height === "number" && m.object_height > set.max_part_height;
       badge = thin ? h("span", { class: "badge warn", text: t("queue.badge.thin") })
@@ -113,7 +114,7 @@ function viewQueue() {
 }
 viewQueue.sig = function () {
   const ps = app.status.print_stats || {};
-  return JSON.stringify([app.hasQueue, app.queue, ps.state, ps.filename, Math.round(((app.status.display_status || {}).progress || 0) * 100), app.autoTransition, (app.files || []).length, Object.keys(app.meta).length, sv().min_part_height, sv().thin_parts_action, sv().max_part_height, queueUi.file, queueUi.filter, queueUi.shown,
+  return JSON.stringify([app.hasQueue, app.queue, ps.state, ps.filename, Math.round(((app.status.display_status || {}).progress || 0) * 100), app.autoTransition, (app.files || []).length, Object.keys(app.meta).length, sv().min_part_height, sv().thin_parts_action, sv().max_part_height, sv().enabled, queueUi.file, queueUi.filter, queueUi.shown,
     spoolSig()]);
 };
 

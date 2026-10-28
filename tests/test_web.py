@@ -239,6 +239,14 @@ def test_check_a_file_too_tall_for_the_gantry():
     assert not check(GCODE_HEAD, GCODE_TAIL, {"object_height": 25.0})["tall"]
 
 
+@needs_node
+def test_check_a_file_with_auto_eject_switched_off():
+    r = check(GCODE_HEAD, GCODE_TAIL, enabled=False)
+    assert r["verdict"] == "warn"
+    assert "check.off" in [c["key"] for c in r["checks"]]
+    assert "check.off" not in [c["key"] for c in check(GCODE_HEAD, GCODE_TAIL)["checks"]]
+
+
 # --------------------------------------------------------------------- dialogs
 @needs_node
 def test_page_shows_the_real_setup_dialog():
@@ -394,6 +402,9 @@ def test_every_section_has_a_short_label_for_the_phone_tab_bar():
     ("// AUTO_EJECT: the parts are 219.6 mm tall, too tall to push (max_part_height 25.0): the gantry would hit them.", "thin"),
     ("!! AUTO_EJECT_GUARD: the last print's parts, 219.6 mm tall, may still be on the bed. They are too tall to push", "guard"),
     ("// AUTO_EJECT: the print ended and 3 part(s) are still on the bed. Take them off.", "left"),
+    ("// AUTO_EJECT: auto-eject is off (enabled: False), the parts stay on the bed for you to remove.", "thin"),
+    ("!! AUTO_EJECT_GUARD: cube_a still on the bed, and auto-eject is off. Take it off", "guard"),
+    ("// AUTO_EJECT: enabled = False (kept after a restart)", None),
     ("// AUTO_EJECT: bed verified clear (15 probe points)", None),
     ("// AUTO_EJECT: re-homing X and Y", None),
 ])

@@ -27,6 +27,7 @@ that move the printer only when it is not printing, except `AUTO_EJECT` in the e
 | `AUTO_EJECT_CALIBRATE` | Measure the blade again with a nozzle probe (Voron Tap), for example after moving it |
 | `AUTO_EJECT_SET KEY=cool_temp VALUE=35` | Change one setting and keep it after a restart ([configuration.md](configuration.md)) |
 | `AUTO_EJECT_SET KEY=cool_temp RESET=1` | Go back to the value in `auto_eject_settings.cfg` |
+| `AUTO_EJECT_SET KEY=enabled VALUE=off` | Switch auto-eject off: each print's parts stay on the bed and the queue waits. `VALUE=on` switches it back on ([configuration.md](configuration.md#on-or-off)) |
 | `AUTO_EJECT_SETUP STEP=reset` | Forget every value saved by the setup and `AUTO_EJECT_SET` |
 
 ## In the slicer's start G-code

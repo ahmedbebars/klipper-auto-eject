@@ -5,7 +5,7 @@ import {
   $, aeState, app, axes, blocked, camUrl, duration, fmtClock, h, homed, icon, iso, lang, leftover, M, num, parts,
   phase, plan, polygons, probe, s, settings, sv, t
 } from "./core.js";
-import { confirm, gcode, meta, refresh, spoolCheck, spoolGrams, spoolTrouble } from "../app.js";
+import { cleanError, confirm, gcode, meta, refresh, spoolCheck, spoolGrams, spoolTrouble, toast } from "../app.js";
 import { spoolSig, thumbBox, thumbSrc } from "./files.js";
 import { farm, farmNeeds, farmShown } from "./farm.js";
 
@@ -30,6 +30,36 @@ function spoolChip() {
 }
 function doBinEmpty() {
   confirm(t("bin.empty"), t("bin.empty_confirm"), t("bin.empty")).then((ok) => { if (ok) gcode("AUTO_EJECT_BIN_EMPTY"); });
+}
+
+// The main switch: push the parts off after each print, or leave them for you.
+// Hidden with macros older than the "enabled" setting.
+const power = { busy: false, n: 0 };
+function powerCard(set) {
+  if (typeof set.enabled !== "boolean") return null;
+  const on = set.enabled;
+  return h("section", { class: "card ae-power" + (on ? "" : " off") },
+    h("div", { class: "ae-power-ic" }, icon(on ? "push" : "hand", "lg")),
+    h("div", { class: "txt" }, h("b", { text: t(on ? "power.on_title" : "power.off_title") }),
+      h("span", { text: t(power.busy ? "settings.sending" : on ? "power.on_desc" : "power.off_desc") })),
+    h("label", { class: "switch big" },
+      h("input", { type: "checkbox", checked: on, disabled: power.busy, "aria-label": t("power.label"), onchange: (e) => doPower(e.target.checked) }),
+      h("span", { text: t(on ? "settings.on" : "settings.off") })));
+}
+// While the bed is being cleared Klipper takes no command until the eject
+// has finished, so the change waits for it.
+function doPower(on) {
+  const later = M.ejectRunning(aeState(), app.status) && !aeState().bg;
+  const ask = later ? confirm(t("settings.busy_title"), t("settings.busy_body"), t("settings.busy_ok")) : Promise.resolve(true);
+  ask.then((ok) => {
+    // the switch already shows the new value: draw it again
+    if (!ok) { power.n++; refresh("overview"); return; }
+    power.busy = true;
+    refresh("overview");
+    gcode("AUTO_EJECT_SET KEY=enabled VALUE=" + (on ? "on" : "off"), { quiet: true })
+      .then(() => toast(t(on ? "power.done_on" : "power.done_off"), "ok"), (e) => toast(cleanError(e.message), "bad"))
+      .then(() => { power.busy = false; refresh("overview"); });
+  });
 }
 
 function heroText() {
@@ -90,6 +120,8 @@ function viewOverview() {
   const n = parts().length;
   const why = blocked();
   const lo = leftover();
+  // switched off nothing is pushed: the page says so instead of an error
+  const pushWhy = why || (set.enabled === false ? "act.why_off" : "");
   const dir = String(set.direction || "front");
   const edge = t("edge." + dir);
 
@@ -127,19 +159,19 @@ function viewOverview() {
     h("div", { class: "grow" }, h("b", { text: t("leftover.title") }),
       h("div", { text: t("leftover.body", { names: lo.join(", ") }) }),
       h("div", { class: "btns" },
-        h("button", { type: "button", class: "btn sm", disabled: !!why, onclick: () => gcode(homed() ? "AUTO_EJECT" : "AUTO_EJECT HOME=1") }, icon("push"), t("leftover.retry")),
+        h("button", { type: "button", class: "btn sm", disabled: !!pushWhy, title: pushWhy ? t(pushWhy) : null, onclick: () => gcode(homed() ? "AUTO_EJECT" : "AUTO_EJECT HOME=1") }, icon("push"), t("leftover.retry")),
         h("button", { type: "button", class: "btn sm", disabled: !!why, onclick: doClear }, icon("hand"), t("act.clear"))))) : null;
 
   // ----- actions
-  const ejectWhy = why || (n ? "" : "act.why_empty");
+  const ejectWhy = pushWhy || (n ? "" : "act.why_empty");
   const mainLabel = homed() ? t("act.eject") : t("act.home_eject");
   const st0 = aeState();
   const bgCool = !!(st0.bg && st0.cooling);
   const actions = bgCool ? h("section", { class: "card" },
     h("h2", null, icon("push"), t("act.title")),
     h("div", { class: "act-main" },
-      h("button", { type: "button", class: "btn primary lg block", disabled: !!st0.push_now, onclick: doPushNow }, icon("push"), t("act.push_now")),
-      h("div", { class: "desc", text: st0.push_now ? t("act.push_soon") : t("act.bg_desc") })),
+      h("button", { type: "button", class: "btn primary lg block", disabled: !!st0.push_now || set.enabled === false, onclick: doPushNow }, icon("push"), t("act.push_now")),
+      h("div", { class: "desc", text: set.enabled === false ? t("act.why_off") : st0.push_now ? t("act.push_soon") : t("act.bg_desc") })),
     h("div", { class: "act-list" },
       actRow("hand", t("act.bg_take"), t("act.bg_clear_desc"), "", () => doTake(st0.bg_held)))) : h("section", { class: "card" },
     h("h2", null, icon("push"), t("act.title")),
@@ -192,7 +224,7 @@ function viewOverview() {
       h("div", { text: sp.nowShort ? t("spool.now_short", { g: num(sp.now, 0), left: num(Math.max(0, sp.left), 0), reserve: num(sp.reserve, 0) })
                                    : t("spool.stopped_body", { g: num(sp.jobs[0].grams, 0), left: num(Math.max(0, sp.after), 0), reserve: num(sp.reserve, 0) }) }),
       h("div", { class: "btns" }, h("a", { class: "btn sm", href: "#/queue" }, icon("queue"), t("spool.see_queue"))))) : null;
-  const el = h("div", null, left, boxFull, spoolLow, h("div", { class: "cols" },
+  const el = h("div", null, powerCard(set), left, boxFull, spoolLow, h("div", { class: "cols" },
     h("div", { class: "stack" }, hero, actions, camera),
     h("div", { class: "stack" }, bedCard, facts)));
 
@@ -220,7 +252,7 @@ viewOverview.sig = function () {
   return JSON.stringify([phase(), parts().map((r) => r.slice(0, 5)), st.leftover, st.height, homed(), blocked(), ps.filename,
     m && m.values, app.queue.state, app.queue.jobs.length, app.hasQueue, Object.keys(app.config).length, app.webcams.length,
     Array.from(app.lanesDone), Object.keys(polygons()).length, farmShown() && farm.data.printers.length, farmNeeds(), st.bin,
-    !!(ps.filename && app.meta[ps.filename]), spoolSig(), !!st.push_now]);
+    !!(ps.filename && app.meta[ps.filename]), spoolSig(), !!st.push_now, power.busy, power.n]);
 };
 
 function actRow(ic, title, desc, why, fn) {
