@@ -152,3 +152,18 @@ def test_switched_off_while_the_bed_cools_it_stops_and_leaves_them():
     assert not any(l.startswith("SET_TMC_CURRENT") for l in lines) and "_AUTO_EJECT_RUN" not in p.calls
     assert any("auto-eject is off" in m for m in p.messages)
     assert len(state(p)["objects"]) == 2
+
+
+@pytest.mark.parametrize("end", ["complete", "cancelled", "error"])
+def test_a_print_that_ended_without_an_eject_opens_no_dialog(end):
+    # no AUTO_EJECT in the end G-code: the parts are the user's to take off
+    p = make(notify="auto_eject")
+    p.status["print_stats"]["info"] = {"current_layer": 1, "total_layer": 2}
+    p.execute("_AUTO_EJECT_TRACK_STEP")
+    p.status["print_stats"].update(state=end, total_duration=700.0)
+    lines = p.execute("_AUTO_EJECT_TRACK_STEP")
+    assert not any("prompt_begin" in l for l in lines)
+    assert not any(method == "notify" for method, kw in p.remote_args)
+    assert any("auto-eject is switched off: 2 part(s) stay on the bed" in m for m in p.messages)
+    assert p.execute("_AUTO_EJECT_TRACK_STEP") == []           # said once
+    assert len(state(p)["objects"]) == 2

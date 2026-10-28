@@ -405,6 +405,7 @@ def test_every_section_has_a_short_label_for_the_phone_tab_bar():
     ("// AUTO_EJECT: auto-eject is off (enabled: False), the parts stay on the bed for you to remove.", "thin"),
     ("!! AUTO_EJECT_GUARD: cube_a still on the bed, and auto-eject is off. Take it off", "guard"),
     ("// AUTO_EJECT: enabled = False (kept after a restart)", None),
+    ("// AUTO_EJECT: the print ended, auto-eject is switched off: 1 part(s) stay on the bed for you to take off", None),
     ("// AUTO_EJECT: bed verified clear (15 probe points)", None),
     ("// AUTO_EJECT: re-homing X and Y", None),
 ])

@@ -36,7 +36,8 @@ a restart, so there is no need to change the slicer's end G-code.
 Switched off, nothing is pushed at all: `AUTO_EJECT` typed by hand, the page's **Eject now** and
 **Push now** say it is off, and an eject already waiting for the bed to cool stops and leaves the
 parts. `AUTO_EJECT_GUARD` does not check the bed either, so the next print starts on whatever is
-there: take the parts off first. A dry run still works. The parts of the last print stay stored,
+there: take the parts off first. A print that ends without an eject (no `AUTO_EJECT` in the end
+G-code, or cancelled) opens no dialog and sends nothing to the phone. A dry run still works. The parts of the last print stay stored,
 so once it is switched on again the next print checks the bed for them (`guard_action`).
 
 ## Strategy and direction
